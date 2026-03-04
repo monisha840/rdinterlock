@@ -8,8 +8,8 @@ const workerProductionSchema = z.object({
 export const createProductionSchema = z.object({
   date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   machineId: z.string().uuid('Invalid machine ID'),
-  shift: z.enum(['MORNING', 'EVENING', 'NIGHT'], {
-    errorMap: () => ({ message: 'Shift must be MORNING, EVENING, or NIGHT' }),
+  shift: z.enum(['MORNING', 'NIGHT'], {
+    errorMap: () => ({ message: 'Shift must be MORNING or NIGHT' }),
   }),
   brickTypeId: z.string().uuid('Invalid brick type ID'),
   quantity: z.number().int().positive('Total quantity must be a positive integer'),
@@ -23,7 +23,7 @@ export const getProductionQuerySchema = z.object({
   endDate: z.string().optional(),
   machineId: z.string().optional(),
   brickTypeId: z.string().optional(),
-  shift: z.enum(['MORNING', 'EVENING', 'NIGHT']).optional(),
+  shift: z.enum(['MORNING', 'NIGHT']).optional(),
   page: z.string().optional(),
   limit: z.string().optional(),
 });

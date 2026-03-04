@@ -56,8 +56,7 @@ export class DispatchController {
   });
 
   getAllCustomers = asyncHandler(async (req: Request, res: Response) => {
-    const activeOnly = req.query.activeOnly === 'true';
-    const customers = await dispatchService.getAllCustomers(activeOnly);
+    const customers = await dispatchService.getAllCustomers();
     sendSuccess(res, customers, 'Customers retrieved successfully');
   });
 

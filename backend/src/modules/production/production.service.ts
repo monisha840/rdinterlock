@@ -52,11 +52,11 @@ export class ProductionService {
         notes: data.notes,
         workers: data.workers
           ? {
-              create: data.workers.map((w: any) => ({
-                workerId: w.workerId,
-                quantity: w.quantity,
-              })),
-            }
+            create: data.workers.map((w: any) => ({
+              workerId: w.workerId,
+              quantity: w.quantity,
+            })),
+          }
           : undefined,
       },
       include: {
@@ -69,6 +69,16 @@ export class ProductionService {
         },
       },
     });
+
+    // Automatically trigger wage calculation for this date
+    try {
+      const wageService = new (require('../wages/wage.service').WageService)();
+      const calculations = await wageService.calculateDailyWages(new Date(data.date));
+      await wageService.saveCalculatedWages(new Date(data.date), calculations);
+    } catch (error) {
+      console.error('Failed to auto-calculate wages:', error);
+      // Don't throw error here to avoid rolling back production entry
+    }
 
     return production;
   }
@@ -230,8 +240,18 @@ export class ProductionService {
     }
 
     await prisma.production.delete({
-      where: { id },
+      where: { id: id },
     });
+
+    // Automatically trigger wage calculation for this date to reflect the deletion
+    try {
+      const wageService = new (require('../wages/wage.service').WageService)();
+      const calculations = await wageService.calculateDailyWages(new Date(production.date));
+      // Note: saveCalculatedWages is idempotent and deletes old records first
+      await wageService.saveCalculatedWages(new Date(production.date), calculations);
+    } catch (error) {
+      console.error('Failed to auto-recalculate wages after deletion:', error);
+    }
 
     return { message: 'Production deleted successfully' };
   }

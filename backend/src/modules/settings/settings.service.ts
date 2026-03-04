@@ -145,4 +145,32 @@ export class SettingsService {
 
     return { message: 'Brick type deactivated successfully' };
   }
+
+  async getFormMetadata() {
+    const [machines, brickTypes, workers, rawMaterials] = await Promise.all([
+      prisma.machine.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.brickType.findMany({
+        where: { isActive: true },
+        orderBy: { size: 'asc' },
+      }),
+      prisma.worker.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.rawMaterial.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    return {
+      machines,
+      brickTypes,
+      workers,
+      rawMaterials,
+    };
+  }
 }

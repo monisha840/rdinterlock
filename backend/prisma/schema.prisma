@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -15,7 +16,7 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      String   // ADMIN, MANAGER, VIEWER
+  role      String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -24,263 +25,153 @@ model User {
 }
 
 model Machine {
-  id         String       @id @default(uuid())
-  name       String
-  isActive   Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  production Production[]
+  id          String       @id @default(uuid())
+  name        String       @unique
+  productions Production[]
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@map("machines")
 }
 
 model BrickType {
-  id         String     @id @default(uuid())
-  size       String     @unique // e.g., "4inch", "6inch", "8inch"
-  isActive   Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  production Production[]
-  dispatch   Dispatch[]
+  id          String       @id @default(uuid())
+  size        String       @unique
+  productions Production[]
+  dispatches  Dispatch[]
+  stock       Int          @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@map("brick_types")
 }
 
 model Worker {
-  id                 String              @id @default(uuid())
-  name               String
-  role               String              // OPERATOR, HELPER, LOADER, MANAGER, DRIVER, TELECALLER
-  paymentType        String              // DAILY, PER_BRICK, MONTHLY
-  rate               Float               // Rate per day or per brick or monthly salary
-  advanceBalance     Float               @default(0)
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  productionWorkers  ProductionWorker[]
-  expenses           Expense[]
-  attendance         Attendance[]
-  dailyWages         DailyWage[]
-  advances           WorkerAdvance[]
-  weeklySettlements  WeeklySettlement[]
-  monthlySettlements MonthlySettlement[]
+  id                String             @id @default(uuid())
+  name              String
+  role              String
+  paymentType       String
+  rate              Float
+  isActive          Boolean            @default(true)
+  advanceBalance    Float              @default(0)
+  productionWorkers ProductionWorker[]
+  attendance        Attendance[]
+  advances          WorkerAdvance[]
+  wages             DailyWage[]
+  expenses          Expense[]
+  settlements       WeeklySettlement[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@map("workers")
 }
 
 model Production {
-  id          String             @id @default(uuid())
-  date        DateTime
-  machineId   String
-  shift       String             // MORNING, EVENING, NIGHT
-  brickTypeId String
-  quantity    Int
-  notes       String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  machine     Machine            @relation(fields: [machineId], references: [id])
-  brickType   BrickType          @relation(fields: [brickTypeId], references: [id])
-  workers     ProductionWorker[]
+  id                String             @id @default(uuid())
+  date              DateTime
+  machineId         String
+  machine           Machine            @relation(fields: [machineId], references: [id])
+  shift             String
+  brickTypeId       String
+  brickType         BrickType          @relation(fields: [brickTypeId], references: [id])
+  quantity          Int
+  notes             String?
+  workers           ProductionWorker[] @relation(name: "ProductionToWorkers")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  @@index([date])
-  @@index([machineId])
-  @@index([brickTypeId])
-  @@map("production")
+  @@map("productions")
 }
 
 model ProductionWorker {
   id           String     @id @default(uuid())
   productionId String
+  production   Production @relation(name: "ProductionToWorkers", fields: [productionId], references: [id])
   workerId     String
+  worker       Worker     @relation(fields: [workerId], references: [id])
   quantity     Int
   createdAt    DateTime   @default(now())
-  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  worker       Worker     @relation(fields: [workerId], references: [id])
 
-  @@index([productionId])
-  @@index([workerId])
   @@map("production_workers")
 }
 
 model Customer {
-  id        String     @id @default(uuid())
-  name      String
-  phone     String?
-  address   String?
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  dispatch  Dispatch[]
+  id         String     @id @default(uuid())
+  name       String
+  phone      String?
+  address    String?
+  dispatches Dispatch[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@map("customers")
 }
 
 model Dispatch {
-  id             String    @id @default(uuid())
-  date           DateTime
-  customerId     String
-  brickTypeId    String
-  quantity       Int
-  distanceKm     Float
-  vehicleType    String    // OWN, RENT
-  transportCost  Float     @default(0)
-  loadingCost    Float     @default(0)
-  paymentStatus  String    // PAID, PENDING, PARTIAL
-  totalAmount    Float?
-  paidAmount     Float     @default(0)
-  notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  customer       Customer  @relation(fields: [customerId], references: [id])
-  brickType      BrickType @relation(fields: [brickTypeId], references: [id])
+  id            String    @id @default(uuid())
+  date          DateTime
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  brickTypeId   String
+  brickType     BrickType @relation(fields: [brickTypeId], references: [id])
+  quantity      Int
+  distanceKm    Float?
+  vehicleType   String
+  transportCost Float
+  loadingCost   Float
+  paymentStatus String
+  totalAmount   Float
+  paidAmount    Float
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  @@index([date])
-  @@index([customerId])
-  @@index([brickTypeId])
-  @@map("dispatch")
+  @@map("dispatches")
 }
 
 model Expense {
-  id            String          @id @default(uuid())
-  date          DateTime
-  category      String          // FUEL, MAINTENANCE, SALARY, GENERAL, MATERIAL, OTHER
-  amount        Float
-  notes         String?
-  workerId      String?
-  materialId    String?
-  paymentMode   String?         // CASH, UPI, BANK
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  worker        Worker?         @relation(fields: [workerId], references: [id])
-  material      RawMaterial?    @relation(fields: [materialId], references: [id])
-  materialUsage MaterialUsage[]
+  id          String          @id @default(uuid())
+  date        DateTime
+  category    String
+  amount      Float
+  notes       String?
+  paymentMode String
+  workerId    String?
+  worker      Worker?         @relation(fields: [workerId], references: [id])
+  materialId  String?
+  material    RawMaterial?    @relation(fields: [materialId], references: [id])
+  materials   MaterialUsage[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
-  @@index([date])
-  @@index([category])
   @@map("expenses")
 }
 
 model CashEntry {
   id          String   @id @default(uuid())
   date        DateTime
-  type        String   // CREDIT, DEBIT
+  type        String
   amount      Float
   description String
-  category    String?  // SALES, EXPENSE, LOAN, OTHER
+  category    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([date])
-  @@index([type])
   @@map("cash_entries")
 }
 
-model Settings {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("settings")
-}
-
-model Attendance {
-  id        String   @id @default(uuid())
-  workerId  String
-  date      DateTime
-  present   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  worker    Worker   @relation(fields: [workerId], references: [id])
-
-  @@unique([workerId, date])
-  @@index([date])
-  @@map("attendance")
-}
-
-model DailyWage {
-  id          String   @id @default(uuid())
-  workerId    String
-  date        DateTime
-  bricksMade  Int?
-  wageAmount  Float
-  advanceUsed Float    @default(0)
-  netPayable  Float
-  isPaid      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  worker      Worker   @relation(fields: [workerId], references: [id])
-
-  @@index([date])
-  @@index([workerId])
-  @@index([isPaid])
-  @@map("daily_wages")
-}
-
-model WorkerAdvance {
-  id        String   @id @default(uuid())
-  workerId  String
-  amount    Float
-  type      String   // GIVEN, ADJUSTED
-  date      DateTime
-  note      String?
-  createdAt DateTime @default(now())
-  worker    Worker   @relation(fields: [workerId], references: [id])
-
-  @@index([workerId])
-  @@index([date])
-  @@map("worker_advances")
-}
-
-model WeeklySettlement {
-  id          String    @id @default(uuid())
-  workerId    String
-  weekStart   DateTime
-  weekEnd     DateTime
-  totalWage   Float
-  advanceUsed Float     @default(0)
-  netPaid     Float
-  isSettled   Boolean   @default(false)
-  settledAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  worker      Worker    @relation(fields: [workerId], references: [id])
-
-  @@unique([workerId, weekStart])
-  @@index([workerId])
-  @@index([weekStart])
-  @@index([isSettled])
-  @@map("weekly_settlements")
-}
-
-model MonthlySettlement {
-  id          String    @id @default(uuid())
-  workerId    String
-  month       Int
-  year        Int
-  salary      Float
-  advanceUsed Float     @default(0)
-  netPaid     Float
-  isPaid      Boolean   @default(false)
-  paidAt      DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  worker      Worker    @relation(fields: [workerId], references: [id])
-
-  @@unique([workerId, month, year])
-  @@index([workerId])
-  @@index([month, year])
-  @@index([isPaid])
-  @@map("monthly_settlements")
-}
-
 model RawMaterial {
-  id             String          @id @default(uuid())
-  name           String          @unique
-  unit           String          // e.g., "Ton", "Bag (50kg)", "Liter"
-  description    String?
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  expenses       Expense[]
-  materialUsages MaterialUsage[]
+  id          String          @id @default(uuid())
+  name        String          @unique
+  unit        String
+  description String?
+  stock       Float           @default(0)
+  isActive    Boolean         @default(true)
+  usages      MaterialUsage[]
+  expenses    Expense[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@map("raw_materials")
 }
@@ -288,17 +179,66 @@ model RawMaterial {
 model MaterialUsage {
   id           String      @id @default(uuid())
   materialId   String
-  date         DateTime
-  quantity     Float
-  pricePerUnit Float
-  totalCost    Float
-  expenseId    String?     @unique
-  createdAt    DateTime    @default(now())
   material     RawMaterial @relation(fields: [materialId], references: [id])
+  quantity     Float
+  pricePerUnit Float       @default(0)
+  totalCost    Float       @default(0)
+  date         DateTime
+  expenseId    String?
   expense      Expense?    @relation(fields: [expenseId], references: [id])
+  createdAt    DateTime    @default(now())
 
-  @@index([materialId])
-  @@index([date])
-  @@index([expenseId])
   @@map("material_usages")
+}
+
+model Attendance {
+  id       String   @id @default(uuid())
+  workerId String
+  worker   Worker   @relation(fields: [workerId], references: [id])
+  date     DateTime
+  present  Boolean  @default(true)
+
+  @@unique([workerId, date])
+  @@map("attendance")
+}
+
+model WorkerAdvance {
+  id       String   @id @default(uuid())
+  workerId String
+  worker   Worker   @relation(fields: [workerId], references: [id])
+  amount   Float
+  type     String // GIVEN, ADJUSTED
+  date     DateTime
+  note     String?
+
+  @@map("worker_advances")
+}
+
+model DailyWage {
+  id          String   @id @default(uuid())
+  workerId    String
+  worker      Worker   @relation(fields: [workerId], references: [id])
+  date        DateTime
+  bricksMade  Int?
+  wageAmount  Float
+  advanceUsed Float    @default(0)
+  netPayable  Float
+  isPaid      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("daily_wages")
+}
+
+model WeeklySettlement {
+  id            String   @id @default(uuid())
+  workerId      String
+  worker        Worker   @relation(fields: [workerId], references: [id])
+  startDate     DateTime
+  endDate       DateTime
+  totalAmount   Float
+  paymentStatus String
+  generatedAt   DateTime @default(now())
+  notes         String?
+
+  @@map("weekly_settlements")
 }

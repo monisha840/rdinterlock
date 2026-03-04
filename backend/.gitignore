@@ -5,3 +5,7 @@ dist/
 .DS_Store
 coverage/
 .vscode/
+
+/src/generated/prisma
+
+/src/generated/prisma

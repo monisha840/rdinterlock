@@ -8,59 +8,80 @@ import { toast } from "sonner";
 import { Save, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
-const roles = ["Production", "Mason", "Driver", "Manager", "Office"];
-const paymentTypes = ["Per Brick", "Daily", "Monthly"];
+const roles = ["PRODUCTION", "MASON", "DRIVER", "LOADER", "OPERATOR", "HELPER", "OFFICE"];
+const paymentTypes = ["PER_BRICK", "DAILY", "MONTHLY"];
 
 interface Worker {
+  id: string;
   name: string;
   role: string;
-  payType: string;
-  rate: string;
-  active: boolean;
+  paymentType: string;
+  rate: number;
+  isActive: boolean;
 }
 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { workersApi } from "@/api/workers.api";
+import { Loader2 } from "lucide-react";
+
 const WorkersPage = () => {
+  const queryClient = useQueryClient();
+  const getInitials = (name: string) => name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   const [name, setName] = useState("");
   const [role, setRole] = useState("Production");
   const [payType, setPayType] = useState("Per Brick");
   const [rate, setRate] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
-  const [workersList, setWorkersList] = useState<Worker[]>([
-    { name: "Raju", role: "Production", payType: "Per Brick", rate: "₹0.50", active: true },
-    { name: "Suresh", role: "Mason", payType: "Daily", rate: "₹800", active: true },
-    { name: "Mohan", role: "Driver", payType: "Monthly", rate: "₹18,000", active: true },
-    { name: "Vikram", role: "Production", payType: "Per Brick", rate: "₹0.50", active: true },
-    { name: "Anil", role: "Manager", payType: "Monthly", rate: "₹25,000", active: false },
-  ]);
+  const { data: workers = [], isLoading } = useQuery({
+    queryKey: ['workers', showInactive],
+    queryFn: () => workersApi.getAll(!showInactive),
+  });
 
-  const toggleWorkerStatus = (index: number) => {
-    const updated = [...workersList];
-    updated[index].active = !updated[index].active;
-    setWorkersList(updated);
-    toast.success("✅ Saved Successfully", {
-      description: `${updated[index].name} is now ${updated[index].active ? "Active" : "Inactive"}`,
-    });
+  const updateWorkerMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string, active: boolean }) =>
+      workersApi.update(id, { isActive: active } as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      toast.success("✅ Status Updated");
+    },
+  });
+
+  const createWorkerMutation = useMutation({
+    mutationFn: workersApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      toast.success("✅ Worker Added");
+      setName("");
+      setRate("");
+    },
+  });
+
+  const toggleWorkerStatus = (id: string, currentStatus: boolean) => {
+    updateWorkerMutation.mutate({ id, active: !currentStatus });
   };
 
   const saveWorker = () => {
-    if (!name.trim()) return;
-    setWorkersList([...workersList, { name: name.trim(), role, payType, rate: `₹${rate}`, active: true }]);
-    toast.success("✅ Saved Successfully", { description: `${name} — ${role}` });
-    setName("");
-    setRate("");
+    if (!name.trim() || !rate) return;
+    createWorkerMutation.mutate({
+      name: name.trim(),
+      role: role.toUpperCase(),
+      paymentType: payType.toUpperCase().replace(" ", "_"),
+      rate: parseFloat(rate),
+      isActive: true
+    } as any);
   };
 
-  const displayedWorkers = showInactive ? workersList : workersList.filter((w) => w.active);
-
-  const getInitials = (name: string) => name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   const roleColors: Record<string, string> = {
-    Production: "primary",
-    Mason: "warning",
-    Driver: "success",
-    Manager: "destructive",
-    Office: "primary",
+    PRODUCTION: "primary",
+    MASON: "warning",
+    DRIVER: "success",
+    MANAGER: "destructive",
+    OFFICE: "primary",
+    LOADER: "accent",
+    OPERATOR: "primary",
+    HELPER: "secondary"
   };
 
   return (
@@ -95,14 +116,22 @@ const WorkersPage = () => {
             />
           </FormField>
 
-          <ActionButton label="Add Worker" icon={UserPlus} variant="success" size="lg" onClick={saveWorker} className="w-full" />
+          <ActionButton
+            label={createWorkerMutation.isPending ? "Adding..." : "Add Worker"}
+            icon={UserPlus}
+            variant="success"
+            size="lg"
+            onClick={saveWorker}
+            className="w-full"
+            disabled={createWorkerMutation.isPending}
+          />
         </div>
       </EntryCard>
 
       <EntryCard title="All Workers">
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs text-muted-foreground">
-            {workersList.filter(w => w.active).length} Active • {workersList.filter(w => !w.active).length} Inactive
+            {workers.length} {showInactive ? "Records" : "Active"}
           </span>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
             Show Inactive
@@ -110,10 +139,13 @@ const WorkersPage = () => {
           </label>
         </div>
         <div className="space-y-3">
-          {displayedWorkers.map((w, i) => {
-            const realIndex = workersList.indexOf(w);
-            return (
-              <div key={i} className={`flex items-center gap-3 p-3.5 bg-secondary/30 rounded-xl transition-opacity ${!w.active ? "opacity-50" : ""}`}>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : workers.length > 0 ? (
+            workers.map((w) => (
+              <div key={w.id} className={`flex items-center gap-3 p-3.5 bg-secondary/30 rounded-xl transition-opacity ${!w.isActive ? "opacity-50" : ""}`}>
                 {/* Avatar */}
                 <div className="h-11 w-11 rounded-xl gradient-primary flex items-center justify-center shrink-0 shadow-sm">
                   <span className="text-white font-bold text-sm">{getInitials(w.name)}</span>
@@ -122,16 +154,18 @@ const WorkersPage = () => {
                   <p className="font-semibold text-sm text-foreground">{w.name}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <StatusBadge label={w.role} variant={(roleColors[w.role] as any) || "default"} />
-                    <span className="text-xs text-muted-foreground">{w.payType}</span>
+                    <span className="text-xs text-muted-foreground">{w.paymentType}</span>
                   </div>
                 </div>
                 <div className="text-right flex items-center gap-3">
-                  <span className="text-sm font-bold text-foreground">{w.rate}</span>
-                  <Switch checked={w.active} onCheckedChange={() => toggleWorkerStatus(realIndex)} />
+                  <span className="text-sm font-bold text-foreground">₹{w.rate}</span>
+                  <Switch checked={w.isActive} onCheckedChange={() => toggleWorkerStatus(w.id, w.isActive)} />
                 </div>
               </div>
-            );
-          })}
+            ))
+          ) : (
+            <div className="text-center py-8 text-muted-foreground italic">No workers found.</div>
+          )}
         </div>
       </EntryCard>
     </MobileFormLayout>

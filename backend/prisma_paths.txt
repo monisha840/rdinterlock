@@ -1,0 +1,1 @@
+﻿C:\Users\monis\OneDrive\Documents\rdinterlock\rdinterlock\backend\prisma\schema.prisma

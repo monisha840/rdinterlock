@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { getWeekRange } from './date.utils';
 
-const prisma = new PrismaClient();
+
 
 export class WeeklySettlementService {
   /**

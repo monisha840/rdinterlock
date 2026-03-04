@@ -9,8 +9,8 @@ export class DispatchService {
       where: { id: data.customerId },
     });
 
-    if (!customer || !customer.isActive) {
-      throw new AppError('Customer not found or inactive', 404);
+    if (!customer) {
+      throw new AppError('Customer not found', 404);
     }
 
     // Validate brick type exists
@@ -27,28 +27,43 @@ export class DispatchService {
       throw new AppError('Transport cost is required for rented vehicles', 400);
     }
 
-    const dispatch = await prisma.dispatch.create({
-      data: {
-        date: new Date(data.date),
-        customerId: data.customerId,
-        brickTypeId: data.brickTypeId,
-        quantity: data.quantity,
-        distanceKm: data.distanceKm,
-        vehicleType: data.vehicleType,
-        transportCost: data.transportCost,
-        loadingCost: data.loadingCost,
-        paymentStatus: data.paymentStatus,
-        totalAmount: data.totalAmount,
-        paidAmount: data.paidAmount,
-        notes: data.notes,
-      },
-      include: {
-        customer: true,
-        brickType: true,
-      },
-    });
+    return await prisma.$transaction(async (tx: any) => {
+      const dispatch = await tx.dispatch.create({
+        data: {
+          date: new Date(data.date),
+          customerId: data.customerId,
+          brickTypeId: data.brickTypeId,
+          quantity: data.quantity,
+          distanceKm: data.distanceKm,
+          vehicleType: data.vehicleType,
+          transportCost: data.transportCost ?? 0,
+          loadingCost: data.loadingCost ?? 0,
+          paymentStatus: data.paymentStatus,
+          totalAmount: data.totalAmount ?? 0,
+          paidAmount: data.paidAmount ?? 0,
+          notes: data.notes,
+        },
+        include: {
+          customer: true,
+          brickType: true,
+        },
+      });
 
-    return dispatch;
+      // Synchronize with CashBook if money received
+      if (data.paidAmount && data.paidAmount > 0) {
+        await tx.cashEntry.create({
+          data: {
+            date: new Date(data.date),
+            type: 'CREDIT',
+            amount: data.paidAmount,
+            description: `Payment from ${(dispatch as any).customer.name} (Dispatch: ${dispatch.id})`,
+            category: 'SALES',
+          },
+        });
+      }
+
+      return dispatch;
+    });
   }
 
   async getDispatches(
@@ -108,40 +123,76 @@ export class DispatchService {
   }
 
   async updateDispatch(id: string, data: UpdateDispatchInput) {
-    const dispatch = await prisma.dispatch.findUnique({
-      where: { id },
+    return await prisma.$transaction(async (tx: any) => {
+      const dispatch = await tx.dispatch.findUnique({
+        where: { id },
+      });
+
+      if (!dispatch) {
+        throw new AppError('Dispatch not found', 404);
+      }
+
+      const updated = await tx.dispatch.update({
+        where: { id },
+        data,
+        include: {
+          customer: true,
+          brickType: true,
+        },
+      });
+
+      // Sync with CashBook
+      // 1. Remove any existing cash entry for this dispatch
+      await tx.cashEntry.deleteMany({
+        where: {
+          description: {
+            contains: `(Dispatch: ${id})`,
+          },
+        },
+      });
+
+      // 2. Create new one if there's any paid amount
+      if (updated.paidAmount && updated.paidAmount > 0) {
+        await tx.cashEntry.create({
+          data: {
+            date: updated.date,
+            type: 'CREDIT',
+            amount: updated.paidAmount,
+            description: `Payment from ${updated.customer.name} (Dispatch: ${id})`,
+            category: 'SALES',
+          },
+        });
+      }
+
+      return updated;
     });
-
-    if (!dispatch) {
-      throw new AppError('Dispatch not found', 404);
-    }
-
-    const updated = await prisma.dispatch.update({
-      where: { id },
-      data,
-      include: {
-        customer: true,
-        brickType: true,
-      },
-    });
-
-    return updated;
   }
 
   async deleteDispatch(id: string) {
-    const dispatch = await prisma.dispatch.findUnique({
-      where: { id },
+    return await prisma.$transaction(async (tx: any) => {
+      const dispatch = await tx.dispatch.findUnique({
+        where: { id },
+      });
+
+      if (!dispatch) {
+        throw new AppError('Dispatch not found', 404);
+      }
+
+      // Remove related cash entry
+      await tx.cashEntry.deleteMany({
+        where: {
+          description: {
+            contains: `(Dispatch: ${id})`,
+          },
+        },
+      });
+
+      await tx.dispatch.delete({
+        where: { id },
+      });
+
+      return { message: 'Dispatch deleted successfully' };
     });
-
-    if (!dispatch) {
-      throw new AppError('Dispatch not found', 404);
-    }
-
-    await prisma.dispatch.delete({
-      where: { id },
-    });
-
-    return { message: 'Dispatch deleted successfully' };
   }
 
   // Customer management
@@ -153,9 +204,8 @@ export class DispatchService {
     return customer;
   }
 
-  async getAllCustomers(activeOnly: boolean = false) {
+  async getAllCustomers() {
     const customers = await prisma.customer.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
       orderBy: { name: 'asc' },
     });
 
@@ -166,7 +216,7 @@ export class DispatchService {
     const customer = await prisma.customer.findUnique({
       where: { id },
       include: {
-        dispatch: {
+        dispatches: {
           orderBy: { date: 'desc' },
           take: 10,
         },

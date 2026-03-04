@@ -5,7 +5,7 @@ export const createDispatchSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
   brickTypeId: z.string().uuid('Invalid brick type ID'),
   quantity: z.number().int().positive('Quantity must be a positive integer'),
-  distanceKm: z.number().positive('Distance must be a positive number'),
+  distanceKm: z.number().min(0, 'Distance cannot be negative').default(0),
   vehicleType: z.enum(['OWN', 'RENT'], {
     errorMap: () => ({ message: 'Vehicle type must be OWN or RENT' }),
   }),

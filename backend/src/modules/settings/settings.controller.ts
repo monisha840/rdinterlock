@@ -75,4 +75,9 @@ export class SettingsController {
     const result = await settingsService.deleteBrickType(id);
     sendSuccess(res, result, 'Brick type deleted successfully');
   });
+
+  getFormMetadata = asyncHandler(async (_req: Request, res: Response) => {
+    const metadata = await settingsService.getFormMetadata();
+    sendSuccess(res, metadata, 'Form metadata retrieved successfully');
+  });
 }

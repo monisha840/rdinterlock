@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { AdvanceService } from './advance.service';
 
-const prisma = new PrismaClient();
+
 const advanceService = new AdvanceService();
 
 interface WageCalculationResult {
@@ -107,24 +107,21 @@ export class WageService {
     date: Date,
     calculations: WageCalculationResult[]
   ) {
-    // Check if wages already calculated for this date
-    const existing = await prisma.dailyWage.findMany({
+    // Clear existing wages for this date before re-calculating (supports automation/updates)
+    await prisma.dailyWage.deleteMany({
       where: {
         date: {
           gte: new Date(date.setHours(0, 0, 0, 0)),
           lt: new Date(date.setHours(23, 59, 59, 999)),
         },
+        isPaid: false, // Don't delete already paid wages
       },
     });
-
-    if (existing.length > 0) {
-      throw new Error('Wages already calculated for this date');
-    }
 
     // Create wage records
     const wageRecords = await prisma.$transaction(
       calculations
-        .filter((calc) => calc.wageAmount > 0) // Only save if wage > 0
+        .filter((calc) => calc.wageAmount > 0)
         .map((calc) =>
           prisma.dailyWage.create({
             data: {
@@ -257,9 +254,8 @@ export class WageService {
               date,
               type: 'DEBIT',
               amount: wage.netPayable,
-              description: `Wage payment to ${wage.worker.name} for ${
-                wage.date.toISOString().split('T')[0]
-              }`,
+              description: `Wage payment to ${wage.worker.name} for ${wage.date.toISOString().split('T')[0]
+                }`,
               category: 'WAGE',
             },
           });

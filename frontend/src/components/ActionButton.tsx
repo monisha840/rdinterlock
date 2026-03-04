@@ -9,6 +9,7 @@ interface ActionButtonProps {
   active?: boolean;
   className?: string;
   type?: "button" | "submit";
+  disabled?: boolean;
 }
 
 export function ActionButton({
@@ -20,6 +21,7 @@ export function ActionButton({
   active = false,
   className = "",
   type = "button",
+  disabled = false,
 }: ActionButtonProps) {
   const base = "touch-target font-semibold transition-all duration-200 rounded-xl select-none";
   const sizeClass = {
@@ -46,8 +48,9 @@ export function ActionButton({
   return (
     <button
       type={type}
-      onClick={onClick}
-      className={`${base} ${sizeClass} ${variantClass[variant]} ${className} inline-flex items-center justify-center gap-2 active:scale-[0.97]`}
+      onClick={!disabled ? onClick : undefined}
+      disabled={disabled}
+      className={`${base} ${sizeClass} ${variantClass[variant]} ${className} inline-flex items-center justify-center gap-2 active:scale-[0.97] ${disabled ? 'opacity-50 cursor-not-allowed grayscale-[0.5]' : ''}`}
     >
       {Icon && <Icon className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} />}
       {label}

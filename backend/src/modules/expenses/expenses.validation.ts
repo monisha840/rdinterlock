@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createExpenseSchema = z.object({
   date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
-  category: z.enum(['FUEL', 'MAINTENANCE', 'SALARY', 'GENERAL', 'MATERIAL', 'OTHER'], {
+  category: z.enum(['FUEL', 'MAINTENANCE', 'SALARY', 'GENERAL', 'MATERIAL', 'FOOD', 'OTHER'], {
     errorMap: () => ({ message: 'Invalid category' }),
   }),
   amount: z.number().positive('Amount must be positive'),
@@ -16,10 +16,13 @@ export const createExpenseSchema = z.object({
 });
 
 export const updateExpenseSchema = z.object({
-  category: z.enum(['FUEL', 'MAINTENANCE', 'SALARY', 'GENERAL', 'MATERIAL', 'OTHER']).optional(),
+  category: z.enum(['FUEL', 'MAINTENANCE', 'SALARY', 'GENERAL', 'MATERIAL', 'FOOD', 'OTHER']).optional(),
   amount: z.number().positive().optional(),
   notes: z.string().optional(),
   paymentMode: z.enum(['CASH', 'UPI', 'BANK']).optional(),
+  materialId: z.string().uuid().optional(),
+  quantity: z.number().positive().optional(),
+  pricePerUnit: z.number().positive().optional(),
 });
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;

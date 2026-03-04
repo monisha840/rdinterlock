@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileFormLayout, FormField, BigNumberInput } from "@/components/MobileFormLayout";
 import { EntryCard } from "@/components/EntryCard";
 import { ActionButton } from "@/components/ActionButton";
@@ -6,17 +6,22 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { PillSelector } from "@/components/PillSelector";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Save, Plus, X, Fuel, UtensilsCrossed, PackageOpen, MoreHorizontal, Eye } from "lucide-react";
+import { Save, Plus, X, Fuel, UtensilsCrossed, PackageOpen, MoreHorizontal, Eye, Loader2, Receipt } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { settingsApi } from "@/api/settings.api";
+import { workersApi } from "@/api/workers.api";
+import { productionApi } from "@/api/production.api";
+import { expensesApi } from "@/api/expenses.api";
+import { format } from "date-fns";
 
-const machines = ["Machine A", "Machine B", "Machine C"];
-const workerNames = ["Raju", "Suresh", "Mohan", "Vikram", "Anil", "Deepak", "Sunil", "Ramesh"];
 const quickQuantities = [500, 800, 1000, 1500, 2000];
 
 const DailyEntry = () => {
+  const queryClient = useQueryClient();
   const [entryDate, setEntryDate] = useState(new Date());
-  const [shift, setShift] = useState("Day");
-  const [brickSize, setBrickSize] = useState("6 inch");
-  const [machine, setMachine] = useState(machines[0]);
+  const [shift, setShift] = useState("MORNING");
+  const [brickTypeId, setBrickTypeId] = useState("");
+  const [machineId, setMachineId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [workers, setWorkers] = useState<string[]>([""]);
   const [sameProduction, setSameProduction] = useState(true);
@@ -24,13 +29,85 @@ const DailyEntry = () => {
   const [notes, setNotes] = useState("");
 
   const [expenseDate, setExpenseDate] = useState(new Date());
-  const [expenseCategory, setExpenseCategory] = useState("Fuel");
+  const [expenseCategory, setExpenseCategory] = useState("FUEL");
   const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseNotes, setExpenseNotes] = useState("");
+  const [materialId, setMaterialId] = useState("");
+  const [materialQty, setMaterialQty] = useState("");
+  const [pricePerUnit, setPricePerUnit] = useState("");
 
-  const todaySummary = [
-    { machine: "Machine A", qty: "3,200" },
-    { machine: "Machine B", qty: "2,800" },
-  ];
+  // Fetch Reference Data (Machines, Brick Types, Workers) - Optimized batched call
+  const {
+    data: metadata,
+    isLoading: isMetaLoading,
+    isError: isMetaError
+  } = useQuery({
+    queryKey: ['form-metadata'],
+    queryFn: settingsApi.getFormMetadata,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    gcTime: 30 * 60 * 1000,   // 30 minutes garbage collection
+  });
+
+  const machines = metadata?.machines || [];
+  const brickTypes = metadata?.brickTypes || [];
+  const workerList = metadata?.workers || [];
+  const rawMaterials = metadata?.rawMaterials || [];
+
+  const { data: todayProductions = [], isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['productions', 'today', format(entryDate, 'yyyy-MM-dd')],
+    queryFn: () => productionApi.getAll({ date: format(entryDate, 'yyyy-MM-dd') }),
+    select: (data) => data.productions,
+  });
+
+  // Mutations
+  const createProductionMutation = useMutation({
+    mutationFn: productionApi.create,
+    onSuccess: () => {
+      toast.success("✅ Production Saved Successfully");
+      queryClient.invalidateQueries({ queryKey: ['productions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setQuantity("");
+      setWorkers([""]);
+      setWorkerQuantities({});
+      setNotes("");
+    },
+    onError: (error: any) => {
+      toast.error("❌ Failed to save production", {
+        description: error.response?.data?.message || error.message,
+      });
+    },
+  });
+
+  const { data: recentExpenses = [], isLoading: isExpensesLoading } = useQuery({
+    queryKey: ['expenses-recent', format(expenseDate, 'yyyy-MM-dd')],
+    queryFn: () => expensesApi.getAll({ startDate: format(expenseDate, 'yyyy-MM-dd'), endDate: format(expenseDate, 'yyyy-MM-dd') }),
+  });
+
+  const createExpenseMutation = useMutation({
+    mutationFn: expensesApi.create,
+    onSuccess: () => {
+      toast.success("✅ Expense Saved Successfully");
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses-recent'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setExpenseAmount("");
+      setExpenseNotes("");
+      setMaterialId("");
+      setMaterialQty("");
+      setPricePerUnit("");
+    },
+    onError: (error: any) => {
+      toast.error("❌ Failed to save expense", {
+        description: error.response?.data?.message || error.message,
+      });
+    },
+  });
+
+  // Set initial selections when data loads
+  useEffect(() => {
+    if (machines.length > 0 && !machineId) setMachineId(machines[0].id);
+    if (brickTypes.length > 0 && !brickTypeId) setBrickTypeId(brickTypes[0].id);
+  }, [machines, brickTypes]);
 
   const addWorker = () => setWorkers([...workers, ""]);
   const removeWorker = (i: number) => {
@@ -49,23 +126,68 @@ const DailyEntry = () => {
   };
 
   const calcTotal = () => {
-    if (sameProduction) return quantity;
-    const total = Object.values(workerQuantities).reduce((sum, q) => sum + (parseInt(q) || 0), 0);
-    return total > 0 ? total.toString() : quantity;
+    if (sameProduction) return parseInt(quantity) || 0;
+    return Object.values(workerQuantities).reduce((sum, q) => sum + (parseInt(q) || 0), 0);
   };
 
   const saveProduction = () => {
-    toast.success("✅ Saved Successfully", {
-      description: `${calcTotal()} bricks • ${machine} • ${shift} Shift`,
-    });
+    const totalQty = calcTotal();
+    if (totalQty <= 0) {
+      toast.error("Please enter a valid quantity");
+      return;
+    }
+    if (!machineId || !brickTypeId) {
+      toast.error("Please select a machine and brick size");
+      return;
+    }
+
+    const payload = {
+      date: format(entryDate, 'yyyy-MM-dd'),
+      machineId,
+      shift: shift as any,
+      brickTypeId,
+      quantity: totalQty,
+      notes,
+      workers: workers
+        .filter(w => w !== "")
+        .map((workerId, index) => ({
+          workerId,
+          quantity: sameProduction ? Math.floor(totalQty / workers.filter(w => w !== "").length) : parseInt(workerQuantities[index]) || 0,
+        })),
+    };
+
+    createProductionMutation.mutate(payload);
   };
 
   const saveExpense = () => {
-    toast.success("✅ Saved Successfully", {
-      description: `₹${expenseAmount} for ${expenseCategory}`,
+    if (!expenseAmount || isNaN(parseFloat(expenseAmount))) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (expenseCategory === 'MATERIAL') {
+      if (!materialId || !materialQty || !pricePerUnit) {
+        toast.error("Please fill all material details");
+        return;
+      }
+    }
+
+    createExpenseMutation.mutate({
+      date: format(expenseDate, 'yyyy-MM-dd'),
+      category: expenseCategory as any,
+      amount: parseFloat(expenseAmount),
+      notes: expenseNotes,
+      paymentMode: 'CASH',
+      materialId: expenseCategory === 'MATERIAL' ? materialId : undefined,
+      quantity: expenseCategory === 'MATERIAL' ? parseFloat(materialQty) : undefined,
+      pricePerUnit: expenseCategory === 'MATERIAL' ? parseFloat(pricePerUnit) : undefined,
     });
-    setExpenseAmount("");
   };
+
+  const totalToday = todayProductions.reduce((sum, p) => sum + p.quantity, 0);
+
+  const machineOptions = machines.map(m => ({ label: m.name, value: m.id }));
+  const brickTypeOptions = brickTypes.map(bt => ({ label: bt.size, value: bt.id }));
 
   return (
     <MobileFormLayout title="📖 Daily Entry">
@@ -74,25 +196,60 @@ const DailyEntry = () => {
           <DatePickerField date={entryDate} onDateChange={setEntryDate} />
 
           <FormField label="Machine">
-            <PillSelector options={machines} value={machine} onChange={setMachine} />
+            {isMetaLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm italic">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading machines...
+              </div>
+            ) : isMetaError ? (
+              <div className="text-sm text-destructive italic">Failed to load machines.</div>
+            ) : machines.length > 0 ? (
+              <PillSelector
+                options={machineOptions}
+                value={machineId}
+                onChange={setMachineId}
+              />
+            ) : (
+              <div className="text-sm text-muted-foreground italic">No active machines found in settings.</div>
+            )}
           </FormField>
 
           <FormField label="Shift">
             <div className="grid grid-cols-2 gap-2">
-              <ActionButton label="☀️ Day" variant="outline" active={shift === "Day"} onClick={() => setShift("Day")} />
-              <ActionButton label="🌙 Night" variant="outline" active={shift === "Night"} onClick={() => setShift("Night")} />
+              <ActionButton label="☀️ Morning" variant="outline" active={shift === "MORNING"} onClick={() => setShift("MORNING")} />
+              <ActionButton label="🌙 Night" variant="outline" active={shift === "NIGHT"} onClick={() => setShift("NIGHT")} />
             </div>
           </FormField>
 
           <FormField label="Brick Size">
-            <div className="grid grid-cols-2 gap-2">
-              <ActionButton label="6 inch" variant="outline" active={brickSize === "6 inch"} onClick={() => setBrickSize("6 inch")} />
-              <ActionButton label="8 inch" variant="outline" active={brickSize === "8 inch"} onClick={() => setBrickSize("8 inch")} />
-            </div>
+            {isMetaLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm italic">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading sizes...
+              </div>
+            ) : isMetaError ? (
+              <div className="text-sm text-destructive italic">Failed to load brick sizes.</div>
+            ) : brickTypes.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {brickTypeOptions.map(opt => (
+                  <ActionButton
+                    key={opt.value}
+                    label={opt.label}
+                    variant="outline"
+                    active={brickTypeId === opt.value}
+                    onClick={() => setBrickTypeId(opt.value)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground italic">No active brick sizes found.</div>
+            )}
           </FormField>
 
           <FormField label="Quantity Produced" required>
-            <BigNumberInput value={sameProduction ? quantity : calcTotal()} onChange={sameProduction ? setQuantity : () => {}} placeholder="Enter number of bricks" />
+            <BigNumberInput
+              value={sameProduction ? quantity : calcTotal().toString()}
+              onChange={sameProduction ? setQuantity : () => { }}
+              placeholder="Enter number of bricks"
+            />
           </FormField>
 
           {/* Quick Quantity Chips */}
@@ -134,10 +291,11 @@ const DailyEntry = () => {
                   <select
                     value={w}
                     onChange={(e) => updateWorker(i, e.target.value)}
-                    className="flex-1 h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+                    disabled={isMetaLoading}
+                    className="flex-1 h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
                   >
-                    <option value="">Select worker...</option>
-                    {workerNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                    <option value="">{isMetaLoading ? "Loading workers..." : "Select worker..."}</option>
+                    {workerList.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
                   </select>
                   {!sameProduction && (
                     <input
@@ -159,12 +317,17 @@ const DailyEntry = () => {
             </div>
           </div>
 
-
-
-
           {/* Sticky-style Save */}
           <div className="sticky bottom-20 md:bottom-4 z-10 pt-2">
-            <ActionButton label="Save Production" icon={Save} variant="success" size="lg" onClick={saveProduction} className="w-full shadow-lg" />
+            <ActionButton
+              label={createProductionMutation.isPending ? "Saving..." : "Save Production"}
+              icon={createProductionMutation.isPending ? Loader2 : Save}
+              variant="success"
+              size="lg"
+              onClick={saveProduction}
+              className={`w-full shadow-lg ${createProductionMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={createProductionMutation.isPending}
+            />
           </div>
 
           <button className="w-full text-sm text-primary font-medium flex items-center justify-center gap-1.5 py-2 hover:bg-primary/5 rounded-xl transition-colors">
@@ -176,15 +339,19 @@ const DailyEntry = () => {
       {/* Today's Production Summary */}
       <EntryCard title="📊 Today's Summary">
         <div className="space-y-2">
-          {todaySummary.map((s, i) => (
-            <div key={i} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0">
-              <span className="text-sm text-muted-foreground">{s.machine}</span>
-              <span className="text-sm font-bold text-foreground">{s.qty} bricks</span>
-            </div>
-          ))}
+          {todayProductions.length > 0 ? (
+            todayProductions.map((p, i) => (
+              <div key={i} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0">
+                <span className="text-sm text-muted-foreground">{p.machine.name} ({p.shift.toLowerCase()})</span>
+                <span className="text-sm font-bold text-foreground">{p.quantity.toLocaleString()} bricks</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center italic">No entries for this date</p>
+          )}
           <div className="flex justify-between items-center pt-3 border-t-2 border-primary/20">
             <span className="text-sm font-bold text-foreground">Total</span>
-            <span className="text-lg font-bold text-primary">6,000 bricks</span>
+            <span className="text-lg font-bold text-primary">{totalToday.toLocaleString()} bricks</span>
           </div>
         </div>
       </EntryCard>
@@ -197,23 +364,41 @@ const DailyEntry = () => {
           <FormField label="Category">
             <div className="grid grid-cols-4 gap-2">
               {[
-                { label: "Fuel", icon: Fuel },
-                { label: "Food", icon: UtensilsCrossed },
-                { label: "Material", icon: PackageOpen },
-                { label: "Other", icon: MoreHorizontal },
+                { label: "Fuel", value: "FUEL", icon: Fuel },
+                { label: "Food", value: "FOOD", icon: UtensilsCrossed },
+                { label: "Material", value: "MATERIAL", icon: PackageOpen },
+                { label: "Other", value: "OTHER", icon: MoreHorizontal },
               ].map((cat) => (
                 <ActionButton
-                  key={cat.label}
+                  key={cat.value}
                   label={cat.label}
                   icon={cat.icon}
                   variant="outline"
-                  active={expenseCategory === cat.label}
-                  onClick={() => setExpenseCategory(cat.label)}
+                  active={expenseCategory === cat.value}
+                  onClick={() => setExpenseCategory(cat.value)}
                   className="flex-col gap-1 h-auto py-3 text-xs"
                 />
               ))}
             </div>
           </FormField>
+
+          {expenseCategory === 'MATERIAL' && (
+            <>
+              <FormField label="Material Type" required>
+                <select
+                  value={materialId}
+                  onChange={(e) => setMaterialId(e.target.value)}
+                  className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+                >
+                  <option value="">Select material...</option>
+                  {rawMaterials.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                  ))}
+                </select>
+              </FormField>
+
+            </>
+          )}
 
           <FormField label="Amount (₹)" required>
             <BigNumberInput value={expenseAmount} onChange={setExpenseAmount} placeholder="0" />
@@ -221,21 +406,54 @@ const DailyEntry = () => {
 
           <FormField label="Notes">
             <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              value={expenseNotes}
+              onChange={(e) => setExpenseNotes(e.target.value)}
               placeholder="What was this for?"
               className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
             />
           </FormField>
 
-          <ActionButton label="Save Expense" icon={Save} variant="accent" size="lg" onClick={saveExpense} className="w-full" />
+          <ActionButton
+            label={createExpenseMutation.isPending ? "Saving..." : "Save Expense"}
+            icon={createExpenseMutation.isPending ? Loader2 : Save}
+            variant="accent"
+            size="lg"
+            onClick={saveExpense}
+            className={`w-full ${createExpenseMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+            disabled={createExpenseMutation.isPending}
+          />
 
           <button className="w-full text-sm text-primary font-medium flex items-center justify-center gap-1.5 py-2 hover:bg-primary/5 rounded-xl transition-colors">
             <Eye className="h-4 w-4" /> View / Edit Entries
           </button>
         </div>
       </EntryCard>
-    </MobileFormLayout>
+      {/* Recent Expenses List */}
+      <EntryCard title="📊 Recent Expenses">
+        <div className="space-y-3">
+          {isExpensesLoading ? (
+            <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading expenses...
+            </div>
+          ) : recentExpenses.length > 0 ? (
+            recentExpenses.map((e, i) => (
+              <div key={i} className="flex items-center gap-3 p-3.5 bg-secondary/30 rounded-xl">
+                <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                  <Receipt className="h-5 w-5 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-foreground truncate">{e.notes || e.category}</p>
+                  <p className="text-xs text-muted-foreground">{e.category} • Today</p>
+                </div>
+                <span className="text-sm font-bold text-foreground">₹{e.amount.toLocaleString()}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center italic">No expenses for this date</p>
+          )}
+        </div>
+      </EntryCard>
+    </MobileFormLayout >
   );
 };
 

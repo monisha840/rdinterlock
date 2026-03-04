@@ -7,6 +7,9 @@ const settingsController = new SettingsController();
 
 router.use(authenticate);
 
+// Meta routes
+router.get('/form-metadata', settingsController.getFormMetadata);
+
 // Machine routes
 router.post('/machines', settingsController.createMachine);
 router.get('/machines', settingsController.getAllMachines);

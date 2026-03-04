@@ -1,7 +1,13 @@
 import apiClient from './apiClient';
-import type { ApiResponse, Machine, BrickType } from '../types/api';
+import type { ApiResponse, Machine, BrickType, FormMetadata } from '../types/api';
 
 export const settingsApi = {
+  // Meta
+  getFormMetadata: async (): Promise<FormMetadata> => {
+    const response = await apiClient.get<any, ApiResponse<FormMetadata>>('/settings/form-metadata');
+    return response.data;
+  },
+
   // Machines
   getMachines: async (activeOnly: boolean = true): Promise<Machine[]> => {
     const response = await apiClient.get<any, ApiResponse<Machine[]>>('/settings/machines', {

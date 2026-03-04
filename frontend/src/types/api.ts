@@ -66,6 +66,14 @@ export interface BrickType {
   createdAt: string;
 }
 
+export interface RawMaterial {
+  id: string;
+  name: string;
+  unit: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 // Production types
 export interface ProductionWorker {
   workerId: string;
@@ -148,11 +156,14 @@ export interface Dispatch {
 // Expense types
 export interface CreateExpenseRequest {
   date: string;
-  category: 'FUEL' | 'MAINTENANCE' | 'SALARY' | 'GENERAL' | 'OTHER';
+  category: 'FUEL' | 'MAINTENANCE' | 'SALARY' | 'GENERAL' | 'MATERIAL' | 'FOOD' | 'OTHER';
   amount: number;
   notes?: string;
   workerId?: string;
   paymentMode?: 'CASH' | 'UPI' | 'BANK';
+  materialId?: string;
+  quantity?: number;
+  pricePerUnit?: number;
 }
 
 export interface Expense {
@@ -163,9 +174,17 @@ export interface Expense {
   notes?: string;
   workerId?: string;
   paymentMode?: string;
+  materialId?: string;
+  quantity?: number;
+  pricePerUnit?: number;
   worker?: {
     id: string;
     name: string;
+  };
+  material?: {
+    id: string;
+    name: string;
+    unit: string;
   };
   createdAt: string;
 }
@@ -207,6 +226,18 @@ export interface StockData {
   currentStock: number;
 }
 
+export interface RawMaterialStock {
+  id: string;
+  name: string;
+  unit: string;
+  stock: number;
+}
+
+export interface StockResponse {
+  bricks: StockData[];
+  materials: RawMaterialStock[];
+}
+
 // Dashboard types
 export interface DashboardSummary {
   todayProduction: {
@@ -227,4 +258,11 @@ export interface DashboardSummary {
   }>;
   cashBalance: number;
   pendingPayments: number;
+}
+
+export interface FormMetadata {
+  machines: Machine[];
+  brickTypes: BrickType[];
+  workers: Worker[];
+  rawMaterials: RawMaterial[];
 }
