@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -27,60 +24,64 @@ model User {
 model Machine {
   id          String       @id @default(uuid())
   name        String       @unique
-  productions Production[]
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  productions Production[]
 
   @@map("machines")
 }
 
 model BrickType {
-  id          String       @id @default(uuid())
-  size        String       @unique
-  productions Production[]
-  dispatches  Dispatch[]
-  stock       Int          @default(0)
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                 String             @id @default(uuid())
+  size               String             @unique
+  stock              Int                @default(0)
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  orderBrickTypes    ClientOrder[]      @relation("OrderBrickType")
+  scheduleBrickTypes DispatchSchedule[] @relation("ScheduleBrickType")
+  dispatches         Dispatch[]
+  productions        Production[]
 
   @@map("brick_types")
 }
 
 model Worker {
-  id                String             @id @default(uuid())
-  name              String
-  role              String
-  paymentType       String
-  rate              Float
-  isActive          Boolean            @default(true)
-  advanceBalance    Float              @default(0)
-  productionWorkers ProductionWorker[]
-  attendance        Attendance[]
-  advances          WorkerAdvance[]
-  wages             DailyWage[]
-  expenses          Expense[]
-  settlements       WeeklySettlement[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                 String              @id @default(uuid())
+  name               String
+  role               String
+  paymentType        String
+  rate               Float
+  isActive           Boolean             @default(true)
+  advanceBalance     Float               @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  attendance         Attendance[]
+  wages              DailyWage[]
+  dispatchSchedules  DispatchSchedule[]
+  expenses           Expense[]
+  monthlySettlements MonthlySettlement[]
+  productionWorkers  ProductionWorker[]
+  settlements        WeeklySettlement[]
+  advances           WorkerAdvance[]
 
   @@map("workers")
 }
 
 model Production {
-  id                String             @id @default(uuid())
-  date              DateTime
-  machineId         String
-  machine           Machine            @relation(fields: [machineId], references: [id])
-  shift             String
-  brickTypeId       String
-  brickType         BrickType          @relation(fields: [brickTypeId], references: [id])
-  quantity          Int
-  notes             String?
-  workers           ProductionWorker[] @relation(name: "ProductionToWorkers")
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id          String             @id @default(uuid())
+  date        DateTime
+  machineId   String
+  shift       String
+  brickTypeId String
+  quantity    Int
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  workers     ProductionWorker[] @relation("ProductionToWorkers")
+  brickType   BrickType          @relation(fields: [brickTypeId], references: [id])
+  machine     Machine            @relation(fields: [machineId], references: [id])
 
   @@map("productions")
 }
@@ -88,34 +89,92 @@ model Production {
 model ProductionWorker {
   id           String     @id @default(uuid())
   productionId String
-  production   Production @relation(name: "ProductionToWorkers", fields: [productionId], references: [id])
   workerId     String
-  worker       Worker     @relation(fields: [workerId], references: [id])
   quantity     Int
   createdAt    DateTime   @default(now())
+  production   Production @relation("ProductionToWorkers", fields: [productionId], references: [id])
+  worker       Worker     @relation(fields: [workerId], references: [id])
 
   @@map("production_workers")
 }
 
 model Customer {
-  id         String     @id @default(uuid())
-  name       String
-  phone      String?
-  address    String?
-  dispatches Dispatch[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id                String             @id @default(uuid())
+  name              String
+  phone             String?
+  address           String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  isActive          Boolean            @default(true)
+  notes             String?
+  orders            ClientOrder[]
+  payments          ClientPayment[]
+  dispatchSchedules DispatchSchedule[]
+  dispatches        Dispatch[]
 
   @@map("customers")
+}
+
+model ClientOrder {
+  id                   String          @id @default(uuid())
+  clientId             String
+  brickTypeId          String
+  quantity             Int
+  rate                 Float           @default(0)
+  totalAmount          Float           @default(0)
+  orderDate            DateTime
+  expectedDispatchDate DateTime?
+  status               String          @default("PENDING")
+  notes                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  brickType            BrickType       @relation("OrderBrickType", fields: [brickTypeId], references: [id])
+  client               Customer        @relation(fields: [clientId], references: [id])
+  payments             ClientPayment[]
+
+  @@map("client_orders")
+}
+
+model ClientPayment {
+  id            String       @id @default(uuid())
+  clientId      String
+  orderId       String?
+  amount        Float
+  paymentDate   DateTime
+  paymentMethod String
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  client        Customer     @relation(fields: [clientId], references: [id])
+  order         ClientOrder? @relation(fields: [orderId], references: [id])
+
+  @@map("client_payments")
+}
+
+model DispatchSchedule {
+  id           String    @id @default(uuid())
+  clientId     String
+  brickTypeId  String
+  quantity     Int
+  location     String?
+  dispatchDate DateTime
+  driverId     String?
+  status       String    @default("SCHEDULED")
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  brickType    BrickType @relation("ScheduleBrickType", fields: [brickTypeId], references: [id])
+  client       Customer  @relation(fields: [clientId], references: [id])
+  driver       Worker?   @relation(fields: [driverId], references: [id])
+
+  @@map("dispatch_schedules")
 }
 
 model Dispatch {
   id            String    @id @default(uuid())
   date          DateTime
   customerId    String
-  customer      Customer  @relation(fields: [customerId], references: [id])
   brickTypeId   String
-  brickType     BrickType @relation(fields: [brickTypeId], references: [id])
   quantity      Int
   distanceKm    Float?
   vehicleType   String
@@ -126,6 +185,8 @@ model Dispatch {
   paidAmount    Float
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  brickType     BrickType @relation(fields: [brickTypeId], references: [id])
+  customer      Customer  @relation(fields: [customerId], references: [id])
 
   @@map("dispatches")
 }
@@ -138,12 +199,12 @@ model Expense {
   notes       String?
   paymentMode String
   workerId    String?
-  worker      Worker?         @relation(fields: [workerId], references: [id])
   materialId  String?
-  material    RawMaterial?    @relation(fields: [materialId], references: [id])
-  materials   MaterialUsage[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  material    RawMaterial?    @relation(fields: [materialId], references: [id])
+  worker      Worker?         @relation(fields: [workerId], references: [id])
+  materials   MaterialUsage[]
 
   @@map("expenses")
 }
@@ -168,10 +229,10 @@ model RawMaterial {
   description String?
   stock       Float           @default(0)
   isActive    Boolean         @default(true)
-  usages      MaterialUsage[]
-  expenses    Expense[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  expenses    Expense[]
+  usages      MaterialUsage[]
 
   @@map("raw_materials")
 }
@@ -179,14 +240,14 @@ model RawMaterial {
 model MaterialUsage {
   id           String      @id @default(uuid())
   materialId   String
-  material     RawMaterial @relation(fields: [materialId], references: [id])
   quantity     Float
   pricePerUnit Float       @default(0)
   totalCost    Float       @default(0)
   date         DateTime
   expenseId    String?
-  expense      Expense?    @relation(fields: [expenseId], references: [id])
   createdAt    DateTime    @default(now())
+  expense      Expense?    @relation(fields: [expenseId], references: [id])
+  material     RawMaterial @relation(fields: [materialId], references: [id])
 
   @@map("material_usages")
 }
@@ -194,9 +255,9 @@ model MaterialUsage {
 model Attendance {
   id       String   @id @default(uuid())
   workerId String
-  worker   Worker   @relation(fields: [workerId], references: [id])
   date     DateTime
   present  Boolean  @default(true)
+  worker   Worker   @relation(fields: [workerId], references: [id])
 
   @@unique([workerId, date])
   @@map("attendance")
@@ -205,11 +266,11 @@ model Attendance {
 model WorkerAdvance {
   id       String   @id @default(uuid())
   workerId String
-  worker   Worker   @relation(fields: [workerId], references: [id])
   amount   Float
-  type     String // GIVEN, ADJUSTED
+  type     String
   date     DateTime
   note     String?
+  worker   Worker   @relation(fields: [workerId], references: [id])
 
   @@map("worker_advances")
 }
@@ -217,7 +278,6 @@ model WorkerAdvance {
 model DailyWage {
   id          String   @id @default(uuid())
   workerId    String
-  worker      Worker   @relation(fields: [workerId], references: [id])
   date        DateTime
   bricksMade  Int?
   wageAmount  Float
@@ -225,6 +285,7 @@ model DailyWage {
   netPayable  Float
   isPaid      Boolean  @default(false)
   createdAt   DateTime @default(now())
+  worker      Worker   @relation(fields: [workerId], references: [id])
 
   @@map("daily_wages")
 }
@@ -232,13 +293,41 @@ model DailyWage {
 model WeeklySettlement {
   id            String   @id @default(uuid())
   workerId      String
-  worker        Worker   @relation(fields: [workerId], references: [id])
   startDate     DateTime
   endDate       DateTime
   totalAmount   Float
   paymentStatus String
   generatedAt   DateTime @default(now())
   notes         String?
+  worker        Worker   @relation(fields: [workerId], references: [id])
 
   @@map("weekly_settlements")
+}
+
+model MonthlySettlement {
+  id          String    @id @default(uuid())
+  workerId    String
+  month       Int
+  year        Int
+  salary      Float
+  advanceUsed Float     @default(0)
+  netPaid     Float
+  isPaid      Boolean   @default(false)
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  worker      Worker    @relation(fields: [workerId], references: [id])
+
+  @@unique([workerId, month, year])
+  @@map("monthly_settlements")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
 }

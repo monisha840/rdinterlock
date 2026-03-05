@@ -51,4 +51,31 @@ export const settingsApi = {
   deleteBrickType: async (id: string): Promise<void> => {
     await apiClient.delete(`/settings/brick-types/${id}`);
   },
+
+  // Raw Materials
+  getRawMaterials: async (activeOnly: boolean = true): Promise<any[]> => {
+    const response = await apiClient.get<any, ApiResponse<any[]>>('/settings/raw-materials', {
+      params: { activeOnly },
+    });
+    return response.data;
+  },
+
+  createRawMaterial: async (data: { name: string; unit: string }): Promise<any> => {
+    const response = await apiClient.post<any, ApiResponse<any>>('/settings/raw-materials', data);
+    return response.data;
+  },
+
+  deleteRawMaterial: async (id: string): Promise<void> => {
+    await apiClient.delete(`/settings/raw-materials/${id}`);
+  },
+
+  // System Settings
+  getSystemSettings: async (): Promise<Record<string, string>> => {
+    const response = await apiClient.get<any, ApiResponse<Record<string, string>>>('/settings/system');
+    return response.data;
+  },
+
+  updateSystemSettings: async (settings: Record<string, string>): Promise<void> => {
+    await apiClient.post('/settings/system', settings);
+  },
 };

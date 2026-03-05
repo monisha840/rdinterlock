@@ -165,11 +165,9 @@ const DailyEntry = () => {
       return;
     }
 
-    if (expenseCategory === 'MATERIAL') {
-      if (!materialId || !materialQty || !pricePerUnit) {
-        toast.error("Please fill all material details");
-        return;
-      }
+    if (expenseCategory === 'MATERIAL' && !materialId) {
+      toast.error("Please select a material type");
+      return;
     }
 
     createExpenseMutation.mutate({
@@ -179,8 +177,8 @@ const DailyEntry = () => {
       notes: expenseNotes,
       paymentMode: 'CASH',
       materialId: expenseCategory === 'MATERIAL' ? materialId : undefined,
-      quantity: expenseCategory === 'MATERIAL' ? parseFloat(materialQty) : undefined,
-      pricePerUnit: expenseCategory === 'MATERIAL' ? parseFloat(pricePerUnit) : undefined,
+      quantity: expenseCategory === 'MATERIAL' && materialQty ? parseFloat(materialQty) : undefined,
+      pricePerUnit: expenseCategory === 'MATERIAL' && pricePerUnit ? parseFloat(pricePerUnit) : undefined,
     });
   };
 
@@ -356,78 +354,7 @@ const DailyEntry = () => {
         </div>
       </EntryCard>
 
-      {/* Quick Expense Entry */}
-      <EntryCard title="💰 Quick Expense">
-        <div className="space-y-5">
-          <DatePickerField date={expenseDate} onDateChange={setExpenseDate} />
 
-          <FormField label="Category">
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: "Fuel", value: "FUEL", icon: Fuel },
-                { label: "Food", value: "FOOD", icon: UtensilsCrossed },
-                { label: "Material", value: "MATERIAL", icon: PackageOpen },
-                { label: "Other", value: "OTHER", icon: MoreHorizontal },
-              ].map((cat) => (
-                <ActionButton
-                  key={cat.value}
-                  label={cat.label}
-                  icon={cat.icon}
-                  variant="outline"
-                  active={expenseCategory === cat.value}
-                  onClick={() => setExpenseCategory(cat.value)}
-                  className="flex-col gap-1 h-auto py-3 text-xs"
-                />
-              ))}
-            </div>
-          </FormField>
-
-          {expenseCategory === 'MATERIAL' && (
-            <>
-              <FormField label="Material Type" required>
-                <select
-                  value={materialId}
-                  onChange={(e) => setMaterialId(e.target.value)}
-                  className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
-                >
-                  <option value="">Select material...</option>
-                  {rawMaterials.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                  ))}
-                </select>
-              </FormField>
-
-            </>
-          )}
-
-          <FormField label="Amount (₹)" required>
-            <BigNumberInput value={expenseAmount} onChange={setExpenseAmount} placeholder="0" />
-          </FormField>
-
-          <FormField label="Notes">
-            <input
-              value={expenseNotes}
-              onChange={(e) => setExpenseNotes(e.target.value)}
-              placeholder="What was this for?"
-              className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
-            />
-          </FormField>
-
-          <ActionButton
-            label={createExpenseMutation.isPending ? "Saving..." : "Save Expense"}
-            icon={createExpenseMutation.isPending ? Loader2 : Save}
-            variant="accent"
-            size="lg"
-            onClick={saveExpense}
-            className={`w-full ${createExpenseMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
-            disabled={createExpenseMutation.isPending}
-          />
-
-          <button className="w-full text-sm text-primary font-medium flex items-center justify-center gap-1.5 py-2 hover:bg-primary/5 rounded-xl transition-colors">
-            <Eye className="h-4 w-4" /> View / Edit Entries
-          </button>
-        </div>
-      </EntryCard>
       {/* Recent Expenses List */}
       <EntryCard title="📊 Recent Expenses">
         <div className="space-y-3">

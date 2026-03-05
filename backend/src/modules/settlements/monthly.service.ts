@@ -1,12 +1,18 @@
 import prisma from '../../config/database';
+import { SystemSettingsService } from '../settings/systemSettings.service';
 
-
+const systemSettingsService = new SystemSettingsService();
 
 export class MonthlySettlementService {
   /**
    * Calculate monthly salaries for salary staff
    */
-  async calculateMonthlySalary(_month: number, _year: number) {
+  async calculateMonthlySalary(month: number, year: number) {
+    // Fetch global settings
+    const settings = await systemSettingsService.getAllSettings();
+    const driverActive = settings['driver_active'] === 'true';
+    const driverRate = parseFloat(settings['driver_rate'] || '0');
+
     // Get all salary staff (MONTHLY payment type)
     // Roles: Manager, Driver, Telecaller
     const workers = await prisma.worker.findMany({
@@ -21,9 +27,33 @@ export class MonthlySettlementService {
 
     const salaries = [];
 
+    // Calculate start and end dates for the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
     for (const worker of workers) {
-      // Salary is the rate field for monthly workers
-      const salary = worker.rate;
+      // Get attendance records for this month
+      const attendanceRecords = await prisma.attendance.findMany({
+        where: {
+          workerId: worker.id,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+          present: true,
+        },
+      });
+
+      const presentDays = attendanceRecords.length;
+
+      // Salary = (Present days * daily rate)
+      // Apply global driver rate if active and role matches
+      let activeRate = worker.rate;
+      if (driverActive && worker.role === 'DRIVER') {
+        activeRate = driverRate;
+      }
+
+      const salary = presentDays * activeRate;
 
       // Check advance balance
       const advanceUsed = Math.min(worker.advanceBalance, salary);
@@ -33,6 +63,8 @@ export class MonthlySettlementService {
         workerId: worker.id,
         workerName: worker.name,
         role: worker.role,
+        presentDays,
+        dailyRate: worker.rate,
         salary,
         advanceBalance: worker.advanceBalance,
         advanceUsed,

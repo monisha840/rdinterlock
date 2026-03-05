@@ -5,24 +5,130 @@ import { ActionButton } from "@/components/ActionButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PillSelector } from "@/components/PillSelector";
 import { toast } from "sonner";
-import { Save, UserPlus } from "lucide-react";
+import { Save, UserPlus, BarChart3, TrendingUp, Package, Calendar, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
+import { KPICard } from "@/components/KPICard";
 
 const roles = ["PRODUCTION", "MASON", "DRIVER", "LOADER", "OPERATOR", "HELPER", "OFFICE"];
 const paymentTypes = ["PER_BRICK", "DAILY", "MONTHLY"];
 
-interface Worker {
-  id: string;
-  name: string;
-  role: string;
-  paymentType: string;
-  rate: number;
-  isActive: boolean;
-}
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workersApi } from "@/api/workers.api";
-import { Loader2 } from "lucide-react";
+import { Loader2 as Spinner } from "lucide-react";
+import { Worker } from "@/types/api";
+
+const WorkerStatsModal = ({ worker }: { worker: Worker }) => {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['worker-stats', worker.id],
+    queryFn: () => workersApi.getStats(worker.id),
+    enabled: !!worker.id,
+  });
+
+  return (
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          {worker.name}'s Statistics
+        </DialogTitle>
+      </DialogHeader>
+
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <Spinner className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Fetching worker performance...</p>
+        </div>
+      ) : stats ? (
+        <div className="space-y-6 pt-4">
+          {/* KPI Summary */}
+          <div className="grid grid-cols-2 gap-4">
+            <KPICard
+              title="Total Bricks"
+              value={stats.totalQuantity.toLocaleString()}
+              icon={Package}
+              variant="primary"
+            />
+            <KPICard
+              title="Total Earnings"
+              value={`₹${stats.totalEarnings.toLocaleString()}`}
+              icon={TrendingUp}
+              variant="success"
+            />
+          </div>
+
+          {/* History Table */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              Recent Production History
+            </h3>
+            <div className="border rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader className="bg-secondary/30">
+                  <TableRow>
+                    <TableHead className="w-[120px]">Date</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.productions.length > 0 ? (
+                    stats.productions.map((p: any, idx: number) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">
+                          {format(new Date(p.production.date), 'dd MMM')}
+                        </TableCell>
+                        <TableCell className="capitalize text-xs">
+                          {p.production.shift.toLowerCase()}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {p.production.brickType?.size || "Standard"}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {p.quantity.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground italic">
+                        No production records found for this worker.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-[10px] text-muted-foreground italic text-center">
+              Showing last 20 production records.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground">
+          Failed to load stats. Please try again.
+        </div>
+      )}
+    </DialogContent>
+  );
+};
 
 const WorkersPage = () => {
   const queryClient = useQueryClient();
@@ -152,13 +258,29 @@ const WorkersPage = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm text-foreground">{w.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <StatusBadge label={w.role} variant={(roleColors[w.role] as any) || "default"} />
-                    <span className="text-xs text-muted-foreground">{w.paymentType}</span>
+                    <span className="text-xs text-muted-foreground lowercase">{w.paymentType.replace("_", " ")}</span>
+                    {w.advanceBalance > 0 && (
+                      <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-lg border border-destructive/20">
+                        Adv: ₹{w.advanceBalance}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="text-right flex items-center gap-3">
-                  <span className="text-sm font-bold text-foreground">₹{w.rate}</span>
+                <div className="text-right flex items-center gap-2">
+                  <div className="flex flex-col items-end gap-1 mr-2">
+                    <span className="text-sm font-bold text-foreground">₹{w.rate}</span>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <button className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline transition-all">
+                          <BarChart3 className="h-3 w-3" />
+                          STATS
+                        </button>
+                      </DialogTrigger>
+                      <WorkerStatsModal worker={w} />
+                    </Dialog>
+                  </div>
                   <Switch checked={w.isActive} onCheckedChange={() => toggleWorkerStatus(w.id, w.isActive)} />
                 </div>
               </div>

@@ -146,6 +146,50 @@ export class SettingsService {
     return { message: 'Brick type deactivated successfully' };
   }
 
+  // Raw Material management
+  async createRawMaterial(data: { name: string; unit: string }) {
+    const existing = await prisma.rawMaterial.findUnique({
+      where: { name: data.name },
+    });
+
+    if (existing) {
+      throw new AppError('Raw material with this name already exists', 400);
+    }
+
+    const material = await prisma.rawMaterial.create({
+      data: { ...data, isActive: true },
+    });
+
+    return material;
+  }
+
+  async getAllRawMaterials(activeOnly: boolean = false) {
+    const materials = await prisma.rawMaterial.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
+      orderBy: { name: 'asc' },
+    });
+
+    return materials;
+  }
+
+  async deleteRawMaterial(id: string) {
+    const material = await prisma.rawMaterial.findUnique({
+      where: { id },
+    });
+
+    if (!material) {
+      throw new AppError('Raw material not found', 404);
+    }
+
+    // Soft delete
+    await prisma.rawMaterial.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    return { message: 'Raw material deactivated successfully' };
+  }
+
   async getFormMetadata() {
     const [machines, brickTypes, workers, rawMaterials] = await Promise.all([
       prisma.machine.findMany({

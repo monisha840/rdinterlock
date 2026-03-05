@@ -11,7 +11,7 @@ async function main() {
     // Create new admin user
     const hashedPassword = await bcrypt.hash('rdadmin', 10);
 
-    const admin = await prisma.user.upsert({
+    await prisma.user.upsert({
         where: { email: 'adminrd@interlock.com' },
         update: {},
         create: {
@@ -23,7 +23,7 @@ async function main() {
     });
 
     // Create Machines
-    const machines = ['Machine A', 'Machine B'];
+    const machines = ['Machine A', 'Machine B', 'Machine C'];
     for (const name of machines) {
         await prisma.machine.upsert({
             where: { name },
@@ -42,16 +42,44 @@ async function main() {
         });
     }
 
+    // Create Default Raw Materials
+    const materials = [
+        { name: 'Cement', unit: 'BAG' },
+        { name: 'Fly Ash', unit: 'KG' },
+        { name: 'Add Mixture', unit: 'LTR' },
+        { name: 'Crusher Powder', unit: 'TON' }
+    ];
+
+    // Deactivate old materials
+    await prisma.rawMaterial.updateMany({
+        where: { name: { in: ['Red Oxide', 'Yellow Oxide'] } },
+        data: { isActive: false }
+    });
+
+    for (const m of materials) {
+        await prisma.rawMaterial.upsert({
+            where: { name: m.name },
+            update: { isActive: true },
+            create: { ...m, isActive: true },
+        });
+    }
+
     // Create some default workers if needed
     const workers = [
         { name: 'Raju', role: 'OPERATOR', paymentType: 'PER_BRICK', rate: 1.5 },
         { name: 'Suresh', role: 'HELPER', paymentType: 'DAILY', rate: 500 },
+        { name: 'Manager', role: 'MANAGER', paymentType: 'MONTHLY', rate: 1000 },
+        { name: 'Driver 1', role: 'DRIVER', paymentType: 'MONTHLY', rate: 800 },
+        { name: 'Telecaller', role: 'TELECALLER', paymentType: 'MONTHLY', rate: 500 },
     ];
 
     for (const w of workers) {
-        await prisma.worker.create({
-            data: { ...w, isActive: true },
-        });
+        const existing = await prisma.worker.findFirst({ where: { name: w.name } });
+        if (!existing) {
+            await prisma.worker.create({
+                data: { ...w, isActive: true },
+            });
+        }
     }
 
     console.log('Seeding finished.');

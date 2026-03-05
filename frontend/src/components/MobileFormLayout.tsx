@@ -3,13 +3,17 @@ import { ReactNode } from "react";
 interface MobileFormLayoutProps {
   children: ReactNode;
   title?: string;
+  subtitle?: string;
 }
 
-export function MobileFormLayout({ children, title }: MobileFormLayoutProps) {
+export function MobileFormLayout({ children, title, subtitle }: MobileFormLayoutProps) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-5 sm:py-8 space-y-5 pb-safe">
       {title && (
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h1>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+        </div>
       )}
       {children}
     </div>

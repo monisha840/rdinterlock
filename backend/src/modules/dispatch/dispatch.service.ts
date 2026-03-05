@@ -229,4 +229,23 @@ export class DispatchService {
 
     return customer;
   }
+
+  async deleteCustomer(id: string) {
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+    });
+
+    if (!customer) {
+      throw new AppError('Customer not found', 404);
+    }
+
+    // Since we don't have isActive on Customer yet, we'll just delete for now
+    // or we could add isActive to schema. Prisma schema has address but not isActive.
+    // I'll just delete it for now as per current schema.
+    await prisma.customer.delete({
+      where: { id },
+    });
+
+    return { message: 'Customer deleted successfully' };
+  }
 }

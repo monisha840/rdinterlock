@@ -11,6 +11,7 @@ router.use(authenticate);
 router.post('/customers', dispatchController.createCustomer);
 router.get('/customers', dispatchController.getAllCustomers);
 router.get('/customers/:id', dispatchController.getCustomerById);
+router.delete('/customers/:id', dispatchController.deleteCustomer);
 
 // Dispatch routes
 router.post('/', dispatchController.createDispatch);

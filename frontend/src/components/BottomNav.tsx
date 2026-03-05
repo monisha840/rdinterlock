@@ -15,7 +15,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useState } from "react";
-import { Users, BookText, BarChart3, Settings } from "lucide-react";
+import { Users, BookText, BarChart3, Settings, CalendarCheck } from "lucide-react";
 
 const bottomNavItems = [
   { title: "Home", url: "/", icon: LayoutDashboard },
@@ -26,6 +26,7 @@ const bottomNavItems = [
 ];
 
 const moreNavItems = [
+  { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Expenses", url: "/expenses", icon: Wallet },
   { title: "Workers", url: "/workers", icon: Users },
   { title: "Reports", url: "/reports", icon: BarChart3 },

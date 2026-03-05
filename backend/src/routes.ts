@@ -11,6 +11,7 @@ import settingsRoutes from './modules/settings/settings.routes';
 import wageRoutes from './modules/wages/wage.routes';
 import settlementRoutes from './modules/settlements/settlement.routes';
 import materialRoutes from './modules/materials/material.routes';
+import clientRoutes from './modules/clients/clients.routes';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use('/settings', settingsRoutes);
 router.use('/wages', wageRoutes);
 router.use('/settlements', settlementRoutes);
 router.use('/materials', materialRoutes);
+router.use('/clients', clientRoutes);
 
 // Alias for dashboard summary (as per requirements)
 router.use('/dashboard', reportsRoutes);

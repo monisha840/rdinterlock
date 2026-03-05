@@ -15,6 +15,12 @@ import CashBookPage from "./pages/CashBookPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
+import AttendancePage from "./pages/AttendancePage";
+import ClientsPage from "./pages/ClientsPage";
+import ClientProfilePage from "./pages/ClientProfilePage";
+import ClientOrdersPage from "./pages/ClientOrdersPage";
+import DispatchSchedulingPage from "./pages/DispatchSchedulingPage";
+import ClientLedgerPage from "./pages/ClientLedgerPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +59,56 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <DispatchPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/clients"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/clients/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientProfilePage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client-orders"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientOrdersPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dispatch-scheduling"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <DispatchSchedulingPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client-ledger"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientLedgerPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -117,6 +173,16 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/attendance"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AttendancePage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
@@ -125,3 +191,4 @@ const App = () => (
 );
 
 export default App;
+

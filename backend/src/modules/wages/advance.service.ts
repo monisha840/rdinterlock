@@ -25,12 +25,11 @@ export class AdvanceService {
       throw new Error('Worker is not active');
     }
 
-    // Check if worker role allows advance
-    // Managers & Telecallers cannot receive advance
-    const restrictedRoles = ['MANAGER', 'TELECALLER'];
-    if (restrictedRoles.includes(worker.role.toUpperCase())) {
-      throw new Error(`${worker.role} cannot receive advance`);
-    }
+    // Check if worker role allows advance (Staff roles now allowed per user request)
+    // const restrictedRoles = ['MANAGER', 'TELECALLER'];
+    // if (restrictedRoles.includes(worker.role.toUpperCase())) {
+    //   throw new Error(`${worker.role} cannot receive advance`);
+    // }
 
     // Create advance record and update worker balance in a transaction
     const result = await prisma.$transaction(async (tx: any) => {
@@ -200,5 +199,17 @@ export class AdvanceService {
     });
 
     return workers;
+  }
+
+  /**
+   * Give advances to multiple workers
+   */
+  async bulkGiveAdvance(
+    records: Array<{ workerId: string; amount: number; note?: string }>
+  ) {
+    const results = await Promise.all(
+      records.map((r) => this.giveAdvance(r.workerId, r.amount, r.note))
+    );
+    return results;
   }
 }

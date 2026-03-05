@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SettingsService } from './settings.service';
+import { SystemSettingsService } from './systemSettings.service';
 import {
   createMachineSchema,
   updateMachineSchema,
@@ -10,6 +11,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
 
 const settingsService = new SettingsService();
+const systemSettingsService = new SystemSettingsService();
 
 export class SettingsController {
   // Machine management
@@ -76,8 +78,39 @@ export class SettingsController {
     sendSuccess(res, result, 'Brick type deleted successfully');
   });
 
+  // Raw Material management
+  createRawMaterial = asyncHandler(async (req: Request, res: Response) => {
+    // Basic validation without schema for now for simplicity as per existing pattern
+    const { name, unit } = req.body;
+    const material = await settingsService.createRawMaterial({ name, unit });
+    sendSuccess(res, material, 'Raw material created successfully', 201);
+  });
+
+  getAllRawMaterials = asyncHandler(async (req: Request, res: Response) => {
+    const activeOnly = req.query.activeOnly === 'true';
+    const materials = await settingsService.getAllRawMaterials(activeOnly);
+    sendSuccess(res, materials, 'Raw materials retrieved successfully');
+  });
+
+  deleteRawMaterial = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await settingsService.deleteRawMaterial(id);
+    sendSuccess(res, result, 'Raw material deleted successfully');
+  });
+
   getFormMetadata = asyncHandler(async (_req: Request, res: Response) => {
     const metadata = await settingsService.getFormMetadata();
     sendSuccess(res, metadata, 'Form metadata retrieved successfully');
+  });
+
+  // System Settings
+  getSystemSettings = asyncHandler(async (_req: Request, res: Response) => {
+    const settings = await systemSettingsService.getAllSettings();
+    sendSuccess(res, settings, 'System settings retrieved successfully');
+  });
+
+  updateSystemSettings = asyncHandler(async (req: Request, res: Response) => {
+    const results = await systemSettingsService.updateSettings(req.body);
+    sendSuccess(res, results, 'System settings updated successfully');
   });
 }

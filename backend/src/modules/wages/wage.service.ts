@@ -1,8 +1,9 @@
 import prisma from '../../config/database';
 import { AdvanceService } from './advance.service';
-
+import { SystemSettingsService } from '../settings/systemSettings.service';
 
 const advanceService = new AdvanceService();
+const systemSettingsService = new SystemSettingsService();
 
 interface WageCalculationResult {
   workerId: string;
@@ -22,6 +23,14 @@ export class WageService {
    * Calculate daily wages for all eligible workers on a specific date
    */
   async calculateDailyWages(date: Date): Promise<WageCalculationResult[]> {
+    // Fetch global settings
+    const settings = await systemSettingsService.getAllSettings();
+    const productionActive = settings['production_active'] === 'true';
+    const masonActive = settings['mason_active'] === 'true';
+    const prodDayRate = parseFloat(settings['production_day_rate'] || '0');
+    const prodNightRate = parseFloat(settings['production_night_rate'] || '0');
+    const masonRate = parseFloat(settings['mason_rate'] || '0');
+
     // Get all active workers (exclude Monthly payment type and restricted roles)
     const workers = await prisma.worker.findMany({
       where: {
@@ -67,7 +76,35 @@ export class WageService {
           (sum: number, pw: any) => sum + pw.quantity,
           0
         );
-        wageAmount = bricksMade * worker.rate;
+
+        // Apply rules-based rate or worker rate
+        let activeRate = worker.rate;
+        if (masonActive && worker.role === 'MASON') {
+          activeRate = masonRate;
+        } else if (productionActive && worker.role === 'PRODUCTION_WORKER') {
+          // For production workers, we need to distinguish shift if possible
+          // But since we sum up all bricks, we check each production entry
+          wageAmount = worker.productionWorkers.reduce((sum: number, pw: any) => {
+            const shiftRate = pw.production.shift === 'NIGHT' ? prodNightRate : prodDayRate;
+            return sum + (pw.quantity * shiftRate);
+          }, 0);
+
+          calculations.push({
+            workerId: worker.id,
+            workerName: worker.name,
+            role: worker.role,
+            paymentType: worker.paymentType,
+            rate: prodDayRate, // Show day rate as reference
+            bricksMade,
+            wageAmount,
+            advanceBalance: worker.advanceBalance,
+            advanceUsed: Math.min(worker.advanceBalance, wageAmount),
+            netPayable: wageAmount - Math.min(worker.advanceBalance, wageAmount),
+          });
+          continue; // Skip the default calculation below
+        }
+
+        wageAmount = bricksMade * activeRate;
       } else if (worker.paymentType === 'DAILY') {
         // Check attendance
         const attendance = worker.attendance[0];
@@ -335,5 +372,94 @@ export class WageService {
     });
 
     return { message: 'Wage record deleted successfully' };
+  }
+
+  /**
+   * Get per-worker wage report for a date range (for weekly production workers and masons)
+   */
+  async getWorkerWageReport(startDate: Date, endDate: Date) {
+    // Fetch global settings for rates
+    const settings = await systemSettingsService.getAllSettings();
+    const prodDayRate = parseFloat(settings['production_day_rate'] || '2.50');
+    const prodNightRate = parseFloat(settings['production_night_rate'] || '1.25');
+    const masonRate = parseFloat(settings['mason_rate'] || '9.00');
+
+    // Get all non-monthly active workers
+    const workers = await prisma.worker.findMany({
+      where: {
+        isActive: true,
+        NOT: { paymentType: 'MONTHLY' },
+      },
+    });
+
+    const startOfDay = new Date(startDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const report = await Promise.all(
+      workers.map(async (worker) => {
+        // Get production records for this worker in date range
+        const productionWorkers = await prisma.productionWorker.findMany({
+          where: {
+            workerId: worker.id,
+            production: {
+              date: { gte: startOfDay, lte: endOfDay },
+            },
+          },
+          include: {
+            production: true,
+          },
+        });
+
+        let dayBricks = 0;
+        let nightBricks = 0;
+
+        for (const pw of productionWorkers) {
+          const shift = pw.production.shift;
+          if (shift === 'NIGHT') {
+            nightBricks += pw.quantity;
+          } else {
+            dayBricks += pw.quantity;
+          }
+        }
+
+        const totalBricks = dayBricks + nightBricks;
+
+        // Calculate gross wage based on role/type
+        let grossWage = 0;
+        if (worker.role === 'MASON') {
+          grossWage = totalBricks * masonRate;
+        } else {
+          // Production worker - day rate + night premium
+          grossWage = (dayBricks * prodDayRate) + (nightBricks * prodNightRate);
+        }
+
+        // Get attendance count
+        const attendanceCount = await prisma.attendance.count({
+          where: {
+            workerId: worker.id,
+            date: { gte: startOfDay, lte: endOfDay },
+            present: true,
+          },
+        });
+
+        return {
+          workerId: worker.id,
+          workerName: worker.name,
+          role: worker.role,
+          paymentType: worker.paymentType,
+          rate: worker.rate,
+          dayBricks,
+          nightBricks,
+          totalBricks,
+          grossWage,
+          advanceBalance: worker.advanceBalance,
+          daysPresent: attendanceCount,
+        };
+      })
+    );
+
+    return report.filter(r => r.totalBricks > 0 || r.daysPresent > 0);
   }
 }

@@ -211,6 +211,22 @@ export class WageController {
     }
   }
 
+  async getWorkerWageReport(req: Request, res: Response, next: NextFunction): Promise<any> {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
+      }
+      const report = await wageService.getWorkerWageReport(
+        new Date(startDate as string),
+        new Date(endDate as string)
+      );
+      res.json({ success: true, data: report });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getWageSummary(req: Request, res: Response, next: NextFunction): Promise<any> {
     try {
       const { startDate, endDate } = req.query;
@@ -309,6 +325,35 @@ export class WageController {
       res.json({
         success: true,
         data: workers,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async bulkGiveAdvance(req: Request, res: Response, next: NextFunction): Promise<any> {
+    try {
+      const { records } = req.body;
+
+      if (!Array.isArray(records) || records.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Records array is required',
+        });
+      }
+
+      const validatedRecords = records.map((r) => ({
+        workerId: r.workerId,
+        amount: parseFloat(r.amount),
+        note: r.note || `Advance given on staff attendance page`,
+      }));
+
+      const result = await advanceService.bulkGiveAdvance(validatedRecords);
+
+      res.json({
+        success: true,
+        data: result,
+        message: `${result.length} advances recorded successfully`,
       });
     } catch (error) {
       next(error);

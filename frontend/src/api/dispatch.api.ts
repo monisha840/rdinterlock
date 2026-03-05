@@ -50,4 +50,8 @@ export const customersApi = {
     const response = await apiClient.post<any, ApiResponse<Customer>>('/dispatch/customers', data);
     return response.data;
   },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/dispatch/customers/${id}`);
+  },
 };

@@ -36,9 +36,10 @@ export interface RegisterRequest {
 export interface Worker {
   id: string;
   name: string;
-  role: 'OPERATOR' | 'HELPER' | 'LOADER';
-  paymentType: 'DAILY' | 'PER_BRICK';
+  role: string;
+  paymentType: 'DAILY' | 'PER_BRICK' | 'MONTHLY';
   rate: number;
+  advanceBalance: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,8 +47,8 @@ export interface Worker {
 
 export interface CreateWorkerRequest {
   name: string;
-  role: 'OPERATOR' | 'HELPER' | 'LOADER';
-  paymentType: 'DAILY' | 'PER_BRICK';
+  role: string;
+  paymentType: 'DAILY' | 'PER_BRICK' | 'MONTHLY';
   rate: number;
 }
 

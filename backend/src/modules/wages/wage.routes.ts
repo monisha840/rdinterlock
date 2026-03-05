@@ -22,6 +22,7 @@ router.get('/wages', wageController.getWages.bind(wageController));
 router.post('/wages/pay', wageController.payWages.bind(wageController));
 router.delete('/wages/:id', wageController.deleteWage.bind(wageController));
 router.get('/wages/summary', wageController.getWageSummary.bind(wageController));
+router.get('/worker-report', wageController.getWorkerWageReport.bind(wageController));
 
 // ============== ADVANCE ROUTES ==============
 router.post(
@@ -39,6 +40,10 @@ router.get(
 router.get(
   '/advances/pending',
   wageController.getWorkersWithPendingAdvances.bind(wageController)
+);
+router.post(
+  '/advances/bulk',
+  wageController.bulkGiveAdvance.bind(wageController)
 );
 
 export default router;

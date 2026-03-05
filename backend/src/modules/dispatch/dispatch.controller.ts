@@ -65,4 +65,10 @@ export class DispatchController {
     const customer = await dispatchService.getCustomerById(id);
     sendSuccess(res, customer, 'Customer retrieved successfully');
   });
+
+  deleteCustomer = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await dispatchService.deleteCustomer(id);
+    sendSuccess(res, result, 'Customer deleted successfully');
+  });
 }
