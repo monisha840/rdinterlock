@@ -9,7 +9,18 @@ const app: Application = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:8081', 'http://10.108.141.41:8080', 'http://172.26.208.1:8080'],
+  origin: [
+    'http://localhost:5173', 
+    'http://localhost:3000', 
+    'http://localhost:8080', 
+    'http://localhost:8081', 
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:5173',
+    'http://10.108.141.40:8080',
+    'http://10.108.141.41:8080', 
+    'http://172.26.208.1:8080',
+    'https://rdinterlocks.vercel.app'
+  ],
   credentials: true,
 }));
 app.use(express.json());

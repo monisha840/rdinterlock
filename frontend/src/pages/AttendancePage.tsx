@@ -171,12 +171,7 @@ const AttendancePage = () => {
 
                                             {/* Present / Absent */}
                                             <div className="flex items-center gap-3">
-                                                <div className="text-right mr-1">
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-medium">Adv Bal</p>
-                                                    <p className={`text-xs font-bold ${w.advanceBalance > 0 ? "text-destructive" : "text-green-600"}`}>
-                                                        ₹{w.advanceBalance}
-                                                    </p>
-                                                </div>
+
                                                 <div className="flex flex-col items-center gap-1">
                                                     <label className="text-[9px] text-green-600 font-bold uppercase">Present</label>
                                                     <Checkbox
@@ -254,12 +249,7 @@ const AttendancePage = () => {
 
                                             {/* Present / Absent */}
                                             <div className="flex items-center gap-3">
-                                                <div className="text-right mr-1">
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-medium">Adv Bal</p>
-                                                    <p className={`text-xs font-bold ${w.advanceBalance > 0 ? "text-destructive" : "text-green-600"}`}>
-                                                        ₹{w.advanceBalance}
-                                                    </p>
-                                                </div>
+
                                                 <div className="flex flex-col items-center gap-1">
                                                     <label className="text-[9px] text-green-600 font-bold uppercase">Present</label>
                                                     <Checkbox
