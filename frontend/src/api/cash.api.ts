@@ -7,6 +7,7 @@ export const cashApi = {
     endDate?: string;
     type?: 'CREDIT' | 'DEBIT';
     category?: string;
+    search?: string;
   }): Promise<CashEntry[]> => {
     const response = await apiClient.get<any, ApiResponse<CashEntry[]>>('/cash', { params });
     return response.data;

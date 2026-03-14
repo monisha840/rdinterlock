@@ -24,6 +24,10 @@ import DispatchSchedulingPage from "./pages/DispatchSchedulingPage";
 import ClientHistoryPage from "./pages/ClientHistoryPage";
 import ClientLedgerPage from "./pages/ClientLedgerPage";
 import NotFound from "./pages/NotFound";
+import TransportEntryPage from "./pages/TransportEntryPage";
+import VehiclesPage from "./pages/VehiclesPage";
+import VendorsPage from "./pages/VendorsPage";
+import TransportReportsPage from "./pages/TransportReportsPage";
 
 const queryClient = new QueryClient();
 
@@ -201,6 +205,46 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <AttendancePage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transport"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <TransportEntryPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transport/vehicles"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <VehiclesPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transport/vendors"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <VendorsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transport/reports"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <TransportReportsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

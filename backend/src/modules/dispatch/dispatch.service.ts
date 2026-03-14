@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { TransportService } from '../transport/transport.service';
 import { AppError } from '../../middleware/errorHandler';
 import { CreateDispatchInput, UpdateDispatchInput, CreateCustomerInput } from './dispatch.validation';
 
@@ -65,6 +66,39 @@ export class DispatchService {
             description: `Payment from ${(dispatch as any).customer.name} (Dispatch: ${dispatch.id})`,
             category: 'SALES',
           } as any,
+        });
+      }
+
+      // 3. Create Transport Entry if vehicle is assigned
+      if (data.vehicleNumber) {
+        // Find or create vehicle record in transport module
+        let vehicle = await tx.transportVehicle.findUnique({
+          where: { vehicleNumber: data.vehicleNumber }
+        });
+
+        if (!vehicle) {
+          vehicle = await tx.transportVehicle.create({
+            data: {
+              vehicleNumber: data.vehicleNumber,
+              vehicleType: data.vehicleType === 'OWN' ? 'COMPANY' : 'VENDOR',
+              ownerName: data.vehicleType === 'OWN' ? 'RD Interlock' : 'Unknown Vendor',
+              driverName: data.driverId ? (dispatch.driver?.name || null) : null,
+              status: 'ACTIVE'
+            }
+          });
+        }
+
+        // Create the transport entry
+        await tx.transportEntry.create({
+          data: {
+            date: new Date(data.date),
+            transportType: data.vehicleType === 'OWN' ? 'RD_VEHICLE' : 'VENDOR_VEHICLE',
+            vehicleId: vehicle.id,
+            loads: 1, // Default to 1 load per dispatch
+            transactionType: data.vehicleType === 'OWN' ? 'EXPENSE' : 'INCOME',
+            notes: `Auto-generated from Dispatch: ${dispatch.id}`,
+            dispatchId: dispatch.id
+          } as any
         });
       }
 

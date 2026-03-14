@@ -242,6 +242,7 @@ model CashEntry {
   description String
   category    String
   paymentMode String   @default("CASH")
+  vendorName  String?
   customerId  String?
   workerId    String?
   materialId  String?
@@ -365,4 +366,55 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+model TransportVehicle {
+  id            String           @id @default(uuid())
+  vehicleNumber String           @unique
+  vehicleType   String           // COMPANY or VENDOR
+  ownerName     String
+  driverName    String?
+  status        String           @default("ACTIVE") // ACTIVE or INACTIVE
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  entries       TransportEntry[]
+
+  @@map("transport_vehicles")
+}
+
+model TransportVendor {
+  id            String           @id @default(uuid())
+  name          String           @unique
+  phone         String?
+  address       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  entries       TransportEntry[]
+
+  @@map("transport_vendors")
+}
+
+model TransportEntry {
+  id                String           @id @default(uuid())
+  date              DateTime
+  transportType     String           // RD_VEHICLE or VENDOR_VEHICLE
+  vehicleId         String
+  vendorId          String?
+  driverName        String?          // For RD vehicles, if different from vehicle's default driver
+  loads             Int
+  transactionType   String           // EXPENSE or INCOME
+  expenseAmount     Float            @default(0)
+  dieselCost        Float            @default(0) // Specific for RD vehicle
+  otherExpense      Float            @default(0) // Specific for RD vehicle
+  rentPerLoad       Float            @default(0) // Specific for Vendor vehicle
+  incomeAmount      Float            @default(0) // Auto-calculated: loads * rentPerLoad
+  notes             String?
+  dispatchId        String?          // Linked to specific dispatch if auto-generated
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  vehicle           TransportVehicle @relation(fields: [vehicleId], references: [id])
+  vendor            TransportVendor? @relation(fields: [vendorId], references: [id])
+
+  @@map("transport_entries")
 }

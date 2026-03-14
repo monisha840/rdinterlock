@@ -38,6 +38,7 @@ const CashBookPage = () => {
   const [amount, setAmount] = useState("");
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'BANK' | 'CHEQUE' | 'BANK_TRANSFER'>("CASH");
   const [category, setCategory] = useState("");
+  const [vendorName, setVendorName] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [linkedId, setLinkedId] = useState("");
@@ -55,9 +56,9 @@ const CashBookPage = () => {
 
   const categoriesIn = ["Client Payment", "Advance Return", "Other Income"];
   const groupedCategoriesOut = {
-    "Factory Materials": ["Material", "Bearings", "PLC Elements", "Mould (Die)", "Bolts", "Welding", "Lathe"],
-    "Factory Utilities": ["E.B (Electricity Bill)", "Gas", "WiFi", "Rent"],
-    "Operations & Maintenance": ["Oil", "Gloves", "Fuel"],
+    "Material & Spares": ["Material", "Bearings", "PLC Elements", "Mould (Die)", "Bolts", "Welding", "Lathe"],
+    "Utilities & Rent": ["E.B (Electricity Bill)", "Gas", "WiFi", "Rent"],
+    "Daily Tracking Improvements": ["Diesel", "Maintenance", "Labour", "Transport", "Office Expense", "Miscellaneous"],
     "Staff & Workers": ["Worker Advance", "Staff Advance", "Worker Wages", "Staff Salary"],
     "Office / Misc": ["Food", "Rice", "Tea", "Video Editing", "S.V Expense", "Other Expense"]
   };
@@ -103,6 +104,7 @@ const CashBookPage = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       setAmount("");
       setDescription("");
+      setVendorName("");
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save entry", {
@@ -123,6 +125,7 @@ const CashBookPage = () => {
       amount: parseFloat(amount),
       description: description.trim() || category,
       category: category,
+      vendorName: type === "OUT" ? vendorName.trim() : null,
       paymentMode: paymentMode,
     };
 
@@ -412,6 +415,17 @@ const CashBookPage = () => {
             </FormField>
           ) : null}
 
+          {type === "OUT" && (
+            <FormField label="Vendor Name">
+              <input
+                value={vendorName}
+                onChange={(e) => setVendorName(e.target.value)}
+                placeholder="Enter vendor name..."
+                className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+              />
+            </FormField>
+          )}
+
           <FormField label="Amount (₹)" required>
             <BigNumberInput value={amount} onChange={setAmount} />
           </FormField>
@@ -472,7 +486,7 @@ const CashBookPage = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <input
               type="text"
-              placeholder="Search by Client, Phone, Location or Notes..."
+              placeholder="Search expense by category, vendor, amount or date"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-12 pl-11 pr-11 bg-secondary/30 border border-border rounded-2xl text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
@@ -555,6 +569,56 @@ const CashBookPage = () => {
           </div>
         )}
 
+        {/* Quick Date Filters */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {[
+            { label: "Today", value: "today" },
+            { label: "This Week", value: "week" },
+            { label: "This Month", value: "month" },
+            { label: "This Year", value: "year" },
+          ].map((btn) => (
+            <button
+              key={btn.value}
+              onClick={() => {
+                const now = new Date();
+                let start = new Date();
+                let end = new Date();
+
+                if (btn.value === "today") {
+                  start = now;
+                  end = now;
+                } else if (btn.value === "week") {
+                  const day = now.getDay();
+                  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+                  start = new Date(now.setDate(diff));
+                  end = new Date();
+                } else if (btn.value === "month") {
+                  start = new Date(now.getFullYear(), now.getMonth(), 1);
+                  end = new Date();
+                } else if (btn.value === "year") {
+                  start = new Date(now.getFullYear(), 0, 1);
+                  end = new Date();
+                }
+
+                setFilterStartDate(format(start, 'yyyy-MM-dd'));
+                setFilterEndDate(format(end, 'yyyy-MM-dd'));
+              }}
+              className="h-9 px-4 bg-secondary/50 border border-border rounded-xl text-xs font-bold hover:bg-primary hover:text-primary-foreground transition-all active:scale-[0.98]"
+            >
+              {btn.label}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              setFilterStartDate("");
+              setFilterEndDate("");
+            }}
+            className="h-9 px-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-bold hover:bg-destructive hover:text-white transition-all active:scale-[0.98]"
+          >
+            Clear Dates
+          </button>
+        </div>
+
         {/* Filters */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 bg-secondary/10 p-4 rounded-2xl border border-border/50">
           <div className="space-y-1">
@@ -622,19 +686,24 @@ const CashBookPage = () => {
                       <ArrowUpCircle className="h-5 w-5 text-destructive" />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-bold text-sm text-foreground truncate">{e.category}</p>
-                      <span className={`text-sm font-black ${e.type === "CREDIT" ? "text-success" : "text-destructive"}`}>
-                        {e.type === "CREDIT" ? "+" : "-"}₹{e.amount.toLocaleString()}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col">
+                          <p className="font-bold text-sm text-foreground truncate">{e.category}</p>
+                          {e.vendorName && (
+                            <p className="text-[10px] font-bold text-primary/80 uppercase">🏭 {e.vendorName}</p>
+                          )}
+                        </div>
+                        <span className={`text-sm font-black ${e.type === "CREDIT" ? "text-success" : "text-destructive"}`}>
+                          {e.type === "CREDIT" ? "+" : "-"}₹{e.amount.toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <span className="font-medium">{getRelativeDate(e.date)}</span>
+                        <span>•</span>
+                        <span className="font-semibold text-primary/80">{e.paymentMode}</span>
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <span className="font-medium">{getRelativeDate(e.date)}</span>
-                      <span>•</span>
-                      <span className="font-semibold text-primary/80">{e.paymentMode}</span>
-                    </p>
-                  </div>
                 </div>
 
                 {(e.customer || e.worker || e.description) && (

@@ -12,6 +12,7 @@ export class CashbookService {
         description: data.description,
         category: data.category,
         paymentMode: data.paymentMode || 'CASH',
+        vendorName: data.vendorName || null,
         customerId: data.customerId || null,
         workerId: data.workerId || null,
         materialId: data.materialId || null,
@@ -74,7 +75,8 @@ export class CashbookService {
       const searchLower = search.toLowerCase();
       where.OR = [
         { description: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+        { vendorName: { contains: search, mode: 'insensitive' } },
         {
           customer: {
             OR: [
@@ -85,6 +87,12 @@ export class CashbookService {
           },
         },
       ];
+
+      // Try searching by amount if the search query is a number
+      const searchAmount = parseFloat(search);
+      if (!isNaN(searchAmount)) {
+        where.OR.push({ amount: { equals: searchAmount } });
+      }
     }
 
     const entries = await (prisma.cashEntry as any).findMany({

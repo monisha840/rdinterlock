@@ -205,6 +205,7 @@ export interface CreateCashEntryRequest {
   amount: number;
   description: string;
   category: string;
+  vendorName?: string | null;
   paymentMode?: 'CASH' | 'UPI' | 'BANK' | 'CHEQUE' | 'BANK_TRANSFER';
   customerId?: string;
   workerId?: string;
@@ -219,6 +220,7 @@ export interface CashEntry {
   amount: number;
   description: string;
   category: string;
+  vendorName?: string | null;
   paymentMode?: string;
   customerId?: string;
   workerId?: string;
