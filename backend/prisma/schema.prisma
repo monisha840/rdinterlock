@@ -409,6 +409,7 @@ model TransportEntry {
   rentPerLoad       Float            @default(0) // Specific for Vendor vehicle
   incomeAmount      Float            @default(0) // Auto-calculated: loads * rentPerLoad
   notes             String?
+  material          String?
   dispatchId        String?          // Linked to specific dispatch if auto-generated
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
