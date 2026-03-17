@@ -80,9 +80,9 @@ export class WageService {
 
         // Apply rules-based rate or worker rate
         let activeRate = worker.rate;
-        if (masonActive && worker.role === 'MASON') {
+        if (masonActive && worker.role.toUpperCase() === 'MASON') {
           activeRate = masonRate;
-        } else if (productionActive && worker.role === 'PRODUCTION_WORKER') {
+        } else if (productionActive && worker.role.toUpperCase() === 'PRODUCTION_WORKER') {
           // For production workers, we need to distinguish shift if possible
           // But since we sum up all bricks, we check each production entry
           wageAmount = worker.productionWorkers.reduce((sum: number, pw: any) => {
@@ -430,7 +430,7 @@ export class WageService {
 
         // Calculate gross wage based on role/type
         let grossWage = 0;
-        if (worker.role === 'MASON') {
+        if (worker.role.toUpperCase() === 'MASON') {
           grossWage = totalBricks * masonRate;
         } else {
           // Production worker - day rate + night premium

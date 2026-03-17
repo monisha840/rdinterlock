@@ -1,0 +1,50 @@
+[
+  {
+    "id": "140bb1d2-e87b-4fda-9918-23637242055d",
+    "date": "2026-03-17T00:00:00.000Z",
+    "type": "DEBIT",
+    "amount": 1000,
+    "description": "Labour Advance given to ffba83c7-1ea2-4aad-b084-e8fe7bbd5f5e",
+    "category": "GENERAL",
+    "paymentMode": "CASH",
+    "vendorName": null,
+    "customerId": null,
+    "workerId": "ffba83c7-1ea2-4aad-b084-e8fe7bbd5f5e",
+    "materialId": null,
+    "isRecordOnly": false,
+    "createdAt": "2026-03-17T10:51:09.318Z",
+    "updatedAt": "2026-03-17T10:51:09.318Z"
+  },
+  {
+    "id": "062dfd1e-dee2-4fe2-a95c-0146865bcc25",
+    "date": "2026-03-17T00:00:00.000Z",
+    "type": "DEBIT",
+    "amount": -1054,
+    "description": "Labour Payment (BONUS) to ffba83c7-1ea2-4aad-b084-e8fe7bbd5f5e [Bonus: ₹200, Adv Adj: -₹501]",
+    "category": "Worker Wages",
+    "paymentMode": "CASH",
+    "vendorName": null,
+    "customerId": null,
+    "workerId": "ffba83c7-1ea2-4aad-b084-e8fe7bbd5f5e",
+    "materialId": null,
+    "isRecordOnly": false,
+    "createdAt": "2026-03-17T10:54:38.254Z",
+    "updatedAt": "2026-03-17T10:54:38.254Z"
+  },
+  {
+    "id": "5cda88ae-4dff-476f-951b-66e825b51404",
+    "date": "2026-03-17T00:00:00.000Z",
+    "type": "DEBIT",
+    "amount": 1000,
+    "description": "Worker Advance",
+    "category": "Worker Advance",
+    "paymentMode": "CASH",
+    "vendorName": null,
+    "customerId": null,
+    "workerId": "542d91c9-268d-4cbf-ab21-ded4c73bc614",
+    "materialId": null,
+    "isRecordOnly": false,
+    "createdAt": "2026-03-17T11:44:07.777Z",
+    "updatedAt": "2026-03-17T11:44:07.777Z"
+  }
+]

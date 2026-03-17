@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { dispatchApi } from "@/api/dispatch.api";
 import { clientsApi } from "@/api/clients.api";
-import { Search, Truck, Calendar, User, MapPin, CheckCircle2, IndianRupee, Loader2, X, CreditCard } from "lucide-react";
+import { Search, Truck, Calendar, User, MapPin, CheckCircle2, IndianRupee, Loader2, X, CreditCard, ChevronDown, ChevronRight } from "lucide-react";
 
 /**
  * Client History Page
@@ -16,6 +16,7 @@ const ClientHistoryPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedClient, setSelectedClient] = useState<any>(null);
     const [statusFilter, setStatusFilter] = useState("ALL");
+    const [expandedClientIds, setExpandedClientIds] = useState<Set<string>>(new Set());
 
     // ─── Queries ───────────────────────────────────────────────────────────────
 
@@ -217,9 +218,54 @@ const ClientHistoryPage = () => {
             }
         });
 
-        // Sort by date descending
-        return dispatches.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // Group by Client ID
+        const groupedMap = new Map<string, any>();
+        dispatches.forEach(d => {
+            const clientId = d.raw.clientId || d.raw.customerId || d.id;
+            if (!groupedMap.has(clientId)) {
+                groupedMap.set(clientId, {
+                    clientId,
+                    clientName: d.clientName,
+                    location: d.location,
+                    records: [],
+                });
+            }
+            groupedMap.get(clientId).records.push(d);
+        });
+
+        const groupedDispatches = Array.from(groupedMap.values()).map(group => {
+            // Sort records within group by date descending
+            group.records.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            const latest = group.records[0];
+            const totalQty = group.records.reduce((sum: number, r: any) => sum + (typeof r.quantity === 'number' ? r.quantity : 0), 0);
+            
+            // Determine representative status
+            let repStatus = latest.status;
+            if (group.records.some((r: any) => r.status === 'Fully Paid')) repStatus = 'Fully Paid';
+            else if (group.records.some((r: any) => r.status === 'DISPATCHED')) repStatus = 'DISPATCHED';
+
+            return {
+                ...group,
+                latestDate: latest.date,
+                latestBrickSize: latest.brickSize,
+                latestDriver: latest.driver,
+                totalQty,
+                status: repStatus,
+            };
+        });
+
+        // Sort groups by latest date descending
+        return groupedDispatches.sort((a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime());
     }, [dispatchedSchedules, completedDispatches, allOrders, allClients, searchTerm, statusFilter]);
+
+    const toggleExpand = (clientId: string) => {
+        setExpandedClientIds(prev => {
+            const next = new Set(prev);
+            if (next.has(clientId)) next.delete(clientId); else next.add(clientId);
+            return next;
+        });
+    };
 
     return (
         <MobileFormLayout title="Client History" subtitle="Record of all completed and dispatched deliveries">
@@ -285,38 +331,104 @@ const ClientHistoryPage = () => {
                     <table className="w-full text-sm text-left min-w-[600px]">
                         <thead className="bg-secondary/50 text-xs text-muted-foreground border-b border-border uppercase tracking-wider">
                             <tr>
+                                <th className="py-3 px-4 font-semibold w-8"></th>
                                 <th className="py-3 px-4 font-semibold">Client Name</th>
-                                <th className="py-3 px-4 font-semibold">Brick Size</th>
-                                <th className="py-3 px-4 font-semibold">Quantity</th>
-                                <th className="py-3 px-4 font-semibold">Location</th>
-                                <th className="py-3 px-4 font-semibold">Dispatch Date</th>
-                                <th className="py-3 px-4 font-semibold">Driver</th>
-                                <th className="py-3 px-4 font-semibold">Final Status</th>
+                                <th className="py-3 px-4 font-semibold">Last Brick Size</th>
+                                <th className="py-3 px-4 font-semibold">Total Quantity</th>
+                                <th className="py-3 px-4 font-semibold">Base Location</th>
+                                <th className="py-3 px-4 font-semibold">Last Activity</th>
+                                <th className="py-3 px-4 font-semibold">Overall Status</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border/50">
-                            {historyDispatches.map((dispatch: any) => (
-                                <tr key={`${dispatch.source}-${dispatch.id}`} className="hover:bg-secondary/30 transition-colors">
-                                    <td className="py-3 px-4 font-medium text-foreground">{dispatch.clientName}</td>
-                                    <td className="py-3 px-4 text-muted-foreground">{dispatch.brickSize}</td>
-                                    <td className="py-3 px-4 text-muted-foreground">{dispatch.quantity === '—' ? '—' : (dispatch.quantity || 0).toLocaleString()}</td>
-                                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]" title={dispatch.location}>{dispatch.location}</td>
-                                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">{format(new Date(dispatch.date), 'dd MMM yyyy')}</td>
-                                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]" title={dispatch.driver}>{dispatch.driver}</td>
-                                    <td className="py-3 px-4">
-                                        <span className={`text-[10px] px-2 py-1 rounded-md font-semibold ${
-                                            dispatch.status === 'Fully Paid' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                                            dispatch.status === 'Completed' || dispatch.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                                            dispatch.status === 'DISPATCHED' ? 'bg-orange-100 text-orange-700' :
-                                            dispatch.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
-                                            'bg-gray-100 text-gray-700'
-                                        }`}>
-                                            {dispatch.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
+                        {historyDispatches.map((group: any) => {
+                            const isExpanded = expandedClientIds.has(group.clientId);
+                            return (
+                                <tbody key={group.clientId} className="border-b border-border last:border-0">
+                                    <tr 
+                                        onClick={() => toggleExpand(group.clientId)}
+                                        className="hover:bg-secondary/30 transition-colors cursor-pointer"
+                                    >
+                                        <td className="py-4 px-4">
+                                            <div className="flex items-center justify-center">
+                                                {isExpanded ? (
+                                                    <ChevronDown className="h-4 w-4 text-primary" />
+                                                ) : (
+                                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-4 font-bold text-foreground">
+                                            {group.clientName}
+                                            <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-secondary rounded-md text-muted-foreground">
+                                                {group.records.length} items
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-4 text-muted-foreground">{group.latestBrickSize}</td>
+                                        <td className="py-4 px-4 text-muted-foreground">
+                                            {group.totalQty > 0 ? group.totalQty.toLocaleString() : '—'}
+                                        </td>
+                                        <td className="py-4 px-4 text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]" title={group.location}>
+                                            {group.location}
+                                        </td>
+                                        <td className="py-4 px-4 text-muted-foreground whitespace-nowrap">
+                                            {format(new Date(group.latestDate), 'dd MMM yyyy')}
+                                        </td>
+                                        <td className="py-4 px-4">
+                                            <span className={`text-[10px] px-2 py-1 rounded-md font-semibold ${
+                                                group.status === 'Fully Paid' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                group.status === 'Completed' || group.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                                                group.status === 'DISPATCHED' ? 'bg-orange-100 text-orange-700' :
+                                                group.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-gray-100 text-gray-700'
+                                            }`}>
+                                                {group.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr>
+                                            <td colSpan={7} className="bg-secondary/10 px-6 py-4">
+                                                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-inner">
+                                                    <table className="w-full text-xs text-left">
+                                                        <thead className="bg-secondary/40 text-muted-foreground border-b border-border font-bold uppercase tracking-tighter">
+                                                            <tr>
+                                                                <th className="py-2 px-3">Date</th>
+                                                                <th className="py-2 px-3">Brick Size</th>
+                                                                <th className="py-2 px-3">Qty</th>
+                                                                <th className="py-2 px-3">Location</th>
+                                                                <th className="py-2 px-3">Driver</th>
+                                                                <th className="py-2 px-3">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-border/50">
+                                                            {group.records.map((r: any, idx: number) => (
+                                                                <tr key={idx} className="hover:bg-secondary/20 transition-colors">
+                                                                    <td className="py-2 px-3 whitespace-nowrap font-medium">{format(new Date(r.date), 'dd MMM yyyy')}</td>
+                                                                    <td className="py-2 px-3 text-muted-foreground">{r.brickSize}</td>
+                                                                    <td className="py-2 px-3 text-muted-foreground">{(r.quantity || 0).toLocaleString()}</td>
+                                                                    <td className="py-2 px-3 text-muted-foreground">{r.location}</td>
+                                                                    <td className="py-2 px-3 text-muted-foreground">{r.driver}</td>
+                                                                    <td className="py-2 px-3">
+                                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                                                                            r.status === 'Fully Paid' ? 'bg-emerald-100 text-emerald-700' :
+                                                                            r.status === 'COMPLETED' || r.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                                                            r.status === 'DISPATCHED' ? 'bg-orange-100 text-orange-700' :
+                                                                            'bg-secondary text-secondary-foreground'
+                                                                        }`}>
+                                                                            {r.status}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            );
+                        })}
                     </table>
                 </div>
             )}

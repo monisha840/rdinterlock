@@ -1,0 +1,39 @@
+Get-Content : Cannot 
+bind parameter 
+'Encoding'. Cannot 
+convert value "UTF16" 
+to type "Microsoft.Powe
+rShell.Commands.FileSys
+temCmdletProviderEncodi
+ng". Error: "Unable to 
+match the identifier 
+name UTF16 to a valid 
+enumerator name. 
+Specify one of the 
+following enumerator 
+names and try again:
+Unknown, String, 
+Unicode, Byte, 
+BigEndianUnicode, 
+UTF8, UTF7, UTF32, 
+Ascii, Default, Oem, 
+BigEndianUTF32"
+At line:1 char:51
++ Get-Content backend\t
+mp\cash_result.txt 
+-Encoding UTF16
++                      
+                       
+      ~~~~~
+    + CategoryInfo     
+         : InvalidArg  
+  ument: (:) [Get-Co   
+ ntent], ParameterB    
+indingException
+    + FullyQualifiedEr 
+   rorId : CannotConv  
+  ertArgumentNoMessa   
+ ge,Microsoft.Power    
+Shell.Commands.Get    
+ContentCommand
+ 

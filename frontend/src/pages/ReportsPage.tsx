@@ -23,6 +23,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settlementsApi } from "@/api/settlements.api";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import apiClient from "@/api/apiClient";
+import { workersApi } from "@/api/workers.api";
+import { reportsApi } from "@/api/reports.api";
+import { User, Receipt, CreditCard } from "lucide-react";
 
 // ─── Worker report type ───────────────────────────────────────────────────────
 interface WorkerWageRecord {
@@ -40,7 +43,7 @@ interface WorkerWageRecord {
   advanceDetails?: { id: string; amount: number; date: string; paymentMode: string }[];
 }
 
-const TABS = ["Operations", "Staff Salaries", "Worker Wages"];
+const TABS = ["Operations", "Staff Salaries", "Worker Wages", "Logs"];
 
 const ReportsPage = () => {
   const queryClient = useQueryClient();
@@ -407,6 +410,9 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* ══════════════════════ LOGS TAB ══════════════════════ */}
+      {activeTab === "Logs" && <LogsTabContent />}
+
       {/* Export buttons */}
       <div className="grid grid-cols-2 gap-3 mt-2">
         <ActionButton
@@ -427,6 +433,225 @@ const ReportsPage = () => {
         />
       </div>
     </MobileFormLayout>
+  );
+};
+
+const LogsTabContent = () => {
+  const [personId, setPersonId] = useState<string>("");
+  const [logType, setLogType] = useState("All");
+  const [quickDate, setQuickDate] = useState("30 Days");
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date }>({
+    from: new Date(new Date().setDate(new Date().getDate() - 30)),
+    to: new Date()
+  });
+
+  const { data: people } = useQuery({
+    queryKey: ["all-workers-for-logs"],
+    queryFn: () => workersApi.getAll(false),
+    enabled: true,
+  });
+
+  const { data: logsData, isLoading } = useQuery({
+    queryKey: ["person-logs", personId, quickDate, customRange],
+    queryFn: async () => {
+      let from = customRange.from;
+      let to = customRange.to;
+      const today = new Date();
+      
+      if (quickDate === "Today") { 
+        from = today; 
+        to = today; 
+      } else if (quickDate === "7 Days") { 
+        from = new Date(today.getTime() - 7 * 86400000); 
+        to = today; 
+      } else if (quickDate === "30 Days") { 
+        from = new Date(today.getTime() - 30 * 86400000); 
+        to = today; 
+      }
+      
+      return reportsApi.getPersonLogs(personId, format(from, "yyyy-MM-dd"), format(to, "yyyy-MM-dd"));
+    },
+    enabled: !!personId,
+  });
+
+  const filteredLogs = logsData?.logs?.filter((l: any) => {
+    if (logType === "All") return true;
+    if (logType === "Payments") return l.type === "payment";
+    if (logType === "Expenses") return l.type === "expense";
+    return l.type === logType.toLowerCase().replace(/s$/, "");
+  }) || [];
+
+  // Group by date
+  const groupedLogs = filteredLogs.reduce((acc: any, log: any) => {
+    const dateStr = format(new Date(log.date), "dd MMM yyyy");
+    if (!acc[dateStr]) acc[dateStr] = [];
+    acc[dateStr].push(log);
+    return acc;
+  }, {});
+
+  const typeIcons: any = {
+    attendance: Calendar,
+    payment: CreditCard,
+    transport: Truck,
+    sales: TrendingUp,
+    expense: Receipt
+  };
+
+  const typeColors: any = {
+    attendance: "text-blue-500 bg-blue-50",
+    payment: "text-green-500 bg-green-50",
+    transport: "text-amber-500 bg-amber-50",
+    sales: "text-purple-500 bg-purple-50",
+    expense: "text-red-500 bg-red-50"
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Dropdown & Filters */}
+      <EntryCard title="Activity Timeline">
+        <div className="space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Select Staff or Worker</label>
+            <div className="relative">
+              <select 
+                value={personId} 
+                onChange={(e) => setPersonId(e.target.value)}
+                className="w-full h-12 bg-secondary/50 border-none rounded-xl px-4 pr-10 text-sm font-semibold focus:ring-2 ring-primary/20 appearance-none text-foreground"
+              >
+                <option value="">Choose a person...</option>
+                {people?.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                <User className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {["All", "Attendance", "Payments", "Transport", "Sales", "Expenses"].map(t => (
+              <button
+                key={t}
+                onClick={() => setLogType(t)}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all active:scale-95 ${logType === t 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  : "bg-secondary/70 text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex bg-secondary/30 p-1 rounded-xl gap-1">
+            {["Today", "7 Days", "30 Days", "Custom"].map(f => (
+              <button
+                key={f}
+                onClick={() => setQuickDate(f)}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${quickDate === f 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          
+          {quickDate === "Custom" && (
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <DatePickerField date={customRange.from} onDateChange={(d) => setCustomRange(prev => ({ ...prev, from: d }))} label="From" />
+              <DatePickerField date={customRange.to} onDateChange={(d) => setCustomRange(prev => ({ ...prev, to: d }))} label="To" />
+            </div>
+          )}
+        </div>
+      </EntryCard>
+
+      {!personId ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 card-modern text-muted-foreground italic bg-secondary/5 border-dashed border-2">
+          <div className="h-16 w-16 rounded-full bg-secondary/50 flex items-center justify-center mb-2">
+            <User className="h-8 w-8 opacity-20" />
+          </div>
+          <p className="text-sm font-medium">Select a person to view their activity</p>
+          <p className="text-[10px] opacity-60">Full timeline of work, payments and sales</p>
+        </div>
+      ) : isLoading ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 card-modern">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Gathering activity records...</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="card-modern p-4 bg-gradient-to-br from-green-50 to-background border-green-100">
+              <p className="text-[10px] font-black text-green-600 uppercase mb-1">Total Earned</p>
+              <p className="text-xl font-black text-foreground">₹{logsData?.summary?.totalEarned?.toLocaleString() || 0}</p>
+            </div>
+            <div className="card-modern p-4 bg-gradient-to-br from-blue-50 to-background border-blue-100">
+              <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Total Paid</p>
+              <p className="text-xl font-black text-foreground">₹{logsData?.summary?.totalPaid?.toLocaleString() || 0}</p>
+            </div>
+            <div className="card-modern p-4 bg-gradient-to-br from-amber-50 to-background border-amber-100">
+              <p className="text-[10px] font-black text-amber-600 uppercase mb-1">Pending Balance</p>
+              <p className="text-xl font-black text-foreground">₹{logsData?.summary?.pendingAmount?.toLocaleString() || 0}</p>
+            </div>
+            <div className="card-modern p-4 bg-gradient-to-br from-purple-50 to-background border-purple-100">
+              <p className="text-[10px] font-black text-purple-600 uppercase mb-1">Total Loads</p>
+              <p className="text-xl font-black text-foreground">{logsData?.summary?.totalLoads || 0}</p>
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div className="relative pl-6 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-primary before:to-primary/10">
+            {Object.keys(groupedLogs).length > 0 ? (
+              Object.entries(groupedLogs).map(([date, items]: [string, any]) => (
+                <div key={date} className="relative">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-[22px] w-[22px] rounded-full bg-background border-[3px] border-primary z-10 -ml-[23px] shadow-sm" />
+                    <h4 className="text-[11px] font-black uppercase text-primary tracking-wider">{date}</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {items.map((log: any) => {
+                      const Icon = typeIcons[log.type] || FileText;
+                      const isFinancial = log.type === 'payment' || log.type === 'expense';
+                      return (
+                        <div key={log.id} className="card-modern p-4 flex gap-4 items-center active:scale-[0.98] transition-all border-l-4 border-l-transparent hover:border-l-primary/30">
+                          <div className={`h-12 w-12 min-w-[48px] rounded-2xl flex items-center justify-center shadow-sm ${typeColors[log.type]}`}>
+                            <Icon className="h-6 w-6" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <p className="text-sm font-bold text-foreground leading-tight mb-0.5">{log.title}</p>
+                              {log.amount !== null && (
+                                <p className={`text-sm font-black whitespace-nowrap ml-2 ${isFinancial ? 'text-destructive' : 'text-primary'}`}>
+                                  {isFinancial ? '-' : '+'}₹{log.amount.toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 mt-1 uppercase tracking-tight">
+                              <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                              {log.reference}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 card-modern text-muted-foreground italic ml-2 border-dashed">
+                <AlertCircle className="h-8 w-8 opacity-20" />
+                <p className="text-sm font-semibold">No activity records found</p>
+                <p className="text-[10px]">Try changing the filters or date range</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

@@ -34,4 +34,9 @@ export const workersApi = {
     });
     return response.data;
   },
+
+  getLedger: async (id: string): Promise<any[]> => {
+    const response = await apiClient.get<any, ApiResponse<any[]>>(`/workers/${id}/ledger`);
+    return response.data;
+  },
 };

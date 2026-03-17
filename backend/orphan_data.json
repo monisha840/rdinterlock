@@ -1,0 +1,46 @@
+{
+  "advances": [
+    {
+      "id": "372687f6-6f3f-40ef-a0da-a34566b2041c",
+      "workerId": "ffba83c7-1ea2-4aad-b084-e8fe7bbd5f5e",
+      "amount": 501,
+      "type": "ADJUSTED",
+      "date": "2026-03-17T00:00:00.000Z",
+      "paymentMode": "ADJUSTMENT",
+      "note": "Adjustment via Payment 0ce9098d-755f-4b85-8aaf-84b2194b21c1"
+    },
+    {
+      "id": "9779a113-0693-4603-a960-a2c6119b8235",
+      "workerId": "542d91c9-268d-4cbf-ab21-ded4c73bc614",
+      "amount": 1000,
+      "type": "GIVEN",
+      "date": "2026-03-17T00:00:00.000Z",
+      "paymentMode": "CASH",
+      "note": "Worker Advance (CashBook: 5cda88ae-4dff-476f-951b-66e825b51404)"
+    }
+  ],
+  "wages": [
+    {
+      "id": "d9c31fb5-7f84-43d0-b8cf-3031e4274c3a",
+      "workerId": "542d91c9-268d-4cbf-ab21-ded4c73bc614",
+      "date": "2026-03-17T18:29:59.999Z",
+      "bricksMade": 666,
+      "wageAmount": 999,
+      "advanceUsed": 0,
+      "netPayable": 999,
+      "isPaid": false,
+      "createdAt": "2026-03-17T11:31:56.120Z"
+    },
+    {
+      "id": "16d2e61c-df4d-490b-b9ef-8fde570ca2a9",
+      "workerId": "542d91c9-268d-4cbf-ab21-ded4c73bc614",
+      "date": "2026-03-17T18:29:59.999Z",
+      "bricksMade": 666,
+      "wageAmount": 999,
+      "advanceUsed": 999,
+      "netPayable": 0,
+      "isPaid": false,
+      "createdAt": "2026-03-17T12:39:15.859Z"
+    }
+  ]
+}

@@ -52,4 +52,10 @@ export class WorkersController {
 
     sendSuccess(res, stats, 'Worker stats retrieved successfully');
   });
+
+  getWorkerLedger = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const ledger = await workersService.getWorkerLedger(id);
+    sendSuccess(res, ledger, 'Worker ledger retrieved successfully');
+  });
 }

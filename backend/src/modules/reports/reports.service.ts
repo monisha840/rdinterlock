@@ -376,4 +376,142 @@ export class ReportsService {
 
     return workerStats;
   }
+
+  /**
+   * Person-wise unified logs
+   */
+  async getPersonLogs(personId: string, startDate?: string, endDate?: string) {
+    const dateFilter: any = {
+      ...(startDate && { gte: new Date(startDate) }),
+      ...(endDate && { lte: new Date(endDate) }),
+    };
+
+    const [
+      attendance,
+      advances,
+      settlements,
+      cashEntries,
+      transportEntries,
+      salesOrders,
+      dispatches
+    ] = await Promise.all([
+      prisma.attendance.findMany({
+        where: { workerId: personId, date: dateFilter },
+        orderBy: { date: 'desc' }
+      }),
+      prisma.workerAdvance.findMany({
+        where: { workerId: personId, date: dateFilter },
+        orderBy: { date: 'desc' }
+      }),
+      prisma.monthlySettlement.findMany({
+        where: { workerId: personId, createdAt: dateFilter },
+        orderBy: { createdAt: 'desc' }
+      }),
+      (prisma.cashEntry as any).findMany({
+        where: { workerId: personId, date: dateFilter },
+        orderBy: { date: 'desc' }
+      }),
+      prisma.transportEntry.findMany({
+        where: { driverId: personId, date: dateFilter },
+        orderBy: { date: 'desc' },
+        include: { vehicle: true }
+      }),
+      prisma.clientOrder.findMany({
+        where: { handledById: personId, orderDate: dateFilter },
+        orderBy: { orderDate: 'desc' },
+        include: { client: true }
+      }),
+      prisma.dispatch.findMany({
+        where: { handledById: personId, date: dateFilter },
+        orderBy: { date: 'desc' },
+        include: { customer: true }
+      })
+    ]);
+
+    // Normalize logs
+    const logs: any[] = [
+      ...attendance.map(a => ({
+        id: a.id,
+        date: a.date,
+        type: 'attendance',
+        title: a.present ? 'Present for work' : 'Absent',
+        amount: null,
+        reference: 'Attendance'
+      })),
+      ...advances.map(a => ({
+        id: a.id,
+        date: a.date,
+        type: 'payment',
+        title: `${a.type} Paid`,
+        amount: a.amount,
+        reference: a.paymentMode
+      })),
+      ...settlements.map(s => ({
+        id: s.id,
+        date: s.paidAt || s.createdAt,
+        type: 'payment',
+        title: 'Monthly Salary Settlement',
+        amount: s.netPaid,
+        reference: 'Settlement'
+      })),
+      ...cashEntries.map(c => ({
+        id: c.id,
+        date: c.date,
+        type: 'expense',
+        title: c.description,
+        amount: c.amount,
+        reference: c.category
+      })),
+      ...transportEntries.map(t => ({
+        id: t.id,
+        date: t.date,
+        type: 'transport',
+        title: `Completed ${t.loads} loads`,
+        amount: t.transactionType === 'INCOME' ? t.incomeAmount : t.expenseAmount,
+        reference: t.vehicle.vehicleNumber
+      })),
+      ...salesOrders.map(o => ({
+        id: o.id,
+        date: o.orderDate,
+        type: 'sales',
+        title: `Handled order for ${o.client.name}`,
+        amount: o.totalAmount,
+        reference: 'Sales'
+      })),
+      ...dispatches.map(d => ({
+        id: d.id,
+        date: d.date,
+        type: 'sales',
+        title: `Handled dispatch for ${d.customer.name}`,
+        amount: d.totalAmount,
+        reference: 'Dispatch'
+      }))
+    ];
+
+    // Sort by date DESC
+    logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Summary Stats
+    const totalEarned = logs
+      .filter(l => l.type === 'sales' || (l.type === 'transport' && l.amount > 0))
+      .reduce((sum, l) => sum + (l.amount || 0), 0);
+    
+    const totalPaid = logs
+      .filter(l => l.type === 'payment' || l.type === 'expense')
+      .reduce((sum, l) => sum + (l.amount || 0), 0);
+
+    const totalLoads = transportEntries.reduce((sum, t) => sum + t.loads, 0);
+
+    const worker = await prisma.worker.findUnique({ where: { id: personId } });
+
+    return {
+      logs,
+      summary: {
+        totalEarned,
+        totalPaid,
+        pendingAmount: (worker?.advanceBalance || 0),
+        totalLoads
+      }
+    };
+  }
 }

@@ -12,5 +12,6 @@ router.get('/production', reportsController.getProductionReport);
 router.get('/dispatch', reportsController.getDispatchReport);
 router.get('/financial', reportsController.getFinancialReport);
 router.get('/workers', reportsController.getWorkerReport);
+router.get('/logs/:id', reportsController.getPersonLogs);
 
 export default router;

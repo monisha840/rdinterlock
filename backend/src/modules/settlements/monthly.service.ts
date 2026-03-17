@@ -19,11 +19,14 @@ export class MonthlySettlementService {
       where: {
         isActive: true,
         paymentType: 'MONTHLY',
-        role: {
-          in: ['MANAGER', 'DRIVER', 'TELECALLER'],
-        },
       },
     });
+
+    // Filter by role case-insensitively
+    const staffRoles = ['MANAGER', 'DRIVER', 'TELECALLER'];
+    const filteredWorkers = workers.filter(w => 
+      staffRoles.includes(w.role.toUpperCase())
+    );
 
     const salaries = [];
 
@@ -31,7 +34,7 @@ export class MonthlySettlementService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-    for (const worker of workers) {
+    for (const worker of filteredWorkers) {
       // Get attendance records for this month
       const attendanceRecords = await prisma.attendance.findMany({
         where: {
@@ -49,7 +52,7 @@ export class MonthlySettlementService {
       // Salary = (Present days * daily rate)
       // Apply global driver rate if active and role matches
       let activeRate = worker.rate;
-      if (driverActive && worker.role === 'DRIVER') {
+      if (driverActive && worker.role.toUpperCase() === 'DRIVER') {
         activeRate = driverRate;
       }
 

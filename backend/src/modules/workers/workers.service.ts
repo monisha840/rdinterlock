@@ -190,4 +190,116 @@ export class WorkersService {
       productions: productions.slice(0, 20),
     };
   }
+
+  async getWorkerLedger(workerId: string) {
+    const worker = await prisma.worker.findUnique({ where: { id: workerId } });
+    if (!worker) throw new AppError('Worker not found', 404);
+
+    // 1. Fetch all relevant activities
+    const [productions, attendance, advances, dailyWages, cashEntries] = await Promise.all([
+      prisma.productionWorker.findMany({
+        where: { workerId },
+        include: { production: { include: { brickType: true } } },
+      }),
+      prisma.attendance.findMany({
+        where: { workerId },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.workerAdvance.findMany({
+        where: { workerId },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.dailyWage.findMany({
+        where: { workerId },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.cashEntry.findMany({
+        where: { workerId },
+        orderBy: { date: 'desc' },
+      })
+    ]);
+
+    // 2. Map everything to a unified ledger format
+    const ledger: any[] = [];
+
+    // Production Records (Work Done)
+    productions.forEach(p => {
+      ledger.push({
+        id: `prod-${p.id}`,
+        idRaw: p.id,
+        date: p.production.date,
+        type: 'WORK',
+        category: 'Production',
+        description: `Production: ${p.quantity} pcs (${p.production.brickType.size}) - ${p.production.shift} shift`,
+        amount: 0, // No monetary value for production row itself in ledger usually, or calculate piece rate
+        quantity: p.quantity,
+        reference: 'production',
+      });
+    });
+
+    // Attendance
+    attendance.forEach(a => {
+      ledger.push({
+        id: `att-${a.id}`,
+        idRaw: a.id,
+        date: a.date,
+        type: 'ATTENDANCE',
+        category: 'Attendance',
+        description: a.present ? 'Present' : 'Absent',
+        amount: 0,
+        reference: 'attendance',
+      });
+    });
+
+    // Advances
+    advances.forEach(adv => {
+      ledger.push({
+        id: `adv-${adv.id}`,
+        idRaw: adv.id,
+        date: adv.date,
+        type: 'CREDIT', // Worker receives money
+        category: 'Advance',
+        description: `Advance: ${adv.note || 'No note'}`,
+        amount: adv.amount,
+        paymentMode: adv.paymentMode,
+        reference: 'advance',
+      });
+    });
+
+    // Daily Wages / Settlements
+    dailyWages.forEach(dw => {
+      ledger.push({
+        id: `wage-${dw.id}`,
+        idRaw: dw.id,
+        date: dw.date,
+        type: 'EARNING',
+        category: 'Wage Calculation',
+        description: `Wage Earned for ${dw.bricksMade || 0} bricks`,
+        amount: dw.wageAmount,
+        netPayable: dw.netPayable,
+        isPaid: dw.isPaid,
+        reference: 'dailyWage',
+      });
+    });
+
+    // Cash Book Entries (Payments/Ad Hoc)
+    cashEntries.forEach(ce => {
+      // Avoid duplicating advances/wages if they are already recorded in cash book
+      // Usually these are the actual payouts
+      ledger.push({
+        id: `cash-${ce.id}`,
+        idRaw: ce.id,
+        date: ce.date,
+        type: ce.type === 'CREDIT' ? 'DEBIT' : 'CREDIT', // Inverse for worker ledger: Company Credit = Worker Debit
+        category: ce.category,
+        description: ce.description,
+        amount: ce.amount,
+        paymentMode: ce.paymentMode,
+        reference: 'cashEntry',
+      });
+    });
+
+    // 3. Sort by date descending
+    return ledger.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
 }

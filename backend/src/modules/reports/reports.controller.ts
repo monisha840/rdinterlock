@@ -73,4 +73,16 @@ export class ReportsController {
     const report = await reportsService.getWorkerReport(startDate as string, endDate as string);
     sendSuccess(res, report, 'Worker report retrieved successfully');
   });
+
+  getPersonLogs = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const result = await reportsService.getPersonLogs(
+      id,
+      startDate as string,
+      endDate as string
+    );
+    sendSuccess(res, result, 'Person logs retrieved successfully');
+  });
 }

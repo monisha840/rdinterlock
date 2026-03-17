@@ -72,6 +72,9 @@ model Worker {
   cashEntries        CashEntry[]
   dispatches         Dispatch[]          @relation("DriverDispatches")
   clientOrders       ClientOrder[]       @relation("OrderDriver")
+  handledOrders      ClientOrder[]       @relation("OrderHandler")
+  handledDispatches  Dispatch[]          @relation("DispatchHandler")
+  transportEntries   TransportEntry[]    @relation("DriverTransport")
 
   @@map("workers")
 }
@@ -142,6 +145,8 @@ model ClientOrder {
   client               Customer        @relation(fields: [clientId], references: [id])
   driverId             String?
   driver               Worker?         @relation("OrderDriver", fields: [driverId], references: [id])
+  handledById          String?
+  handledBy            Worker?         @relation("OrderHandler", fields: [handledById], references: [id])
   payments             ClientPayment[]
   dispatches         Dispatch[]
   dispatchSchedules  DispatchSchedule[]
@@ -210,6 +215,8 @@ model Dispatch {
   brickType     BrickType @relation(fields: [brickTypeId], references: [id])
   customer      Customer  @relation(fields: [customerId], references: [id])
   driver        Worker?   @relation("DriverDispatches", fields: [driverId], references: [id])
+  handledById   String?
+  handledBy     Worker?   @relation("DispatchHandler", fields: [handledById], references: [id])
   orderId       String?
   order         ClientOrder? @relation(fields: [orderId], references: [id])
 
@@ -416,6 +423,8 @@ model TransportEntry {
   
   vehicle           TransportVehicle @relation(fields: [vehicleId], references: [id])
   vendor            TransportVendor? @relation(fields: [vendorId], references: [id])
+  driverId          String?
+  driver            Worker?          @relation("DriverTransport", fields: [driverId], references: [id])
 
   @@map("transport_entries")
 }

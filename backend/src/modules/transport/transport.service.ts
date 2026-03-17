@@ -75,6 +75,7 @@ export class TransportService {
       data: {
         ...entryData,
         date: new Date(entryData.date),
+        material: entryData.material || null,
       } as any,
       include: {
         vehicle: true,
@@ -83,16 +84,21 @@ export class TransportService {
     });
 
     // Optional Sync to Cash Book
-    if (syncToCashBook && entry.expenseAmount > 0) {
-      await (prisma as any).cashEntry.create({
-        data: {
-          date: entry.date,
-          type: 'DEBIT',
-          amount: entry.expenseAmount,
-          description: `Transport Expense: ${entry.vehicle.vehicleNumber} (TransportID: ${entry.id})`,
-          category: 'Transport',
-        }
-      });
+    if (syncToCashBook) {
+      const amount = entry.transactionType === 'EXPENSE' ? entry.expenseAmount : entry.incomeAmount;
+      const type = entry.transactionType === 'EXPENSE' ? 'DEBIT' : 'CREDIT';
+      
+      if (amount > 0) {
+        await (prisma as any).cashEntry.create({
+          data: {
+            date: entry.date,
+            type: type,
+            amount: amount,
+            description: `Transport ${entry.transactionType}: ${entry.vehicle.vehicleNumber} ${entry.material ? `(${entry.material})` : ''} (TransportID: ${entry.id})`,
+            category: 'Transport',
+          }
+        });
+      }
     }
 
     return entry;

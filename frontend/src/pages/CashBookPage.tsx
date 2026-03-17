@@ -7,11 +7,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Save, ArrowDownCircle, ArrowUpCircle, Wallet, Eye, Loader2, X, Check, ChevronsUpDown } from "lucide-react";
+import { Save, ArrowDownCircle, ArrowUpCircle, Wallet, Eye, Loader2, X, Check, ChevronsUpDown, User, Calendar, Briefcase } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cashApi } from "@/api/cash.api";
 import apiClient from "@/api/apiClient";
 import { format } from "date-fns";
+import { workersApi } from "@/api/workers.api";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -49,6 +50,7 @@ const CashBookPage = () => {
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("");
   const [filterCategory, setFilterCategory] = useState<string>("");
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importResults, setImportResults] = useState<any>(null);
@@ -79,6 +81,12 @@ const CashBookPage = () => {
       category: filterCategory || undefined,
       search: searchQuery || undefined
     }),
+  });
+
+  const { data: ledgerEntries = [], isLoading: isLedgerLoading } = useQuery({
+    queryKey: ['worker-ledger', selectedWorkerId],
+    queryFn: () => workersApi.getLedger(selectedWorkerId),
+    enabled: !!selectedWorkerId,
   });
 
   const { data: clients = [] } = useQuery({
@@ -659,6 +667,26 @@ const CashBookPage = () => {
             />
           </div>
           <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Person (Staff/Worker)</label>
+            <select
+              value={selectedWorkerId}
+              onChange={(e) => setSelectedWorkerId(e.target.value)}
+              className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none"
+            >
+              <option value="">All Transactions</option>
+              <optgroup label="Staff">
+                {staffList.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                ))}
+              </optgroup>
+              <optgroup label="Workers">
+                {workerList.map((w: any) => (
+                  <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+          <div className="space-y-1">
             <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">End Date</label>
             <input
               type="date"
@@ -670,22 +698,74 @@ const CashBookPage = () => {
         </div>
 
         <div className="space-y-2">
-          {isEntriesLoading ? (
+          {isEntriesLoading || isLedgerLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : entries.length > 0 ? (
-            entries.map((e: any, i: number) => (
-              <div key={e.id || i} className="flex flex-col gap-2 p-4 bg-secondary/30 rounded-2xl group border border-transparent hover:border-primary/20 transition-all">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${e.type === "CREDIT" ? "bg-success/10" : "bg-destructive/10"
-                    }`}>
-                    {e.type === "CREDIT" ? (
-                      <ArrowDownCircle className="h-5 w-5 text-success" />
-                    ) : (
-                      <ArrowUpCircle className="h-5 w-5 text-destructive" />
-                    )}
+          ) : (selectedWorkerId ? ledgerEntries : entries).length > 0 ? (
+            (selectedWorkerId ? ledgerEntries : entries).map((e: any, i: number) => {
+              if (selectedWorkerId) {
+                // Render Ledger Entry
+                const isPositive = e.type === 'EARNING' || e.type === 'WORK';
+                const isFinancial = e.type === 'CREDIT' || e.type === 'DEBIT';
+
+                return (
+                  <div key={e.id || i} className="flex flex-col gap-2 p-4 bg-secondary/30 rounded-2xl group border border-transparent hover:border-primary/20 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        e.type === 'WORK' ? "bg-primary/10" :
+                        e.type === 'ATTENDANCE' ? "bg-info/10" :
+                        isPositive ? "bg-success/10" : "bg-destructive/10"
+                      }`}>
+                        {e.type === 'WORK' ? <Briefcase className="h-5 w-5 text-primary" /> :
+                         e.type === 'ATTENDANCE' ? <Calendar className="h-5 w-5 text-info" /> :
+                         isPositive ? <ArrowDownCircle className="h-5 w-5 text-success" /> : <ArrowUpCircle className="h-5 w-5 text-destructive" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col">
+                            <p className="font-bold text-sm text-foreground truncate">{e.category}</p>
+                            <p className="text-[10px] font-bold text-primary/80 uppercase">{e.description}</p>
+                          </div>
+                          {e.amount > 0 && (
+                            <span className={`text-sm font-black ${isPositive ? "text-success" : "text-destructive"}`}>
+                              {isPositive ? "+" : "-"}₹{e.amount.toLocaleString()}
+                            </span>
+                          )}
+                          {e.quantity > 0 && (
+                            <span className="text-xs font-bold text-primary">
+                              {e.quantity} pcs
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <span className="font-medium">{getRelativeDate(e.date)}</span>
+                          {e.paymentMode && (
+                            <>
+                              <span>•</span>
+                              <span className="font-semibold text-primary/80">{e.paymentMode}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
                   </div>
+                );
+              }
+
+              // Render Standard Cash Entry
+              return (
+                <div key={e.id || i} className="flex flex-col gap-2 p-4 bg-secondary/30 rounded-2xl group border border-transparent hover:border-primary/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${e.type === "CREDIT" ? "bg-success/10" : "bg-destructive/10"
+                      }`}>
+                      {e.type === "CREDIT" ? (
+                        <ArrowDownCircle className="h-5 w-5 text-success" />
+                      ) : (
+                        <ArrowUpCircle className="h-5 w-5 text-destructive" />
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex flex-col">
@@ -704,37 +784,38 @@ const CashBookPage = () => {
                         <span className="font-semibold text-primary/80">{e.paymentMode}</span>
                       </p>
                     </div>
-                </div>
-
-                {(e.customer || e.worker || e.description) && (
-                  <div className="ml-13 border-t border-border/50 pt-2 flex flex-col gap-1">
-                    {(e.customer || e.worker) && (
-                      <p className="text-[11px] font-bold text-foreground/80 flex items-center gap-1">
-                        👤 {e.customer?.name || e.worker?.name}
-                      </p>
-                    )}
-                    {e.description && e.description !== e.category && (
-                      <p className="text-[11px] text-muted-foreground italic">
-                        📝 {e.description}
-                      </p>
-                    )}
                   </div>
-                )}
 
-                <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to delete this transaction?")) {
-                        deleteEntryMutation.mutate(e.id);
-                      }
-                    }}
-                    className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  {(e.customer || e.worker || e.description) && (
+                    <div className="ml-13 border-t border-border/50 pt-2 flex flex-col gap-1">
+                      {(e.customer || e.worker) && (
+                        <p className="text-[11px] font-bold text-foreground/80 flex items-center gap-1">
+                          👤 {e.customer?.name || e.worker?.name}
+                        </p>
+                      )}
+                      {e.description && e.description !== e.category && (
+                        <p className="text-[11px] text-muted-foreground italic">
+                          📝 {e.description}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => {
+                        if (confirm("Are you sure you want to delete this transaction?")) {
+                          deleteEntryMutation.mutate(e.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <p className="text-center py-12 text-muted-foreground italic text-sm">No transactions found match your filters.</p>
           )}

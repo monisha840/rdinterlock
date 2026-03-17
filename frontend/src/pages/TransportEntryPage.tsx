@@ -375,7 +375,7 @@ const TransportEntryPage = () => {
                   onCheckedChange={(v: any) => setSyncToCashBook(v)} 
                 />
                 <label htmlFor="sync" className="text-sm font-medium leading-none cursor-pointer">
-                  Automatically sync expense to Cash Book
+                  Automatically sync to Cash Book
                 </label>
               </div>
 

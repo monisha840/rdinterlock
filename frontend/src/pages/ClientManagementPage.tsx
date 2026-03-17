@@ -45,6 +45,7 @@ const emptyScheduleForm = (clientId = "") => ({
     driverId: "",
     location: "",
     status: "SCHEDULED",
+    orderId: "",
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -357,9 +358,55 @@ const ClientManagementPage = () => {
 
     const openAddSchedule = (clientId: string) => {
         setEditingSchedule(null);
-        setScheduleForm(emptyScheduleForm(clientId));
+        const client = (clients as any[]).find(c => c.id === clientId);
+        const clientOrders = (ordersByClient[clientId] || []).filter(o => 
+            ["PENDING", "IN_PRODUCTION", "READY"].includes(o.status)
+        );
+
+        const initialForm = emptyScheduleForm(clientId);
+        initialForm.location = client?.address || "";
+
+        // If only one open order exists, auto-fill it
+        if (clientOrders.length === 1) {
+            const order = clientOrders[0];
+            initialForm.orderId = order.id;
+            initialForm.brickTypeId = order.brickTypeId;
+            initialForm.quantity = String(order.quantity);
+            initialForm.dispatchDate = order.expectedDispatchDate 
+                ? new Date(order.expectedDispatchDate).toISOString().split("T")[0] 
+                : new Date().toISOString().split("T")[0];
+        }
+
+        setScheduleForm(initialForm);
         setShowScheduleModal(true);
         setExpandedIds(prev => new Set(prev).add(clientId));
+    };
+
+    const handleScheduleOrderSelect = (orderId: string) => {
+        if (!orderId) {
+            setScheduleForm({
+                ...scheduleForm,
+                orderId: "",
+                brickTypeId: "",
+                quantity: "",
+            });
+            return;
+        }
+
+        const clientOrders = ordersByClient[scheduleForm.clientId] || [];
+        const order = clientOrders.find(o => o.id === orderId);
+        
+        if (order) {
+            setScheduleForm({
+                ...scheduleForm,
+                orderId,
+                brickTypeId: order.brickTypeId,
+                quantity: String(order.quantity),
+                dispatchDate: order.expectedDispatchDate 
+                    ? new Date(order.expectedDispatchDate).toISOString().split("T")[0] 
+                    : new Date().toISOString().split("T")[0],
+            });
+        }
     };
 
     const openEditSchedule = (s: any) => {
@@ -372,6 +419,7 @@ const ClientManagementPage = () => {
             driverId: s.driverId || "",
             location: s.location || "",
             status: s.status || "SCHEDULED",
+            orderId: s.orderId || "",
         });
         setShowScheduleModal(true);
     };
@@ -388,6 +436,7 @@ const ClientManagementPage = () => {
             driverId: scheduleForm.driverId || undefined,
             location: scheduleForm.location || undefined,
             status: scheduleForm.status,
+            orderId: scheduleForm.orderId || undefined,
         };
         if (editingSchedule) updateScheduleMut.mutate({ id: editingSchedule.id, data: payload });
         else createScheduleMut.mutate(payload);
@@ -884,6 +933,44 @@ const ClientManagementPage = () => {
                             <h3 className="text-xs font-semibold text-foreground/70 pb-2 mb-2 border-b border-border">
                                 {editingSchedule ? "Update the status or edit details" : "Schedule a new dispatch for this client"}
                             </h3>
+
+                            {/* Order Selector */}
+                            {!editingSchedule && (
+                                <div className="mb-4">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-1">Link to Order (Auto-Fill)</p>
+                                    <select
+                                        value={scheduleForm.orderId}
+                                        onChange={(e) => handleScheduleOrderSelect(e.target.value)}
+                                        className="w-full h-10 px-3 bg-primary/5 border border-primary/20 rounded-xl text-sm font-medium outline-none"
+                                    >
+                                        <option value="">--- Select Order to Auto-Fill ---</option>
+                                        {(ordersByClient[scheduleForm.clientId] || [])
+                                            .filter(o => ["PENDING", "IN_PRODUCTION", "READY"].includes(o.status))
+                                            .map((o: any) => (
+                                                <option key={o.id} value={o.id}>
+                                                    {o.brickType?.size} | {o.quantity} pcs | {format(new Date(o.orderDate), 'dd/MM')}
+                                                </option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                            )}
+
+                            {scheduleForm.orderId && !editingSchedule && (
+                                <div className="mb-4 p-3 bg-secondary/30 border border-border rounded-xl">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Order Details</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded-md font-bold">
+                                            {(ordersByClient[scheduleForm.clientId] || []).find(o => o.id === scheduleForm.orderId)?.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs font-medium">
+                                        {(ordersByClient[scheduleForm.clientId] || []).find(o => o.id === scheduleForm.orderId)?.brickType?.size} 
+                                        {' • '} 
+                                        {(ordersByClient[scheduleForm.clientId] || []).find(o => o.id === scheduleForm.orderId)?.quantity} pcs
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Brick Type */}
                             <div>

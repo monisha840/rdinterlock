@@ -154,10 +154,14 @@ const DailyEntry = () => {
       notes,
       workers: workers
         .filter(w => w !== "")
-        .map((workerId, index) => ({
-          workerId,
-          quantity: Math.floor(availableQty / workers.filter(w => w !== "").length),
-        })),
+        .map((workerId, index, filteredArray) => {
+          const baseQty = Math.floor(availableQty / filteredArray.length);
+          const remainder = availableQty % filteredArray.length;
+          return {
+            workerId,
+            quantity: index === 0 ? baseQty + remainder : baseQty,
+          };
+        }),
     };
 
     createProductionMutation.mutate(payload);

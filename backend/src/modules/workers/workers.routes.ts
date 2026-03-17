@@ -13,5 +13,6 @@ router.get('/:id', workersController.getWorkerById);
 router.patch('/:id', workersController.updateWorker);
 router.delete('/:id', workersController.deleteWorker);
 router.get('/:id/stats', workersController.getWorkerStats);
+router.get('/:id/ledger', workersController.getWorkerLedger);
 
 export default router;
