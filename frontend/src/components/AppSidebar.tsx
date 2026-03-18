@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  RotateCcw,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,6 +45,7 @@ const clientLoungeItems = [
   { title: "Client Management", url: "/client-management", icon: UserCircle },
   { title: "Client Ledger", url: "/client-ledger", icon: CreditCard },
   { title: "Client History", url: "/client-history", icon: Truck },
+  { title: "Brick Returns", url: "/brick-returns", icon: RotateCcw },
 ];
 
 const navItemsAfter = [

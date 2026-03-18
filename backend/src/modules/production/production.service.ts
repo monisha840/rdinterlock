@@ -24,14 +24,6 @@ export class ProductionService {
 
     // If workers are provided, validate their quantities sum up correctly
     if (data.workers && data.workers.length > 0) {
-      // Optional: You can enforce that worker quantities match total quantity
-      // Uncomment if strict validation is needed:
-      // const totalWorkerQuantity = data.workers.reduce((sum: number, w: any) => sum + w.quantity, 0);
-      // if (totalWorkerQuantity !== data.quantity) {
-      //   throw new AppError('Worker quantities must sum up to total quantity', 400);
-      // }
-
-      // Validate all workers exist
       const workerIds = data.workers.map((w: any) => w.workerId);
       const workers = await prisma.worker.findMany({
         where: { id: { in: workerIds } },
@@ -48,6 +40,7 @@ export class ProductionService {
     }
 
     const availableBricks = data.quantity - damagedBricks;
+    const wastagePercentage = data.quantity > 0 ? parseFloat(((damagedBricks / data.quantity) * 100).toFixed(2)) : 0;
 
     const production = await prisma.production.create({
       data: {
@@ -79,6 +72,33 @@ export class ProductionService {
       },
     });
 
+    // Auto-calculate and log material consumption
+    let materialConsumption: any = null;
+    try {
+      const config = await prisma.materialConfig.findUnique({
+        where: { brickTypeId: data.brickTypeId },
+      });
+
+      if (config) {
+        const factor = data.quantity / 1000;
+        const cementUsed = parseFloat((factor * config.cementPer1000).toFixed(3));
+        const flyAshUsed = parseFloat((factor * config.flyAshPer1000).toFixed(3));
+        const powderUsed = parseFloat((factor * config.powderPer1000).toFixed(3));
+
+        await prisma.materialConsumptionLog.createMany({
+          data: [
+            { productionId: production.id, materialType: 'cement', quantityUsed: cementUsed, date: new Date(data.date) },
+            { productionId: production.id, materialType: 'flyash', quantityUsed: flyAshUsed, date: new Date(data.date) },
+            { productionId: production.id, materialType: 'powder', quantityUsed: powderUsed, date: new Date(data.date) },
+          ],
+        });
+
+        materialConsumption = { cementUsed, flyAshUsed, powderUsed };
+      }
+    } catch (error) {
+      console.error('Failed to auto-log material consumption:', error);
+    }
+
     // Automatically trigger wage calculation for this date
     try {
       const wageService = new (require('../wages/wage.service').WageService)();
@@ -86,11 +106,15 @@ export class ProductionService {
       await wageService.saveCalculatedWages(new Date(data.date), calculations);
     } catch (error) {
       console.error('Failed to auto-calculate wages:', error);
-      // Don't throw error here to avoid rolling back production entry
     }
 
-    return production;
+    return {
+      ...production,
+      wastagePercentage,
+      materialConsumption,
+    };
   }
+
 
   async getProductions(query: GetProductionQuery) {
     const page = parseInt(query.page || '1');

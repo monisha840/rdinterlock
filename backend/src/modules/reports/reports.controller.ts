@@ -85,4 +85,19 @@ export class ReportsController {
     );
     sendSuccess(res, result, 'Person logs retrieved successfully');
   });
+
+  getSummary = asyncHandler(async (req: Request, res: Response) => {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
+      return;
+    }
+
+    const report = await reportsService.getSummary(startDate as string, endDate as string);
+    sendSuccess(res, report, 'BI Summary report retrieved successfully');
+  });
 }

@@ -95,6 +95,7 @@ export interface CreateProductionRequest {
   shift: 'MORNING' | 'EVENING' | 'NIGHT';
   brickTypeId: string;
   quantity: number;
+  damagedBricks?: number;
   workers?: ProductionWorker[];
   notes?: string;
 }
@@ -106,6 +107,14 @@ export interface Production {
   shift: string;
   brickTypeId: string;
   quantity: number;
+  damagedBricks: number;
+  availableBricks: number;
+  wastagePercentage?: number;
+  materialConsumption?: {
+    cementUsed: number;
+    flyAshUsed: number;
+    powderUsed: number;
+  };
   notes?: string;
   machine: Machine;
   brickType: BrickType;

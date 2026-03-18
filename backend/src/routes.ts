@@ -13,6 +13,10 @@ import settlementRoutes from './modules/settlements/settlement.routes';
 import materialRoutes from './modules/materials/material.routes';
 import clientRoutes from './modules/clients/clients.routes';
 import transportRoutes from './modules/transport/transport.routes';
+import materialConfigRoutes from './modules/materials/material-config.routes';
+import returnRoutes from './modules/materials/returns.routes';
+import alertsRoutes from './modules/alerts/alerts.routes';
+import remindersRoutes from './modules/reminders/reminders.routes';
 
 const router = Router();
 
@@ -40,6 +44,10 @@ router.use('/settlements', settlementRoutes);
 router.use('/materials', materialRoutes);
 router.use('/clients', clientRoutes);
 router.use('/transport', transportRoutes);
+router.use('/material-config', materialConfigRoutes);
+router.use('/returns', returnRoutes);
+router.use('/alerts', alertsRoutes);
+router.use('/reminders', remindersRoutes);
 
 // Alias for dashboard summary (as per requirements)
 router.use('/dashboard', reportsRoutes);

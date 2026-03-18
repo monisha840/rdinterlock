@@ -1,7 +1,10 @@
 import prisma from '../../config/database';
 import { TransportService } from '../transport/transport.service';
+import { StockService } from '../stock/stock.service';
 import { AppError } from '../../middleware/errorHandler';
 import { CreateDispatchInput, UpdateDispatchInput, CreateCustomerInput } from './dispatch.validation';
+
+const stockService = new StockService();
 
 export class DispatchService {
   async createDispatch(data: CreateDispatchInput) {
@@ -21,6 +24,14 @@ export class DispatchService {
 
     if (!brickType || !brickType.isActive) {
       throw new AppError('Brick type not found or inactive', 404);
+    }
+
+    // Validate stock
+    const stockInfo = await stockService.getCurrentStock(data.brickTypeId);
+    const availableStock = stockInfo[0]?.currentStock || 0;
+
+    if (data.quantity > availableStock) {
+      throw new AppError(`Insufficient stock for ${brickType.size}. Available: ${availableStock}, Requested: ${data.quantity}`, 400);
     }
 
     // If vehicle type is RENT, transportCost must be provided

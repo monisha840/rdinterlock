@@ -43,11 +43,13 @@ export function BigNumberInput({
   onChange,
   placeholder = "0",
   min,
+  max,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   min?: number;
+  max?: number;
 }) {
   return (
     <input
@@ -58,6 +60,7 @@ export function BigNumberInput({
       onWheel={(e) => (e.target as HTMLInputElement).blur()}
       placeholder={placeholder}
       min={min}
+      max={max}
       className="w-full h-14 text-2xl font-bold text-center bg-secondary/50 border border-border rounded-xl focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
     />
   );

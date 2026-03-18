@@ -1,0 +1,15 @@
+﻿prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."material_configs"."id", "public"."material_configs"."brickTypeId", "public"."material_configs"."cementPer1000", "public"."material_configs"."flyAshPer1000", "public"."material_configs"."powderPer1000", "public"."material_configs"."createdAt", "public"."material_configs"."updatedAt" FROM "public"."material_configs" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+materialConfig: OK, rows: 0
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."material_consumption_logs"."id", "public"."material_consumption_logs"."productionId", "public"."material_consumption_logs"."materialType", "public"."material_consumption_logs"."quantityUsed", "public"."material_consumption_logs"."date", "public"."material_consumption_logs"."createdAt" FROM "public"."material_consumption_logs" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+materialConsumptionLog: OK, rows: 0
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."brick_returns"."id", "public"."brick_returns"."dispatchId", "public"."brick_returns"."clientId", "public"."brick_returns"."brickTypeId", "public"."brick_returns"."returnedQuantity", "public"."brick_returns"."reason", "public"."brick_returns"."date", "public"."brick_returns"."createdAt", "public"."brick_returns"."updatedAt" FROM "public"."brick_returns" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+brickReturn: OK, rows: 0

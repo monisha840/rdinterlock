@@ -7,7 +7,6 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import DailyEntry from "./pages/DailyEntry";
-import DispatchPage from "./pages/DispatchPage";
 import StockPage from "./pages/StockPage";
 import WorkersPage from "./pages/WorkersPage";
 import ExpensesPage from "./pages/ExpensesPage";
@@ -23,6 +22,7 @@ import ClientManagementPage from "./pages/ClientManagementPage";
 import DispatchSchedulingPage from "./pages/DispatchSchedulingPage";
 import ClientHistoryPage from "./pages/ClientHistoryPage";
 import ClientLedgerPage from "./pages/ClientLedgerPage";
+import BrickReturnPage from "./pages/BrickReturnPage";
 import NotFound from "./pages/NotFound";
 import TransportEntryPage from "./pages/TransportEntryPage";
 import VehiclesPage from "./pages/VehiclesPage";
@@ -59,12 +59,13 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+
           <Route
-            path="/dispatch"
+            path="/brick-returns"
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <DispatchPage />
+                  <BrickReturnPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -95,6 +96,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ClientManagementPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/brick-returns"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <BrickReturnPage />
                 </AppLayout>
               </ProtectedRoute>
             }

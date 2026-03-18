@@ -557,4 +557,117 @@ export class ReportsService {
       }
     };
   }
+
+  /**
+   * BI Summary Report
+   */
+  async getSummary(startDate: string, endDate: string) {
+    const dateRange = {
+      gte: new Date(startDate),
+      lte: new Date(endDate),
+    };
+
+    // 1. Income
+    const [dispatchIncome, transportIncome] = await Promise.all([
+      prisma.dispatch.aggregate({
+        where: { date: dateRange, status: { not: 'Cancelled' } },
+        _sum: { totalAmount: true },
+      }),
+      prisma.transportEntry.aggregate({
+        where: { date: dateRange, transactionType: 'INCOME' },
+        _sum: { incomeAmount: true },
+      })
+    ]);
+
+    const sales_income = dispatchIncome._sum.totalAmount || 0;
+    const transport_income_val = transportIncome._sum.incomeAmount || 0;
+    const total_income = sales_income + transport_income_val;
+
+    // 2. Expenses from Cash Book
+    const cashEntries = await (prisma.cashEntry as any).findMany({
+      where: { date: dateRange, type: 'DEBIT', isRecordOnly: false } as any
+    });
+
+    const expensesByCategory: Record<string, number> = {};
+    let labour_expense = 0;
+    let material_expense = 0;
+    let other_expense = 0;
+
+    cashEntries.forEach((e: any) => {
+      const amt = e.amount || 0;
+      const catName = e.category || 'Other';
+      const cat = catName.toLowerCase();
+      
+      expensesByCategory[catName] = (expensesByCategory[catName] || 0) + amt;
+
+      if (cat.includes('labour') || cat.includes('salary') || cat.includes('wage') || e.workerId) {
+        labour_expense += amt;
+      } else if (cat.includes('material') || cat.includes('cement') || cat.includes('flyash')) {
+        material_expense += amt;
+      } else {
+        other_expense += amt;
+      }
+    });
+
+    // 3. Transport Expense
+    const transportExpense = await prisma.transportEntry.aggregate({
+      where: { date: dateRange, transactionType: 'EXPENSE' },
+      _sum: { expenseAmount: true },
+    });
+    const transport_expense_val = transportExpense._sum.expenseAmount || 0;
+
+    const total_expense = labour_expense + material_expense + transport_expense_val + other_expense;
+    const net_profit = total_income - total_expense;
+
+    // 4. Category-wise sorted list
+    const category_expenses = Object.entries(expensesByCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // 5. Staff Summary (Salary vs Paid vs Pending)
+    const [dailyWages, weeklySettlements, monthlySettlements] = await Promise.all([
+      prisma.dailyWage.aggregate({ where: { date: dateRange }, _sum: { wageAmount: true } }),
+      prisma.weeklySettlement.aggregate({ where: { generatedAt: dateRange }, _sum: { totalAmount: true } }),
+      prisma.monthlySettlement.aggregate({ where: { createdAt: dateRange }, _sum: { salary: true } })
+    ]);
+
+    const total_salary = (dailyWages._sum.wageAmount || 0) + 
+                         (weeklySettlements._sum.totalAmount || 0) + 
+                         (monthlySettlements._sum.salary || 0);
+    
+    const pending_salary = total_salary - labour_expense;
+
+    // 6. Transport Summary
+    const transportStats = await prisma.transportEntry.aggregate({
+      where: { date: dateRange },
+      _count: true,
+      _sum: { loads: true, incomeAmount: true, expenseAmount: true }
+    });
+
+    return {
+      total_income,
+      total_expense,
+      net_profit,
+      breakdown: {
+        sales_income,
+        transport_income: transport_income_val,
+        labour_expense,
+        material_expense,
+        transport_expense: transport_expense_val,
+        other_expense
+      },
+      category_expenses,
+      salary_summary: {
+        total_salary,
+        total_paid: labour_expense,
+        pending: Math.max(0, pending_salary)
+      },
+      transport_summary: {
+        total_loads: transportStats._sum.loads || 0,
+        total_income: transportStats._sum.incomeAmount || 0,
+        total_expense: transportStats._sum.expenseAmount || 0,
+        profit: (transportStats._sum.incomeAmount || 0) - (transportStats._sum.expenseAmount || 0)
+      }
+    };
+  }
 }

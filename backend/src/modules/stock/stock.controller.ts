@@ -35,4 +35,9 @@ export class StockController {
     const stock = await stockService.getReadyStock();
     sendSuccess(res, stock, 'Ready stock retrieved successfully');
   });
+
+  getInventoryAlerts = asyncHandler(async (_req: Request, res: Response) => {
+    const alerts = await stockService.getInventoryAlerts();
+    sendSuccess(res, alerts, 'Inventory alerts retrieved successfully');
+  });
 }

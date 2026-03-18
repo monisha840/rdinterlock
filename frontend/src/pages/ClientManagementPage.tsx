@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
+import { stockApi } from "@/api/stock.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,17 +36,11 @@ const emptyOrderForm = (clientId = "") => ({
     status: "PENDING",
     notes: "",
     driverId: "",
-});
-
-const emptyScheduleForm = (clientId = "") => ({
-    clientId,
-    brickTypeId: "",
-    quantity: "",
-    dispatchDate: new Date().toISOString().split("T")[0],
-    driverId: "",
+    vehicleNumber: "",
     location: "",
-    status: "SCHEDULED",
-    orderId: "",
+    paidAmount: "0",
+    paymentStatus: "PENDING" as any,
+    dispatchDate: new Date().toISOString().split("T")[0],
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -68,11 +63,6 @@ const ClientManagementPage = () => {
     const [orderForm, setOrderForm] = useState(emptyOrderForm());
     const [autoCalc, setAutoCalc] = useState(true);
 
-    // ── Schedule Dispatch modal ──
-    const [showScheduleModal, setShowScheduleModal] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState<any>(null);
-    const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm());
-
     // ── Delete Confirmation modal ──
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<any>(null);
@@ -89,9 +79,9 @@ const ClientManagementPage = () => {
         queryFn: () => clientsApi.getAllOrders({}),
     });
 
-    const { data: allSchedules = [], isLoading: isLoadingSchedules } = useQuery({
-        queryKey: ["client-schedules-all"],
-        queryFn: () => clientsApi.getAllSchedules({}),
+    const { data: stockData = [] } = useQuery({
+        queryKey: ['stock', 'current'],
+        queryFn: () => stockApi.getCurrent(),
     });
 
     const { data: brickTypes = [] } = useQuery({
@@ -111,7 +101,7 @@ const ClientManagementPage = () => {
         });
     }, [drivers]);
 
-    const isLoading = isLoadingClients || isLoadingOrders || isLoadingSchedules;
+    const isLoading = isLoadingClients || isLoadingOrders;
 
     // ─── Group orders by client ────────────────────────────────────────────────
     const ordersByClient = useMemo(() => {
@@ -123,18 +113,6 @@ const ClientManagementPage = () => {
         return map;
     }, [allOrders]);
 
-    const schedulesByClient = useMemo(() => {
-        const map: Record<string, any[]> = {};
-        (allSchedules as any[]).forEach((s: any) => {
-            if (!map[s.clientId]) map[s.clientId] = [];
-            map[s.clientId].push(s);
-        });
-        // Sort dispatch schedules by dispatch date descending
-        Object.keys(map).forEach(clientId => {
-           map[clientId].sort((a,b) => new Date(b.dispatchDate).getTime() - new Date(a.dispatchDate).getTime());
-        });
-        return map;
-    }, [allSchedules]);
 
     // ─── Client Mutations ──────────────────────────────────────────────────────
 
@@ -165,8 +143,6 @@ const ClientManagementPage = () => {
         mutationFn: (id: string) => clientsApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["clients"] });
-            queryClient.invalidateQueries({ queryKey: ["client-schedules-all"] });
-            queryClient.invalidateQueries({ queryKey: ["dispatches-completed"] });
             queryClient.invalidateQueries({ queryKey: ["client-orders-all"] });
             setShowDeleteModal(false);
             setClientToDelete(null);
@@ -205,36 +181,6 @@ const ClientManagementPage = () => {
         },
     });
 
-    // ─── Schedule Mutations ────────────────────────────────────────────────────
-
-    const createScheduleMut = useMutation({
-        mutationFn: (data: any) => clientsApi.createSchedule(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["client-schedules-all"] });
-            queryClient.invalidateQueries({ queryKey: ["dispatch-schedules"] });
-            setShowScheduleModal(false);
-            setEditingSchedule(null);
-            setScheduleForm(emptyScheduleForm());
-            toast.success("✅ Dispatch scheduled");
-        },
-        onError: (e: any) => toast.error("❌ Failed", { description: e.message }),
-    });
-
-    const updateScheduleMut = useMutation({
-        mutationFn: ({ id, data }: any) => clientsApi.updateSchedule(id, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["client-schedules-all"] });
-            queryClient.invalidateQueries({ queryKey: ["dispatches-completed"] });
-            // In case it was completed and moved to final dispatch, we need to refresh orders and clients
-            queryClient.invalidateQueries({ queryKey: ["client-orders-all"] });
-            queryClient.invalidateQueries({ queryKey: ["clients"] });
-            setShowScheduleModal(false);
-            setEditingSchedule(null);
-            setScheduleForm(emptyScheduleForm());
-            toast.success("✅ Dispatch updated");
-        },
-        onError: (e: any) => toast.error("❌ Failed", { description: e.message }),
-    });
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -288,7 +234,12 @@ const ClientManagementPage = () => {
             expectedDispatchDate: o.expectedDispatchDate ? new Date(o.expectedDispatchDate).toISOString().split("T")[0] : "",
             status: o.status,
             notes: o.notes || "",
-            driverId: o.driverId || "", 
+            driverId: o.driverId || "",
+            vehicleNumber: o.vehicleNumber || "",
+            location: o.location || "",
+            paidAmount: String(o.paidAmount || "0"),
+            paymentStatus: o.paymentStatus || "PENDING",
+            dispatchDate: o.dispatchDate ? new Date(o.dispatchDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
         });
         setAutoCalc(false);
         setShowOrderModal(true);
@@ -328,27 +279,24 @@ const ClientManagementPage = () => {
 
         try {
             if (editingOrder) {
-                await updateOrderMut.mutateAsync({ id: editingOrder.id, data: payload });
+                await updateOrderMut.mutateAsync({ 
+                    id: editingOrder.id, 
+                    data: {
+                        ...payload,
+                        vehicleNumber: orderForm.vehicleNumber,
+                        location: orderForm.location,
+                        paidAmount: parseFloat(orderForm.paidAmount || "0"),
+                        paymentStatus: orderForm.paymentStatus,
+                        dispatchDate: orderForm.dispatchDate,
+                    } 
+                });
                 toast.success("✅ Order updated");
             } else {
-                const newOrder = await createOrderMut.mutateAsync(payload);
+                await createOrderMut.mutateAsync(payload);
                 toast.success("✅ Order created");
-                
-                // If a driver was selected during creation, auto-generate the dispatch schedule wrapper
-                if (orderForm.driverId) {
-                    await createScheduleMut.mutateAsync({
-                        clientId: orderForm.clientId,
-                        brickTypeId: orderForm.brickTypeId,
-                        quantity: parseInt(orderForm.quantity),
-                        dispatchDate: orderForm.expectedDispatchDate || orderForm.orderDate,
-                        driverId: orderForm.driverId,
-                        status: orderForm.status === "READY" || orderForm.status === "DISPATCHED" ? orderForm.status : "SCHEDULED",
-                        orderId: newOrder.id,
-                    });
-                }
             }
         } catch (e: any) {
-            return; // Error handled by mutation onError
+            return;
         }
 
         setShowOrderModal(false);
@@ -356,91 +304,6 @@ const ClientManagementPage = () => {
         setOrderForm(emptyOrderForm());
     };
 
-    const openAddSchedule = (clientId: string) => {
-        setEditingSchedule(null);
-        const client = (clients as any[]).find(c => c.id === clientId);
-        const clientOrders = (ordersByClient[clientId] || []).filter(o => 
-            ["PENDING", "IN_PRODUCTION", "READY"].includes(o.status)
-        );
-
-        const initialForm = emptyScheduleForm(clientId);
-        initialForm.location = client?.address || "";
-
-        // If only one open order exists, auto-fill it
-        if (clientOrders.length === 1) {
-            const order = clientOrders[0];
-            initialForm.orderId = order.id;
-            initialForm.brickTypeId = order.brickTypeId;
-            initialForm.quantity = String(order.quantity);
-            initialForm.dispatchDate = order.expectedDispatchDate 
-                ? new Date(order.expectedDispatchDate).toISOString().split("T")[0] 
-                : new Date().toISOString().split("T")[0];
-        }
-
-        setScheduleForm(initialForm);
-        setShowScheduleModal(true);
-        setExpandedIds(prev => new Set(prev).add(clientId));
-    };
-
-    const handleScheduleOrderSelect = (orderId: string) => {
-        if (!orderId) {
-            setScheduleForm({
-                ...scheduleForm,
-                orderId: "",
-                brickTypeId: "",
-                quantity: "",
-            });
-            return;
-        }
-
-        const clientOrders = ordersByClient[scheduleForm.clientId] || [];
-        const order = clientOrders.find(o => o.id === orderId);
-        
-        if (order) {
-            setScheduleForm({
-                ...scheduleForm,
-                orderId,
-                brickTypeId: order.brickTypeId,
-                quantity: String(order.quantity),
-                dispatchDate: order.expectedDispatchDate 
-                    ? new Date(order.expectedDispatchDate).toISOString().split("T")[0] 
-                    : new Date().toISOString().split("T")[0],
-            });
-        }
-    };
-
-    const openEditSchedule = (s: any) => {
-        setEditingSchedule(s);
-        setScheduleForm({
-            clientId: s.clientId,
-            brickTypeId: s.brickTypeId,
-            quantity: String(s.quantity),
-            dispatchDate: new Date(s.dispatchDate).toISOString().split("T")[0],
-            driverId: s.driverId || "",
-            location: s.location || "",
-            status: s.status || "SCHEDULED",
-            orderId: s.orderId || "",
-        });
-        setShowScheduleModal(true);
-    };
-
-    const handleScheduleSubmit = () => {
-        if (!scheduleForm.clientId || !scheduleForm.brickTypeId || !scheduleForm.quantity || !scheduleForm.dispatchDate) {
-            return toast.error("Fill all required fields");
-        }
-        const payload = {
-            clientId: scheduleForm.clientId,
-            brickTypeId: scheduleForm.brickTypeId,
-            quantity: parseInt(scheduleForm.quantity),
-            dispatchDate: scheduleForm.dispatchDate,
-            driverId: scheduleForm.driverId || undefined,
-            location: scheduleForm.location || undefined,
-            status: scheduleForm.status,
-            orderId: scheduleForm.orderId || undefined,
-        };
-        if (editingSchedule) updateScheduleMut.mutate({ id: editingSchedule.id, data: payload });
-        else createScheduleMut.mutate(payload);
-    };
 
     // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -490,9 +353,7 @@ const ClientManagementPage = () => {
                 <div className="space-y-3">
                     {(clients as any[]).map((client: any) => {
                         const clientOrders: any[] = ordersByClient[client.id] || [];
-                        const clientSchedules: any[] = schedulesByClient[client.id] || [];
                         const isExpanded = expandedIds.has(client.id);
-
                         const totalBricks = clientOrders.reduce((s, o) => s + (o.quantity || 0), 0);
 
                         return (
@@ -643,70 +504,6 @@ const ClientManagementPage = () => {
                                     </div>
                                 )}
 
-                                {/* ── Dispatch Records Table ── */}
-                                {isExpanded && (
-                                    <div className="border-t border-border bg-secondary/10 px-4 pb-4 pt-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h4 className="text-sm font-bold text-foreground">Dispatch Records</h4>
-                                            <button
-                                                onClick={() => openAddSchedule(client.id)}
-                                                className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1"
-                                            >
-                                                <Plus className="h-3 w-3" /> Schedule Dispatch
-                                            </button>
-                                        </div>
-                                        {clientSchedules.length === 0 ? (
-                                            <div className="text-center py-4 bg-card rounded-xl border border-border">
-                                                <p className="text-xs text-muted-foreground">No dispatch expected</p>
-                                            </div>
-                                        ) : (
-                                            <div className="overflow-x-auto select-text">
-                                                <table className="w-full text-xs text-left min-w-[500px]">
-                                                    <thead className="bg-secondary/40 text-[10px] text-muted-foreground uppercase border-b border-border">
-                                                        <tr>
-                                                            <th className="py-2 px-2 font-semibold">Brick Type</th>
-                                                            <th className="py-2 px-2 font-semibold">Qty</th>
-                                                            <th className="py-2 px-2 font-semibold">Location</th>
-                                                            <th className="py-2 px-2 font-semibold">Date</th>
-                                                            <th className="py-2 px-2 font-semibold">Driver</th>
-                                                            <th className="py-2 px-2 font-semibold">Status</th>
-                                                            <th className="py-2 px-2 font-semibold text-center">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-border/50">
-                                                        {clientSchedules.map((s: any) => (
-                                                            <tr key={s.id} className="hover:bg-secondary/30 transition-colors bg-card">
-                                                                <td className="py-2 px-2 font-medium">{s.brickType?.size || '—'}</td>
-                                                                <td className="py-2 px-2">{(s.quantity || 0).toLocaleString()}</td>
-                                                                <td className="py-2 px-2 text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px]" title={s.location}>{s.location || '—'}</td>
-                                                                <td className="py-2 px-2 whitespace-nowrap">{format(new Date(s.dispatchDate), 'dd MMM yyyy')}</td>
-                                                                <td className="py-2 px-2 text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]" title={s.driver?.name}>{s.driver?.name || '—'}</td>
-                                                                <td className="py-2 px-2">
-                                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium whitespace-nowrap ${s.status === 'SCHEDULED' ? 'bg-yellow-100 text-yellow-700' :
-                                                                        s.status === 'READY' ? 'bg-purple-100 text-purple-700' :
-                                                                            s.status === 'DISPATCHED' ? 'bg-orange-100 text-orange-700' :
-                                                                                'bg-gray-100 text-gray-700'
-                                                                        }`}>
-                                                                        {s.status}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="py-2 px-2 text-center">
-                                                                    <button
-                                                                        onClick={() => openEditSchedule(s)}
-                                                                        className="p-1 rounded-md text-primary hover:bg-primary/10 transition-colors"
-                                                                        title="Edit Status"
-                                                                    >
-                                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         );
                     })}
@@ -886,6 +683,108 @@ const ClientManagementPage = () => {
                                 </div>
                             </div>
 
+                            {/* Stock Validation Banner (Only when status is DISPATCHED) */}
+                            {orderForm.status === 'DISPATCHED' && orderForm.brickTypeId && (
+                                <div className="pt-2 animate-in slide-in-from-top-2 duration-300">
+                                    {(() => {
+                                        const stock = (stockData as any[]).find(s => s.brickType.id === orderForm.brickTypeId);
+                                        const available = stock?.currentStock || 0;
+                                        const requested = parseInt(orderForm.quantity) || 0;
+                                        const isDeficit = requested > available;
+
+                                        return (
+                                            <div className={`p-4 rounded-2xl border ${isDeficit ? 'bg-destructive/10 border-destructive animate-pulse' : 'bg-green-500/10 border-green-500/30'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <div>
+                                                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDeficit ? 'text-destructive' : 'text-green-600'}`}>
+                                                            Stock Check
+                                                        </p>
+                                                        <p className={`text-sm font-black ${isDeficit ? 'text-destructive' : 'text-green-700'}`}>
+                                                            {available.toLocaleString()} units available
+                                                        </p>
+                                                    </div>
+                                                    {isDeficit && (
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] font-bold text-destructive uppercase">Deficit</p>
+                                                            <p className="text-xs font-bold text-destructive">
+                                                                -{(requested - available).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {isDeficit && (
+                                                    <p className="text-[10px] text-destructive font-bold mt-2">
+                                                        ⚠️ Warning: Saving will fail due to insufficient stock.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+
+                            {/* Dispatch Specific Fields (Shown only when status is DISPATCHED) */}
+                            {orderForm.status === 'DISPATCHED' && (
+                                <div className="grid grid-cols-1 gap-3 p-4 bg-secondary/30 rounded-2xl border border-dashed border-border mt-2 animate-in slide-in-from-top-2 duration-300">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Final Dispatch Details</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Vehicle No</p>
+                                            <input
+                                                value={orderForm.vehicleNumber}
+                                                onChange={(e) => setOrderForm({ ...orderForm, vehicleNumber: e.target.value })}
+                                                placeholder="ABC-123"
+                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Actual Date</p>
+                                            <input
+                                                type="date"
+                                                value={orderForm.dispatchDate}
+                                                onChange={(e) => setOrderForm({ ...orderForm, dispatchDate: e.target.value })}
+                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Advance Paid (₹)</p>
+                                            <input
+                                                type="number"
+                                                value={orderForm.paidAmount}
+                                                onChange={(e) => setOrderForm({ ...orderForm, paidAmount: e.target.value })}
+                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Payment Status</p>
+                                            <select
+                                                value={orderForm.paymentStatus}
+                                                onChange={(e) => setOrderForm({ ...orderForm, paymentStatus: e.target.value as any })}
+                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
+                                            >
+                                                <option value="PENDING">Pending</option>
+                                                <option value="PARTIAL">Partial</option>
+                                                <option value="PAID">Paid</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Specific Delivery Location</p>
+                                        <input
+                                            value={orderForm.location}
+                                            onChange={(e) => setOrderForm({ ...orderForm, location: e.target.value })}
+                                            placeholder="Destination Address"
+                                            className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Notes */}
                             <textarea
                                 value={orderForm.notes}
@@ -910,7 +809,7 @@ const ClientManagementPage = () => {
                             >
                                 {(createOrderMut.isPending || updateOrderMut.isPending)
                                     ? <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                    : editingOrder ? "Update" : "Create"
+                                    : editingOrder ? "Update Record" : "Confirm Order"
                                 }
                             </button>
                         </div>
@@ -918,168 +817,6 @@ const ClientManagementPage = () => {
                 </div>
             )}
 
-            {/* ─── Schedule Dispatch Modal ────────────────────────────────────── */}
-            {showScheduleModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl overflow-y-auto max-h-[92vh]">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold">{editingSchedule ? "Edit Dispatch" : "Schedule Dispatch"}</h2>
-                            <button onClick={() => { setShowScheduleModal(false); setEditingSchedule(null); setScheduleForm(emptyScheduleForm()); }}>
-                                <X className="h-5 w-5 text-muted-foreground" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-3">
-                            <h3 className="text-xs font-semibold text-foreground/70 pb-2 mb-2 border-b border-border">
-                                {editingSchedule ? "Update the status or edit details" : "Schedule a new dispatch for this client"}
-                            </h3>
-
-                            {/* Order Selector */}
-                            {!editingSchedule && (
-                                <div className="mb-4">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-1">Link to Order (Auto-Fill)</p>
-                                    <select
-                                        value={scheduleForm.orderId}
-                                        onChange={(e) => handleScheduleOrderSelect(e.target.value)}
-                                        className="w-full h-10 px-3 bg-primary/5 border border-primary/20 rounded-xl text-sm font-medium outline-none"
-                                    >
-                                        <option value="">--- Select Order to Auto-Fill ---</option>
-                                        {(ordersByClient[scheduleForm.clientId] || [])
-                                            .filter(o => ["PENDING", "IN_PRODUCTION", "READY"].includes(o.status))
-                                            .map((o: any) => (
-                                                <option key={o.id} value={o.id}>
-                                                    {o.brickType?.size} | {o.quantity} pcs | {format(new Date(o.orderDate), 'dd/MM')}
-                                                </option>
-                                            ))
-                                        }
-                                    </select>
-                                </div>
-                            )}
-
-                            {scheduleForm.orderId && !editingSchedule && (
-                                <div className="mb-4 p-3 bg-secondary/30 border border-border rounded-xl">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Order Details</span>
-                                        <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded-md font-bold">
-                                            {(ordersByClient[scheduleForm.clientId] || []).find(o => o.id === scheduleForm.orderId)?.status}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs font-medium">
-                                        {(ordersByClient[scheduleForm.clientId] || []).find(o => o.id === scheduleForm.orderId)?.brickType?.size} 
-                                        {' • '} 
-                                        {(ordersByClient[scheduleForm.clientId] || []).find(o => o.id === scheduleForm.orderId)?.quantity} pcs
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Brick Type */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Brick Type *</p>
-                                <select
-                                    value={scheduleForm.brickTypeId}
-                                    onChange={(e) => setScheduleForm({ ...scheduleForm, brickTypeId: e.target.value })}
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                >
-                                    <option value="">Select Brick Type</option>
-                                    {(brickTypes as any[]).map((b: any) => (
-                                        <option key={b.id} value={b.id}>{b.size}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Quantity */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Quantity *</p>
-                                <input
-                                    value={scheduleForm.quantity}
-                                    onChange={(e) => setScheduleForm({ ...scheduleForm, quantity: e.target.value })}
-                                    type="number"
-                                    placeholder="pcs"
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                />
-                            </div>
-
-                            {/* Dates */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Dispatch Date *</p>
-                                <input
-                                    value={scheduleForm.dispatchDate}
-                                    onChange={(e) => setScheduleForm({ ...scheduleForm, dispatchDate: e.target.value })}
-                                    type="date"
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                />
-                            </div>
-
-                            {/* Driver */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Driver</p>
-                                <select
-                                    value={scheduleForm.driverId}
-                                    onChange={(e) => setScheduleForm({ ...scheduleForm, driverId: e.target.value })}
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                >
-                                    <option value="">Select Driver (Optional)</option>
-                                    {eligibleDrivers.map((d: any) => (
-                                        <option key={d.id} value={d.id}>{d.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Location */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Location</p>
-                                <input
-                                    value={scheduleForm.location}
-                                    onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })}
-                                    placeholder="Delivery location"
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                />
-                            </div>
-
-                            {/* Status */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Status</p>
-                                <select
-                                    value={scheduleForm.status}
-                                    onChange={(e) => setScheduleForm({ ...scheduleForm, status: e.target.value })}
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm font-medium"
-                                >
-                                    <option value="SCHEDULED">Scheduled</option>
-                                    <option value="READY">Ready</option>
-                                    <option value="DISPATCHED">Dispatched</option>
-                                    <option value="COMPLETED">Completed</option>
-                                </select>
-                                {scheduleForm.status === "COMPLETED" && (
-                                    <p className="text-[10px] text-green-600 font-semibold mt-1 px-1">
-                                        Marking as Completed will move this to final dispatch history.
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2 mt-5">
-                            <button
-                                onClick={() => { setShowScheduleModal(false); setEditingSchedule(null); setScheduleForm(emptyScheduleForm()); }}
-                                className="flex-1 h-10 rounded-xl border border-border text-sm font-medium hover:bg-secondary"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleScheduleSubmit}
-                                disabled={createScheduleMut.isPending || updateScheduleMut.isPending}
-                                className={`flex-1 h-10 rounded-xl text-white text-sm font-semibold disabled:opacity-50 transition-colors ${
-                                    scheduleForm.status === 'COMPLETED' ? 'bg-green-600 hover:bg-green-700' : 'bg-primary hover:bg-primary/90'
-                                }`}
-                            >
-                                {(createScheduleMut.isPending || updateScheduleMut.isPending)
-                                    ? <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                    : editingSchedule ? "Save Changes" : "Schedule"
-                                }
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Delete Confirmation Modal */}
             {showDeleteModal && (

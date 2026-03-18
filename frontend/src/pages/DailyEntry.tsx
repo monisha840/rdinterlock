@@ -18,6 +18,11 @@ const quickQuantities = [500, 800, 1000, 2000];
 const DailyEntry = () => {
   const queryClient = useQueryClient();
   const [entryDate, setEntryDate] = useState(new Date());
+  
+  // Clear last result when date changes (actual day change)
+  useEffect(() => {
+    if (lastResult) setLastResult(null);
+  }, [format(entryDate, 'yyyy-MM-dd')]);
   const [shift, setShift] = useState("MORNING");
   const [brickTypeId, setBrickTypeId] = useState("");
   const [machineId, setMachineId] = useState("");
@@ -25,6 +30,7 @@ const DailyEntry = () => {
   const [damagedQuantity, setDamagedQuantity] = useState("");
   const [workers, setWorkers] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
+  const [lastResult, setLastResult] = useState<any>(null);
 
   const [expenseDate, setExpenseDate] = useState(new Date());
   const [expenseCategory, setExpenseCategory] = useState("FUEL");
@@ -60,10 +66,11 @@ const DailyEntry = () => {
   // Mutations
   const createProductionMutation = useMutation({
     mutationFn: productionApi.create,
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("✅ Production Saved Successfully");
       queryClient.invalidateQueries({ queryKey: ['productions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setLastResult(data);
       setQuantity("");
       setDamagedQuantity("");
       setWorkers([""]);
@@ -197,6 +204,56 @@ const DailyEntry = () => {
 
   return (
     <MobileFormLayout title="📖 Daily Entry">
+      {lastResult && (
+        <EntryCard title="✅ Production Summary" className="border-green-500/30 bg-green-500/5">
+          <div className="space-y-4">
+            <div className="flex justify-between items-end border-b border-green-500/10 pb-3">
+              <div>
+                <p className="text-[10px] font-bold text-green-600 uppercase">Available Quantity</p>
+                <p className="text-3xl font-black text-green-700">{lastResult.availableBricks?.toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Wastage</p>
+                <p className={`text-sm font-bold ${lastResult.wastagePercentage > 5 ? 'text-red-500' : 'text-orange-500'}`}>
+                  {lastResult.wastagePercentage}% ({lastResult.damagedBricks})
+                </p>
+              </div>
+            </div>
+
+            {lastResult.materialConsumption ? (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase px-1">Material Consumption</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/50 p-3 rounded-2xl border border-green-500/10 text-center">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Cement</p>
+                    <p className="text-sm font-black text-foreground">{lastResult.materialConsumption.cementUsed} KG</p>
+                  </div>
+                  <div className="bg-white/50 p-3 rounded-2xl border border-green-500/10 text-center">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Fly Ash</p>
+                    <p className="text-sm font-black text-foreground">{lastResult.materialConsumption.flyAshUsed} KG</p>
+                  </div>
+                  <div className="bg-white/50 p-3 rounded-2xl border border-green-500/10 text-center">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Powder</p>
+                    <p className="text-sm font-black text-foreground">{lastResult.materialConsumption.powderUsed} KG</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted-foreground italic bg-secondary/20 p-2 rounded-lg text-center">
+                Material config not found for this brick type.
+              </p>
+            )}
+
+            <button 
+              onClick={() => setLastResult(null)}
+              className="w-full py-2 text-[10px] font-bold text-muted-foreground hover:text-foreground uppercase tracking-wider transition-colors"
+            >
+              Dismiss Summary
+            </button>
+          </div>
+        </EntryCard>
+      )}
+
       <EntryCard title="🧱 Production Entry">
         <div className="space-y-5">
           <DatePickerField date={entryDate} onDateChange={setEntryDate} />

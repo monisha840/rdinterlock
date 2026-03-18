@@ -25,7 +25,9 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 import apiClient from "@/api/apiClient";
 import { workersApi } from "@/api/workers.api";
 import { reportsApi } from "@/api/reports.api";
-import { User, Receipt, CreditCard } from "lucide-react";
+import { User, Receipt, CreditCard, TrendingDown } from "lucide-react";
+import { GlobalDateFilter, DateRange } from "@/components/GlobalDateFilter";
+import { BIReportsDashboard } from "@/components/BIReportsDashboard";
 
 // ─── Worker report type ───────────────────────────────────────────────────────
 interface WorkerWageRecord {
@@ -43,24 +45,29 @@ interface WorkerWageRecord {
   advanceDetails?: { id: string; amount: number; date: string; paymentMode: string }[];
 }
 
-const TABS = ["Operations", "Staff Salaries", "Worker Wages", "Logs"];
+const TABS = ["Dashboard", "Operations", "Staff Salaries", "Worker Wages", "Logs"];
 
 const ReportsPage = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("Operations");
+  const [activeTab, setActiveTab] = useState("Dashboard");
 
-  // ── Operations tab state ──────────────────────────────────────────────────
-  const [quickFilter, setQuickFilter] = useState("This Month");
-  const [fromDate, setFromDate] = useState(new Date(new Date().setDate(1)));
-  const [toDate, setToDate] = useState(new Date());
-  const quickFilters = ["Today", "7 Days", "30 Days", "Custom"];
-  const handleQuickFilter = (f: string) => {
-    setQuickFilter(f);
-    const now = new Date();
-    if (f === "Today") { setFromDate(now); setToDate(now); }
-    else if (f === "7 Days") { setFromDate(new Date(now.getTime() - 7 * 86400000)); setToDate(now); }
-    else if (f === "30 Days") { setFromDate(new Date(now.getTime() - 30 * 86400000)); setToDate(now); }
+  // ── Global Date Filter state ─────────────────────────────────────────────
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: new Date(new Date().setDate(1)), // Start of current month
+    to: new Date(),
+    label: "This Month"
+  });
+
+  const handleRangeChange = (range: DateRange) => {
+    setDateRange(range);
   };
+
+  // ── Operations tab state (now using global range) ─────────────────────────
+  const { data: operationsSummary } = useQuery({
+    queryKey: ["ops-summary", format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")],
+    queryFn: () => reportsApi.getFinancialReport(format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")),
+    enabled: activeTab === "Operations",
+  });
 
   // ── Staff Salary tab state ────────────────────────────────────────────────
   const [staffPeriodDate, setStaffPeriodDate] = useState(new Date());
@@ -78,14 +85,12 @@ const ReportsPage = () => {
   // ── Worker Wages tab state ────────────────────────────────────────────────
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const [wageFrom, setWageFrom] = useState(weekStart);
-  const [wageTo, setWageTo] = useState(weekEnd);
-
+  // ── Worker Wages tab state ────────────────────────────────────────────────
   const { data: workerWages, isLoading: isWageLoading, error: wageError, refetch: refetchWages } = useQuery<WorkerWageRecord[]>({
-    queryKey: ["worker-wages", format(wageFrom, "yyyy-MM-dd"), format(wageTo, "yyyy-MM-dd")],
+    queryKey: ["worker-wages", format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")],
     queryFn: async () => {
       const res = await apiClient.get(
-        `/wages/worker-report?startDate=${format(wageFrom, "yyyy-MM-dd")}&endDate=${format(wageTo, "yyyy-MM-dd")}`
+        `/wages/worker-report?startDate=${format(dateRange.from, "yyyy-MM-dd")}&endDate=${format(dateRange.to, "yyyy-MM-dd")}`
       );
       return res.data as WorkerWageRecord[];
     },
@@ -117,36 +122,37 @@ const ReportsPage = () => {
         ))}
       </div>
 
+      {/* Global Date Filter */}
+      <GlobalDateFilter onRangeChange={handleRangeChange} currentLabel={dateRange.label} />
+
+      {dateRange.label === "Custom" && (
+        <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <DatePickerField 
+            date={dateRange.from} 
+            onDateChange={(d) => setDateRange(prev => ({ ...prev, from: d }))} 
+            label="From" 
+          />
+          <DatePickerField 
+            date={dateRange.to} 
+            onDateChange={(d) => setDateRange(prev => ({ ...prev, to: d }))} 
+            label="To" 
+          />
+        </div>
+      )}
+
+      {/* ══════════════════════ DASHBOARD TAB ══════════════════════ */}
+      {activeTab === "Dashboard" && (
+        <BIReportsDashboard startDate={dateRange.from} endDate={dateRange.to} />
+      )}
+
       {/* ══════════════════════ OPERATIONS TAB ══════════════════════ */}
       {activeTab === "Operations" && (
         <>
-          <div className="flex gap-2 flex-wrap">
-            {quickFilters.map(r => (
-              <button
-                key={r}
-                onClick={() => handleQuickFilter(r)}
-                className={`h-10 px-5 rounded-full text-sm font-semibold transition-all active:scale-95 touch-target ${quickFilter === r
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
-                  }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-
-          {quickFilter === "Custom" && (
-            <div className="grid grid-cols-2 gap-3">
-              <DatePickerField date={fromDate} onDateChange={setFromDate} label="From" />
-              <DatePickerField date={toDate} onDateChange={setToDate} label="To" />
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-3">
             <KPICard title="Total Production" value="1,85,000" icon={Factory} variant="primary" />
             <KPICard title="Total Dispatch" value="1,62,000" icon={Truck} variant="accent" />
-            <KPICard title="Total Expense" value="₹4.2L" icon={Wallet} variant="warning" />
-            <KPICard title="Est. Profit" value="₹2.8L" icon={TrendingUp} variant="success" />
+            <KPICard title="Total Expense" value={`₹${(operationsSummary?.expenses || 0).toLocaleString()}`} icon={Wallet} variant="warning" />
+            <KPICard title="Est. Profit" value={`₹${(operationsSummary?.profit || 0).toLocaleString()}`} icon={TrendingUp} variant="success" />
           </div>
 
           <EntryCard title="Summary">
@@ -273,13 +279,12 @@ const ReportsPage = () => {
       {/* ══════════════════ WORKER WAGES TAB ══════════════════ */}
       {activeTab === "Worker Wages" && (
         <div className="space-y-4">
-          <EntryCard title="Select Week">
-            <div className="grid grid-cols-2 gap-3">
-              <DatePickerField date={wageFrom} onDateChange={setWageFrom} label="From" />
-              <DatePickerField date={wageTo} onDateChange={setWageTo} label="To" />
-            </div>
+          <div className="bg-secondary/50 rounded-2xl p-4 mb-4">
+            <p className="text-xs text-muted-foreground font-medium text-center">
+              Wages for period: <span className="font-bold text-foreground">{format(dateRange.from, "dd MMM")}</span> to <span className="font-bold text-foreground">{format(dateRange.to, "dd MMM yyyy")}</span>
+            </p>
             <ActionButton
-              label="Calculate"
+              label="Recalculate"
               icon={TrendingUp}
               variant="primary"
               size="sm"
@@ -289,7 +294,7 @@ const ReportsPage = () => {
             <p className="text-[10px] text-muted-foreground mt-2 italic">
               * Based on brick output from Daily Entry. Day shift: ₹2.50/brick · Night: ₹3.00/brick · Mason: ₹9.00/brick
             </p>
-          </EntryCard>
+          </div>
 
           {isWageLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 card-modern">
@@ -439,10 +444,11 @@ const ReportsPage = () => {
 const LogsTabContent = () => {
   const [personId, setPersonId] = useState<string>("");
   const [logType, setLogType] = useState("All");
-  const [quickDate, setQuickDate] = useState("30 Days");
-  const [customRange, setCustomRange] = useState<{ from: Date; to: Date }>({
+
+  const [dateRange, setDateRange] = useState<DateRange>({
     from: new Date(new Date().setDate(new Date().getDate() - 30)),
-    to: new Date()
+    to: new Date(),
+    label: "30 Days"
   });
 
   const { data: people } = useQuery({
@@ -452,24 +458,9 @@ const LogsTabContent = () => {
   });
 
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ["person-logs", personId, quickDate, customRange],
+    queryKey: ["person-logs", personId, format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")],
     queryFn: async () => {
-      let from = customRange.from;
-      let to = customRange.to;
-      const today = new Date();
-      
-      if (quickDate === "Today") { 
-        from = today; 
-        to = today; 
-      } else if (quickDate === "7 Days") { 
-        from = new Date(today.getTime() - 7 * 86400000); 
-        to = today; 
-      } else if (quickDate === "30 Days") { 
-        from = new Date(today.getTime() - 30 * 86400000); 
-        to = today; 
-      }
-      
-      return reportsApi.getPersonLogs(personId, format(from, "yyyy-MM-dd"), format(to, "yyyy-MM-dd"));
+      return reportsApi.getPersonLogs(personId, format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd"));
     },
     enabled: !!personId,
   });
@@ -546,25 +537,12 @@ const LogsTabContent = () => {
             ))}
           </div>
 
-          <div className="flex bg-secondary/30 p-1 rounded-xl gap-1">
-            {["Today", "7 Days", "30 Days", "Custom"].map(f => (
-              <button
-                key={f}
-                onClick={() => setQuickDate(f)}
-                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${quickDate === f 
-                  ? "bg-background text-foreground shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+          <GlobalDateFilter onRangeChange={setDateRange} currentLabel={dateRange.label} />
           
-          {quickDate === "Custom" && (
+          {dateRange.label === "Custom" && (
             <div className="grid grid-cols-2 gap-3 pt-2">
-              <DatePickerField date={customRange.from} onDateChange={(d) => setCustomRange(prev => ({ ...prev, from: d }))} label="From" />
-              <DatePickerField date={customRange.to} onDateChange={(d) => setCustomRange(prev => ({ ...prev, to: d }))} label="To" />
+              <DatePickerField date={dateRange.from} onDateChange={(d) => setDateRange(prev => ({ ...prev, from: d }))} label="From" />
+              <DatePickerField date={dateRange.to} onDateChange={(d) => setDateRange(prev => ({ ...prev, to: d }))} label="To" />
             </div>
           )}
         </div>

@@ -17,6 +17,8 @@ import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/api/dashboard.api";
 import { clientsApi } from "@/api/clients.api";
 import { format, isToday } from "date-fns";
+import { AlertsPanel } from "@/components/AlertsPanel";
+import { RemindersPanel } from "@/components/RemindersPanel";
 
 const productionData = [
   { day: "Mon", qty: 2400 },
@@ -121,6 +123,9 @@ const Dashboard = () => {
         />
       </div>
 
+      {/* 🔴 Phase 7: Smart Alerts (Automated) */}
+      <AlertsPanel />
+
       {/* Pending Entries Warning */}
       <div
         onClick={() => navigate("/daily-entry")}
@@ -206,6 +211,9 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* 📌 Phase 7: Manual Reminders / Tasks */}
+      <RemindersPanel />
 
       <div className="card-modern p-5 animate-fade-in">
         <h2 className="font-semibold text-foreground text-sm mb-4">Recent Activity</h2>

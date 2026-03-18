@@ -173,20 +173,81 @@ export class ClientsService {
     }
 
     async updateOrder(id: string, data: any) {
-        const order = await prisma.clientOrder.findUnique({ where: { id } });
-        if (!order) throw new AppError('Order not found', 404);
-        const updateData: any = { ...data };
-        if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
-        if (data.expectedDispatchDate) updateData.expectedDispatchDate = new Date(data.expectedDispatchDate);
-        if (data.quantity || data.rate) {
-            const qty = data.quantity || order.quantity;
-            const rate = data.rate !== undefined ? data.rate : order.rate;
-            updateData.totalAmount = qty * rate;
-        }
-        return prisma.clientOrder.update({
-            where: { id },
-            data: updateData,
-            include: { client: true, brickType: true, driver: true },
+        return await prisma.$transaction(async (tx: any) => {
+            const order = await tx.clientOrder.findUnique({ 
+                where: { id },
+                include: { brickType: true, dispatches: true }
+            });
+            if (!order) throw new AppError('Order not found', 404);
+
+            const updateData: any = { ...data };
+            if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
+            if (data.expectedDispatchDate) updateData.expectedDispatchDate = new Date(data.expectedDispatchDate);
+            
+            if (data.quantity || data.rate) {
+                const qty = data.quantity || order.quantity;
+                const rate = data.rate !== undefined ? data.rate : order.rate;
+                updateData.totalAmount = qty * rate;
+            }
+
+            // Handling Status Change to DISPATCHED
+            if (data.status === 'DISPATCHED' && order.status !== 'DISPATCHED') {
+                // 1. Calculate Real-time Stock
+                const totalProduction = await tx.production.aggregate({
+                    where: { brickTypeId: order.brickTypeId },
+                    _sum: { availableBricks: true },
+                });
+
+                const totalDispatched = await tx.dispatch.aggregate({
+                    where: { brickTypeId: order.brickTypeId },
+                    _sum: { quantity: true },
+                });
+
+                const totalReturned = await (tx as any).brickReturn.aggregate({
+                    where: { brickTypeId: order.brickTypeId },
+                    _sum: { returnedQuantity: true },
+                });
+
+                const produced = totalProduction._sum.availableBricks || 0;
+                const dispatched = totalDispatched._sum.quantity || 0;
+                const returned = totalReturned._sum.returnedQuantity || 0;
+                const currentStock = produced - dispatched + returned;
+
+                const requestedQty = data.quantity || order.quantity;
+
+                // 2. Validation
+                if (requestedQty > currentStock) {
+                    throw new AppError(
+                        `Insufficient Stock: Only ${currentStock.toLocaleString()} units available, but ${requestedQty.toLocaleString()} requested.`,
+                        400
+                    );
+                }
+
+                // 3. Create Dispatch Entry
+                await tx.dispatch.create({
+                    data: {
+                        date: data.dispatchDate ? new Date(data.dispatchDate) : new Date(),
+                        customerId: order.clientId,
+                        brickTypeId: order.brickTypeId,
+                        orderId: order.id,
+                        quantity: requestedQty,
+                        totalAmount: updateData.totalAmount || order.totalAmount,
+                        paidAmount: data.paidAmount || 0,
+                        paymentStatus: data.paymentStatus || 'PENDING',
+                        driverId: data.driverId || order.driverId,
+                        vehicleNumber: data.vehicleNumber,
+                        location: data.location || order.notes,
+                        status: 'Completed',
+                        vehicleType: 'OWN',
+                    }
+                });
+            }
+
+            return tx.clientOrder.update({
+                where: { id },
+                data: updateData,
+                include: { client: true, brickType: true, driver: true },
+            });
         });
     }
 

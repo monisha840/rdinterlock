@@ -41,4 +41,11 @@ export const reportsApi = {
     });
     return response.data;
   },
+
+  getSummary: async (startDate: string, endDate: string) => {
+    const response = await apiClient.get<any, ApiResponse<any>>('/reports/summary', {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  },
 };

@@ -1,0 +1,47 @@
+﻿Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-ap-southeast-2.pooler.supabase.com:5432"
+node.exe : Error: insert 
+or update on table 
+"client_orders" violates 
+foreign key constraint "cli
+ent_orders_driverId_fkey"
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (Err  
+  or: insert o..._driver   
+ Id_fkey":String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+   0: sql_schema_connector:
+:apply_migration::migration
+_step
+           with 
+step=AddForeignKey { 
+foreign_key_id: 
+ForeignKeyId(6) }
+             at schema-engi
+ne\connectors\sql-schema-co
+nnector\src\apply_migration
+.rs:21
+   1: sql_schema_connector:
+:apply_migration::apply_mig
+ration
+             at schema-engi
+ne\connectors\sql-schema-co
+nnector\src\apply_migration
+.rs:10
+   2: schema_core::state::S
+chemaPush
+             at schema-engi
+ne\core\src\state.rs:504
+

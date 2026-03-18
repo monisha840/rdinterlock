@@ -33,16 +33,18 @@ model Machine {
 }
 
 model BrickType {
-  id                 String             @id @default(uuid())
-  size               String             @unique
-  stock              Int                @default(0)
-  isActive           Boolean            @default(true)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  orderBrickTypes    ClientOrder[]      @relation("OrderBrickType")
-  scheduleBrickTypes DispatchSchedule[] @relation("ScheduleBrickType")
+  id                 String                   @id @default(uuid())
+  size               String                   @unique
+  stock              Int                      @default(0)
+  isActive           Boolean                  @default(true)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  orderBrickTypes    ClientOrder[]            @relation("OrderBrickType")
+  scheduleBrickTypes DispatchSchedule[]       @relation("ScheduleBrickType")
   dispatches         Dispatch[]
   productions        Production[]
+  materialConfig     MaterialConfig?
+  returns            BrickReturn[]
 
   @@map("brick_types")
 }
@@ -80,20 +82,21 @@ model Worker {
 }
 
 model Production {
-  id          String             @id @default(uuid())
-  date        DateTime
-  machineId   String
-  shift       String
-  brickTypeId String
+  id              String                   @id @default(uuid())
+  date            DateTime
+  machineId       String
+  shift           String
+  brickTypeId     String
   quantity        Int
-  damagedBricks   Int                @default(0)
-  availableBricks Int                @default(0)
+  damagedBricks   Int                      @default(0)
+  availableBricks Int                      @default(0)
   notes           String?
-  createdAt       DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  workers     ProductionWorker[] @relation("ProductionToWorkers")
-  brickType   BrickType          @relation(fields: [brickTypeId], references: [id])
-  machine     Machine            @relation(fields: [machineId], references: [id])
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  workers         ProductionWorker[]       @relation("ProductionToWorkers")
+  brickType       BrickType                @relation(fields: [brickTypeId], references: [id])
+  machine         Machine                  @relation(fields: [machineId], references: [id])
+  consumptionLogs MaterialConsumptionLog[]
 
   @@map("productions")
 }
@@ -124,6 +127,7 @@ model Customer {
   dispatchSchedules DispatchSchedule[]
   dispatches        Dispatch[]
   cashEntries       CashEntry[]
+  brickReturns      BrickReturn[]
 
   @@map("customers")
 }
@@ -193,34 +197,77 @@ model DispatchSchedule {
 }
 
 model Dispatch {
-  id            String    @id @default(uuid())
+  id            String       @id @default(uuid())
   date          DateTime
   customerId    String
   brickTypeId   String
   quantity      Int
   distanceKm    Float?
   vehicleType   String
-  transportCost Float     @default(0)
-  loadingCost   Float     @default(0)
+  transportCost Float        @default(0)
+  loadingCost   Float        @default(0)
   paymentStatus String
-  totalAmount   Float     @default(0)
-  paidAmount    Float     @default(0)
-  status        String    @default("Completed") // Scheduled, Dispatched, Completed
+  totalAmount   Float        @default(0)
+  paidAmount    Float        @default(0)
+  status        String       @default("Completed")
   location      String?
   driverId      String?
   vehicleNumber String?
   notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  brickType     BrickType @relation(fields: [brickTypeId], references: [id])
-  customer      Customer  @relation(fields: [customerId], references: [id])
-  driver        Worker?   @relation("DriverDispatches", fields: [driverId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  brickType     BrickType    @relation(fields: [brickTypeId], references: [id])
+  customer      Customer     @relation(fields: [customerId], references: [id])
+  driver        Worker?      @relation("DriverDispatches", fields: [driverId], references: [id])
   handledById   String?
-  handledBy     Worker?   @relation("DispatchHandler", fields: [handledById], references: [id])
+  handledBy     Worker?      @relation("DispatchHandler", fields: [handledById], references: [id])
   orderId       String?
   order         ClientOrder? @relation(fields: [orderId], references: [id])
+  returns       BrickReturn[]
 
   @@map("dispatches")
+}
+
+model MaterialConfig {
+  id             String    @id @default(uuid())
+  brickTypeId    String    @unique
+  cementPer1000  Float     @default(0)
+  flyAshPer1000  Float     @default(0)
+  powderPer1000  Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  brickType      BrickType @relation(fields: [brickTypeId], references: [id])
+
+  @@map("material_configs")
+}
+
+model MaterialConsumptionLog {
+  id           String     @id @default(uuid())
+  productionId String
+  materialType String     // cement | flyash | powder
+  quantityUsed Float
+  date         DateTime
+  createdAt    DateTime   @default(now())
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  @@map("material_consumption_logs")
+}
+
+model BrickReturn {
+  id               String    @id @default(uuid())
+  dispatchId       String
+  clientId         String
+  brickTypeId      String
+  returnedQuantity Int
+  reason           String?
+  date             DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  dispatch         Dispatch  @relation(fields: [dispatchId], references: [id])
+  client           Customer  @relation(fields: [clientId], references: [id])
+  brickType        BrickType @relation(fields: [brickTypeId], references: [id])
+
+  @@map("brick_returns")
 }
 
 model Expense {
@@ -427,4 +474,28 @@ model TransportEntry {
   driver            Worker?          @relation("DriverTransport", fields: [driverId], references: [id])
 
   @@map("transport_entries")
+}
+
+model Alert {
+  id          String   @id @default(uuid())
+  type        String   // stock / material / payment / salary
+  message     String
+  severity    String   // low / medium / high
+  referenceId String?  // Optional: client_id / worker_id
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("alerts")
+}
+
+model Reminder {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime
+  status      String   @default("PENDING") // PENDING / COMPLETED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("reminders")
 }

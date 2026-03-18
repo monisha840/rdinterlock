@@ -7,6 +7,7 @@ import { Plus, X, Save, Loader2, IndianRupee } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
+import { materialConfigApi } from "@/api/material-config.api";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -59,6 +60,12 @@ const SettingsPage = () => {
   const [editedWorkerRates, setEditedWorkerRates] = useState<Record<string, string>>({});
   const [editedWorkerStatus, setEditedWorkerStatus] = useState<Record<string, boolean>>({});
 
+  // Material Config state
+  const [selectedBrickTypeForConfig, setSelectedBrickTypeForConfig] = useState("");
+  const [cementPer1000, setCementPer1000] = useState<number>(0);
+  const [flyAshPer1000, setFlyAshPer1000] = useState<number>(0);
+  const [powderPer1000, setPowderPer1000] = useState<number>(0);
+
   // Form states
   const [newStaffSalary, setNewStaffSalary] = useState<number>(0);
   const [newWorkerWeeklyWage, setNewWorkerWeeklyWage] = useState<number>(0);
@@ -88,6 +95,11 @@ const SettingsPage = () => {
 
   const staffList = allWorkersForSettings.filter(w => w.employeeType === 'Staff');
   const workerList = allWorkersForSettings.filter(w => w.employeeType === 'Worker');
+
+  const { data: materialConfigs = [], isLoading: isMaterialConfigsLoading } = useQuery({
+    queryKey: ['material-configs'],
+    queryFn: materialConfigApi.getAll,
+  });
 
   const { data: remoteSettings } = useQuery({
     queryKey: ['system-settings'],
@@ -255,6 +267,19 @@ const SettingsPage = () => {
       toast.success("✅ Salary Rates saved");
       queryClient.invalidateQueries({ queryKey: ['system-settings'] });
     }
+  });
+
+  const upsertMaterialConfigMutation = useMutation({
+    mutationFn: materialConfigApi.upsert,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['material-configs'] });
+      setSelectedBrickTypeForConfig("");
+      setCementPer1000(0);
+      setFlyAshPer1000(0);
+      setPowderPer1000(0);
+      toast.success("✅ Material configuration saved");
+    },
+    onError: (e: any) => toast.error("❌ Failed to save config", { description: e.message })
   });
 
   const handleSalaryRateChange = (key: string, value: string) => {
@@ -640,6 +665,127 @@ const SettingsPage = () => {
         showInactiveRawMaterials,
         setShowInactiveRawMaterials
       )}
+
+      {/* --- Material Configuration --- */}
+      <EntryCard title="🧱 Material Config (per 1000 Bricks)">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-2">
+            {isMaterialConfigsLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+            ) : materialConfigs.length > 0 ? (
+              <div className="space-y-2 mb-2">
+                {materialConfigs.map(config => (
+                  <div key={config.id} className="p-3 bg-secondary/30 rounded-xl border border-border/50 flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-bold text-primary">{config.brickType?.size}</span>
+                      <button 
+                         onClick={() => {
+                           setSelectedBrickTypeForConfig(config.brickTypeId);
+                           setCementPer1000(config.cementPer1000);
+                           setFlyAshPer1000(config.flyAshPer1000);
+                           setPowderPer1000(config.powderPer1000);
+                         }}
+                         className="text-[10px] text-primary hover:underline font-bold"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase text-muted-foreground font-bold">Cement</span>
+                        <span className="text-xs font-medium">{config.cementPer1000} KG</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase text-muted-foreground font-bold">Fly Ash</span>
+                        <span className="text-xs font-medium">{config.flyAshPer1000} KG</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase text-muted-foreground font-bold">Powder</span>
+                        <span className="text-xs font-medium">{config.powderPer1000} KG</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic text-center py-2">No configurations set</p>
+            )}
+          </div>
+
+          <div className="bg-secondary/20 p-4 rounded-2xl space-y-3 border border-border/30">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase px-1">
+              {selectedBrickTypeForConfig ? 'Update Config' : 'Add New Config'}
+            </p>
+            
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase ml-1">Brick Type</Label>
+              <select
+                value={selectedBrickTypeForConfig}
+                onChange={(e) => setSelectedBrickTypeForConfig(e.target.value)}
+                className="w-full h-11 px-3 bg-background border border-border rounded-xl text-sm focus:border-primary outline-none transition-colors"
+              >
+                <option value="">Select Brick Type</option>
+                {brickTypes.filter(bt => bt.isActive).map(bt => (
+                  <option key={bt.id} value={bt.id}>{bt.size}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase ml-1">Cement (KG)</Label>
+                <input
+                  type="number"
+                  placeholder="KG"
+                  value={cementPer1000 || ''}
+                  onChange={(e) => setCementPer1000(Number(e.target.value))}
+                  className="w-full h-10 px-3 bg-background border border-border rounded-xl text-sm focus:border-primary outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase ml-1">Fly Ash (KG)</Label>
+                <input
+                  type="number"
+                  placeholder="KG"
+                  value={flyAshPer1000 || ''}
+                  onChange={(e) => setFlyAshPer1000(Number(e.target.value))}
+                  className="w-full h-10 px-3 bg-background border border-border rounded-xl text-sm focus:border-primary outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase ml-1">Powder (KG)</Label>
+                <input
+                  type="number"
+                  placeholder="KG"
+                  value={powderPer1000 || ''}
+                  onChange={(e) => setPowderPer1000(Number(e.target.value))}
+                  className="w-full h-10 px-3 bg-background border border-border rounded-xl text-sm focus:border-primary outline-none"
+                />
+              </div>
+            </div>
+
+            <ActionButton
+              label={upsertMaterialConfigMutation.isPending ? "Saving..." : "Save Config"}
+              icon={Save}
+              variant="primary"
+              onClick={() => {
+                if (!selectedBrickTypeForConfig) {
+                  toast.error("Please select a brick type");
+                  return;
+                }
+                upsertMaterialConfigMutation.mutate({
+                  brickTypeId: selectedBrickTypeForConfig,
+                  cementPer1000,
+                  flyAshPer1000,
+                  powderPer1000
+                });
+              }}
+              className="w-full h-11"
+              disabled={upsertMaterialConfigMutation.isPending || !selectedBrickTypeForConfig}
+            />
+          </div>
+        </div>
+      </EntryCard>
 
 
       {/* ─── Staff & Workers ─── */}

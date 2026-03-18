@@ -1,0 +1,72 @@
+﻿Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-ap-southeast-2.pooler.supabase.com:5432"
+
+Drift detected: Your database schema is not in sync with your migration history.
+
+The following is a summary of the differences between the expected database schema given your migrations files, and the actual schema of the database.
+
+It should be understood as the set of changes to get from the expected schema to the actual schema.
+
+[+] Added tables
+  - workers
+
+[-] Removed tables
+  - expense_categories
+  - labour_advances
+  - labour_payments
+  - labours
+
+[*] Changed the `attendance` table
+  [-] Removed foreign key on columns (workerId)
+
+[*] Changed the `cash_entries` table
+  [-] Removed foreign key on columns (categoryId)
+  [-] Removed foreign key on columns (workerId)
+  [-] Removed column `categoryId`
+
+[*] Changed the `client_orders` table
+  [-] Removed foreign key on columns (driverId)
+  [+] Added column `handledById`
+
+[*] Changed the `daily_wages` table
+  [-] Removed foreign key on columns (workerId)
+
+[*] Changed the `dispatch_schedules` table
+  [-] Removed foreign key on columns (driverId)
+
+[*] Changed the `dispatches` table
+  [-] Removed foreign key on columns (driverId)
+  [+] Added column `handledById`
+
+[*] Changed the `expenses` table
+  [-] Removed foreign key on columns (categoryId)
+  [-] Removed foreign key on columns (workerId)
+  [-] Removed column `categoryId`
+
+[*] Changed the `labour_advances` table
+  [-] Removed foreign key on columns (labourId)
+
+[*] Changed the `labour_payments` table
+  [-] Removed foreign key on columns (labourId)
+
+[*] Changed the `monthly_settlements` table
+  [-] Removed foreign key on columns (workerId)
+
+[*] Changed the `production_workers` table
+  [-] Removed foreign key on columns (workerId)
+
+[*] Changed the `transport_entries` table
+  [+] Added column `driverId`
+
+[*] Changed the `weekly_settlements` table
+  [-] Removed foreign key on columns (workerId)
+
+[*] Changed the `worker_advances` table
+  [-] Removed foreign key on columns (workerId)
+
+[?25l[2K[1G[36m?[39m [1mWe need to reset the "public" schema at "aws-1-ap-southeast-2.pooler.supabase.com:5432"
+Do you want to continue? All data will be lost.[22m [90m┬╗[39m [90m(y/N)[39m[2K[1G[2K[1G[31m├ù[39m [1mWe need to reset the "public" schema at "aws-1-ap-southeast-2.pooler.supabase.com:5432"
+Do you want to continue? All data will be lost.[22m [90m...[39m no
+[?25h
+Reset cancelled.
