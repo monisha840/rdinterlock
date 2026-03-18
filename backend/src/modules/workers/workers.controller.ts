@@ -14,7 +14,7 @@ export class WorkersController {
   });
 
   getAllWorkers = asyncHandler(async (req: Request, res: Response) => {
-    const activeOnly = req.query.activeOnly === 'true';
+    const activeOnly = req.query.activeOnly === undefined ? true : req.query.activeOnly === 'true';
     const employeeType = req.query.employeeType as string;
     const workers = await workersService.getAllWorkers(activeOnly, employeeType);
     sendSuccess(res, workers, 'Employees retrieved successfully');

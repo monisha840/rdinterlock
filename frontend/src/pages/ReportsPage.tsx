@@ -447,7 +447,7 @@ const LogsTabContent = () => {
 
   const { data: people } = useQuery({
     queryKey: ["all-workers-for-logs"],
-    queryFn: () => workersApi.getAll(false),
+    queryFn: () => workersApi.getAll(true),
     enabled: true,
   });
 
@@ -494,7 +494,8 @@ const LogsTabContent = () => {
     payment: CreditCard,
     transport: Truck,
     sales: TrendingUp,
-    expense: Receipt
+    expense: Receipt,
+    production: Hammer
   };
 
   const typeColors: any = {
@@ -502,7 +503,8 @@ const LogsTabContent = () => {
     payment: "text-green-500 bg-green-50",
     transport: "text-amber-500 bg-amber-50",
     sales: "text-purple-500 bg-purple-50",
-    expense: "text-red-500 bg-red-50"
+    expense: "text-red-500 bg-red-50",
+    production: "text-orange-500 bg-orange-50"
   };
 
   return (
@@ -530,7 +532,7 @@ const LogsTabContent = () => {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {["All", "Attendance", "Payments", "Transport", "Sales", "Expenses"].map(t => (
+            {["All", "Attendance", "Production", "Payments", "Transport", "Sales", "Expenses"].map(t => (
               <button
                 key={t}
                 onClick={() => setLogType(t)}

@@ -96,7 +96,7 @@ const CashBookPage = () => {
 
   const { data: workers = [] } = useQuery({
     queryKey: ['workers'],
-    queryFn: () => apiClient.get('/workers').then(res => (res as any).data),
+    queryFn: () => workersApi.getAll(true),
   });
 
   const staffList = workers.filter((w: any) => ['MANAGER', 'DRIVER', 'TELECALLER'].includes(w.role));

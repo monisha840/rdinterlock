@@ -393,7 +393,9 @@ export class ReportsService {
       cashEntries,
       transportEntries,
       salesOrders,
-      dispatches
+      dispatches,
+      productionWorkers,
+      settings
     ] = await Promise.all([
       prisma.attendance.findMany({
         where: { workerId: personId, date: dateFilter },
@@ -425,12 +427,37 @@ export class ReportsService {
         where: { handledById: personId, date: dateFilter },
         orderBy: { date: 'desc' },
         include: { customer: true }
-      })
+      }),
+      prisma.productionWorker.findMany({
+        where: { 
+          workerId: personId, 
+          production: { date: dateFilter }
+        },
+        include: { 
+          production: {
+            include: { brickType: true }
+          }
+        },
+        orderBy: { production: { date: 'desc' } }
+      }),
+      prisma.systemSetting.findMany()
     ]);
+
+    // Parse settings
+    const settingMap = settings.reduce((acc: any, s) => {
+      acc[s.key] = s.value;
+      return acc;
+    }, {});
+    
+    const prodDayRate = parseFloat(settingMap['production_day_rate'] || '2.50');
+    const prodNightRate = parseFloat(settingMap['production_night_rate'] || '3.00');
+    const masonRate = parseFloat(settingMap['mason_rate'] || '9.00');
+
+    const worker = await prisma.worker.findUnique({ where: { id: personId } });
 
     // Normalize logs
     const logs: any[] = [
-      ...attendance.map(a => ({
+      ...attendance.map((a: any) => ({
         id: a.id,
         date: a.date,
         type: 'attendance',
@@ -438,7 +465,7 @@ export class ReportsService {
         amount: null,
         reference: 'Attendance'
       })),
-      ...advances.map(a => ({
+      ...advances.map((a: any) => ({
         id: a.id,
         date: a.date,
         type: 'payment',
@@ -446,7 +473,7 @@ export class ReportsService {
         amount: a.amount,
         reference: a.paymentMode
       })),
-      ...settlements.map(s => ({
+      ...settlements.map((s: any) => ({
         id: s.id,
         date: s.paidAt || s.createdAt,
         type: 'payment',
@@ -454,7 +481,7 @@ export class ReportsService {
         amount: s.netPaid,
         reference: 'Settlement'
       })),
-      ...cashEntries.map(c => ({
+      ...cashEntries.map((c: any) => ({
         id: c.id,
         date: c.date,
         type: 'expense',
@@ -462,7 +489,7 @@ export class ReportsService {
         amount: c.amount,
         reference: c.category
       })),
-      ...transportEntries.map(t => ({
+      ...transportEntries.map((t: any) => ({
         id: t.id,
         date: t.date,
         type: 'transport',
@@ -470,7 +497,7 @@ export class ReportsService {
         amount: t.transactionType === 'INCOME' ? t.incomeAmount : t.expenseAmount,
         reference: t.vehicle.vehicleNumber
       })),
-      ...salesOrders.map(o => ({
+      ...salesOrders.map((o: any) => ({
         id: o.id,
         date: o.orderDate,
         type: 'sales',
@@ -478,22 +505,40 @@ export class ReportsService {
         amount: o.totalAmount,
         reference: 'Sales'
       })),
-      ...dispatches.map(d => ({
+      ...dispatches.map((d: any) => ({
         id: d.id,
         date: d.date,
         type: 'sales',
         title: `Handled dispatch for ${d.customer.name}`,
         amount: d.totalAmount,
         reference: 'Dispatch'
-      }))
+      })),
+      ...productionWorkers.map((pw: any) => {
+        let wage = 0;
+        if (worker?.role.toUpperCase() === 'MASON') {
+          wage = pw.quantity * masonRate;
+        } else {
+          const shiftRate = pw.production.shift === 'NIGHT' ? prodNightRate : prodDayRate;
+          wage = pw.quantity * shiftRate;
+        }
+        return {
+          id: pw.id,
+          date: pw.production.date,
+          type: 'production',
+          title: `Produced ${pw.quantity.toLocaleString()} bricks (${pw.production.brickType.size})`,
+          amount: wage,
+          reference: `${pw.production.shift} Shift`
+        };
+      })
     ];
 
     // Sort by date DESC
     logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Summary Stats
+    // Earnings include: sales commission/total (for managers), transport income (drivers), and production wages
     const totalEarned = logs
-      .filter(l => l.type === 'sales' || (l.type === 'transport' && l.amount > 0))
+      .filter(l => l.type === 'sales' || l.type === 'production' || (l.type === 'transport' && l.amount > 0))
       .reduce((sum, l) => sum + (l.amount || 0), 0);
     
     const totalPaid = logs
@@ -501,8 +546,6 @@ export class ReportsService {
       .reduce((sum, l) => sum + (l.amount || 0), 0);
 
     const totalLoads = transportEntries.reduce((sum, t) => sum + t.loads, 0);
-
-    const worker = await prisma.worker.findUnique({ where: { id: personId } });
 
     return {
       logs,

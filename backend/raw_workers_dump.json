@@ -1,0 +1,32 @@
+[
+  {
+    "id": "31f630a4-ecb2-4ca1-ab93-ddcd1aea8876",
+    "name": "Staff1",
+    "role": "DRIVER",
+    "employeeType": "Staff",
+    "paymentType": "MONTHLY",
+    "rate": 0,
+    "monthlySalary": 0,
+    "weeklyWage": 0,
+    "perBrickRate": 0,
+    "isActive": true,
+    "advanceBalance": 0,
+    "createdAt": "2026-03-18T05:34:52.538Z",
+    "updatedAt": "2026-03-18T05:34:52.538Z"
+  },
+  {
+    "id": "dd5af4ee-5e27-410c-a7d9-17de63919004",
+    "name": "Worker1",
+    "role": "OPERATOR",
+    "employeeType": "Worker",
+    "paymentType": "PER_BRICK",
+    "rate": 0,
+    "monthlySalary": 0,
+    "weeklyWage": 0,
+    "perBrickRate": 0,
+    "isActive": true,
+    "advanceBalance": 0,
+    "createdAt": "2026-03-18T05:35:54.591Z",
+    "updatedAt": "2026-03-18T05:35:54.591Z"
+  }
+]

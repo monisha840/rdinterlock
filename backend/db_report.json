@@ -1,0 +1,6 @@
+{
+  "sqlWorkerCount": 2,
+  "prismaWorkerCount": 2,
+  "sqlAdvanceCount": 2,
+  "prismaAdvanceCount": 2
+}

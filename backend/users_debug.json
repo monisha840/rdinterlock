@@ -1,0 +1,9 @@
+[
+  {
+    "id": "7f51cfb0-e895-4ece-828f-1dc8c23ddb72",
+    "name": "Admin",
+    "email": "adminrd@interlock.com",
+    "role": "ADMIN",
+    "isActive": true
+  }
+]

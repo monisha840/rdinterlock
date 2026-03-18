@@ -11,7 +11,7 @@ export class WorkersService {
     return worker;
   }
 
-  async getAllWorkers(activeOnly: boolean = false, employeeType?: string) {
+  async getAllWorkers(activeOnly: boolean = true, employeeType?: string) {
     // Check if migration is needed (one-time check can be added or just handle dynamically)
     // For safety, we'll ensure the existing records have the new fields populated if they are accessed
 
