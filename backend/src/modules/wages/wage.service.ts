@@ -457,6 +457,17 @@ export class WageService {
 
         const totalAdvancePaid = givenAdvances.reduce((sum, adv) => sum + adv.amount, 0);
 
+        // Fetch formal staff payments for this worker in date range
+        const formalPayments = await (prisma as any).staffPayment.findMany({
+          where: {
+            personId: worker.id,
+            date: { gte: startOfDay, lte: endOfDay }
+          }
+        });
+        const totalPaid = formalPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
+        const netPayable = Math.max(0, grossWage - totalAdvancePaid);
+        const pendingAmount = Math.max(0, netPayable - totalPaid);
+
         return {
           workerId: worker.id,
           workerName: worker.name,
@@ -468,6 +479,8 @@ export class WageService {
           totalBricks,
           grossWage,
           advanceBalance: totalAdvancePaid, // Use advanceBalance field to pass the period's advance paid amount to match frontend expectation
+          totalPaid,
+          pendingAmount,
           daysPresent: attendanceCount,
           advanceDetails: givenAdvances.map(a => ({
             id: a.id,

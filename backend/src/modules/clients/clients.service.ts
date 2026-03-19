@@ -123,21 +123,77 @@ export class ClientsService {
     // ═══════════════════════ ORDERS ═══════════════════════
 
     async createOrder(data: any) {
-        const totalAmount = data.totalAmount || (data.quantity * (data.rate || 0));
-        return prisma.clientOrder.create({
-            data: {
-                clientId: data.clientId,
-                brickTypeId: data.brickTypeId,
-                quantity: data.quantity,
-                rate: data.rate || 0,
-                totalAmount,
-                orderDate: new Date(data.orderDate),
-                expectedDispatchDate: data.expectedDispatchDate ? new Date(data.expectedDispatchDate) : null,
-                status: data.status || 'PENDING',
-                notes: data.notes,
-                driverId: data.driverId || null,
-            },
-            include: { client: true, brickType: true, driver: true },
+        return await prisma.$transaction(async (tx: any) => {
+            const totalAmount = data.totalAmount || (data.quantity * (data.rate || 0));
+            const requestedStatus = data.status || 'PENDING';
+
+            // If creating an order directly as DISPATCHED, validate stock
+            if (requestedStatus === 'DISPATCHED') {
+                const totalProduction = await tx.production.aggregate({
+                    where: { brickTypeId: data.brickTypeId },
+                    _sum: { availableBricks: true },
+                });
+
+                const totalDispatched = await tx.dispatch.aggregate({
+                    where: { brickTypeId: data.brickTypeId },
+                    _sum: { quantity: true },
+                });
+
+                const totalReturned = await (tx as any).brickReturn.aggregate({
+                    where: { brickTypeId: data.brickTypeId },
+                    _sum: { returnedQuantity: true },
+                });
+
+                const produced = totalProduction._sum.availableBricks || 0;
+                const dispatched = totalDispatched._sum.quantity || 0;
+                const returned = totalReturned._sum.returnedQuantity || 0;
+                const currentStock = produced - dispatched + returned;
+
+                if (data.quantity > currentStock) {
+                    throw new AppError(
+                        `Insufficient Stock: Only ${currentStock.toLocaleString()} units available, but ${data.quantity.toLocaleString()} requested.`,
+                        400
+                    );
+                }
+            }
+
+            const order = await tx.clientOrder.create({
+                data: {
+                    clientId: data.clientId,
+                    brickTypeId: data.brickTypeId,
+                    quantity: data.quantity,
+                    rate: data.rate || 0,
+                    totalAmount,
+                    orderDate: new Date(data.orderDate),
+                    expectedDispatchDate: data.expectedDispatchDate ? new Date(data.expectedDispatchDate) : null,
+                    status: requestedStatus,
+                    notes: data.notes,
+                    driverId: data.driverId || null,
+                },
+                include: { client: true, brickType: true, driver: true },
+            });
+
+            // If DISPATCHED, create the dispatch entry
+            if (requestedStatus === 'DISPATCHED') {
+                await tx.dispatch.create({
+                    data: {
+                        date: data.orderDate ? new Date(data.orderDate) : new Date(),
+                        customerId: order.clientId,
+                        brickTypeId: order.brickTypeId,
+                        orderId: order.id,
+                        quantity: order.quantity,
+                        totalAmount,
+                        paidAmount: 0, // Add Payment is handled separately, or via payload if provided
+                        paymentStatus: 'PENDING',
+                        driverId: order.driverId,
+                        status: 'Completed',
+                        vehicleType: 'OWN',
+                        notes: order.notes,
+                    }
+                });
+            }
+
+            return order;
         });
     }
 

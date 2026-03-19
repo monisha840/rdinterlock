@@ -3,6 +3,7 @@ import { alertsApi, Alert } from "@/api/alerts.api";
 import { AlertCircle, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useEffect, useRef } from "react";
 
 export const AlertsPanel = () => {
   const queryClient = useQueryClient();
@@ -27,7 +28,42 @@ export const AlertsPanel = () => {
     }
   });
 
-  if (isLoading || !alerts || alerts.length === 0) return null;
+  const prevCount = useRef(0);
+  useEffect(() => {
+    if (alerts && alerts.length > prevCount.current && prevCount.current !== 0) {
+      toast.error("New Smart Alert Generated!", {
+        description: "Check the Smart Alerts panel for details."
+      });
+    }
+    if (alerts) {
+      prevCount.current = alerts.length;
+    }
+  }, [alerts]);
+
+  // Removed early return null to ensure panel always renders
+  // if (isLoading || !alerts || alerts.length === 0) return null;
+  
+  if (isLoading) {
+    return (
+      <div className="card-modern p-4 border-primary/20 bg-primary/5 flex items-center justify-center">
+        <p className="text-sm text-primary">Loading alerts...</p>
+      </div>
+    );
+  }
+
+  if (!alerts || alerts.length === 0) {
+    return (
+      <div className="card-modern p-4 border-primary/20 bg-primary/5">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertCircle className="h-5 w-5 text-primary" />
+          <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+            Smart Alerts
+          </h2>
+        </div>
+        <p className="text-xs text-muted-foreground">No active alerts at the moment.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="card-modern p-4 border-primary/20 bg-primary/5 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">

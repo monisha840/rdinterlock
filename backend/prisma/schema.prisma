@@ -77,6 +77,7 @@ model Worker {
   handledOrders      ClientOrder[]       @relation("OrderHandler")
   handledDispatches  Dispatch[]          @relation("DispatchHandler")
   transportEntries   TransportEntry[]    @relation("DriverTransport")
+  staffPayments      StaffPayment[]
 
   @@map("workers")
 }
@@ -498,4 +499,20 @@ model Reminder {
   updatedAt   DateTime @updatedAt
 
   @@map("reminders")
+}
+
+model StaffPayment {
+  id           String   @id @default(uuid())
+  personId     String
+  role         String
+  amount       Float
+  paymentType  String
+  method       String
+  date         DateTime
+  note         String?
+  createdAt    DateTime @default(now())
+  
+  worker       Worker   @relation(fields: [personId], references: [id])
+
+  @@map("staff_payments")
 }

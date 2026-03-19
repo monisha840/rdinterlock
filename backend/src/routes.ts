@@ -17,6 +17,7 @@ import materialConfigRoutes from './modules/materials/material-config.routes';
 import returnRoutes from './modules/materials/returns.routes';
 import alertsRoutes from './modules/alerts/alerts.routes';
 import remindersRoutes from './modules/reminders/reminders.routes';
+import paymentsRoutes from './modules/payments/payments.routes';
 
 const router = Router();
 
@@ -48,6 +49,7 @@ router.use('/material-config', materialConfigRoutes);
 router.use('/returns', returnRoutes);
 router.use('/alerts', alertsRoutes);
 router.use('/reminders', remindersRoutes);
+router.use('/payments', paymentsRoutes);
 
 // Alias for dashboard summary (as per requirements)
 router.use('/dashboard', reportsRoutes);

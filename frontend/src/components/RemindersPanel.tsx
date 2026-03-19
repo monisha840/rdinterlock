@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { remindersApi, Reminder } from "@/api/reminders.api";
-import { ListTodo, Plus, CheckCircle2, Circle, Trash2, Calendar as CalIcon } from "lucide-react";
+import { ListTodo, Plus, CheckCircle2, Circle, Trash2, Calendar as CalIcon, Edit2 } from "lucide-react";
 import { format, isToday, isPast } from "date-fns";
 import { toast } from "sonner";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -11,6 +11,10 @@ export const RemindersPanel = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState(new Date());
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState(new Date());
 
   const { data: reminders, isLoading } = useQuery({
     queryKey: ['reminders-list'],
@@ -32,6 +36,16 @@ export const RemindersPanel = () => {
       remindersApi.update(id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders-list"] });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string, data: Partial<Reminder> }) => 
+      remindersApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders-list"] });
+      setEditingId(null);
+      toast.success("Task updated");
     }
   });
 
@@ -127,6 +141,45 @@ export const RemindersPanel = () => {
           const dueDate = new Date(reminder.dueDate);
           const overdue = isPast(dueDate) && !isToday(dueDate);
           
+          if (editingId === reminder.id) {
+            return (
+              <div key={reminder.id} className="bg-secondary/30 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Task title..."
+                  className="w-full bg-transparent border-none text-sm font-semibold focus:ring-0 placeholder:text-muted-foreground/60"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                />
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <DatePickerField 
+                      date={editDate} 
+                      onDateChange={setEditDate}
+                      label="Due Date"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <button 
+                    onClick={() => setEditingId(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-black/5"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => updateMutation.mutate({ id: reminder.id, data: { title: editTitle, dueDate: editDate.toISOString() } })}
+                    disabled={!editTitle.trim() || updateMutation.isPending}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-sm hover:opacity-90 active:scale-95 disabled:opacity-50"
+                  >
+                    {updateMutation.isPending ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={reminder.id} className="group p-3 rounded-2xl border border-border/50 bg-background/50 flex items-start gap-3 transition-all">
               <button 
@@ -142,12 +195,24 @@ export const RemindersPanel = () => {
                   {format(dueDate, "dd MMM")} {overdue && "(Overdue)"}
                 </p>
               </div>
-              <button 
-                onClick={() => deleteMutation.mutate(reminder.id)}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
+                <button 
+                  onClick={() => {
+                    setEditingId(reminder.id);
+                    setEditTitle(reminder.title);
+                    setEditDate(new Date(reminder.dueDate));
+                  }}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={() => deleteMutation.mutate(reminder.id)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           );
         })}

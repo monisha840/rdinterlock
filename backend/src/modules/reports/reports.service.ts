@@ -625,17 +625,19 @@ export class ReportsService {
       .sort((a, b) => b.value - a.value);
 
     // 5. Staff Summary (Salary vs Paid vs Pending)
-    const [dailyWages, weeklySettlements, monthlySettlements] = await Promise.all([
+    const [dailyWages, weeklySettlements, monthlySettlements, staffPayments] = await Promise.all([
       prisma.dailyWage.aggregate({ where: { date: dateRange }, _sum: { wageAmount: true } }),
       prisma.weeklySettlement.aggregate({ where: { generatedAt: dateRange }, _sum: { totalAmount: true } }),
-      prisma.monthlySettlement.aggregate({ where: { createdAt: dateRange }, _sum: { salary: true } })
+      prisma.monthlySettlement.aggregate({ where: { createdAt: dateRange }, _sum: { salary: true } }),
+      (prisma as any).staffPayment.aggregate({ where: { date: dateRange }, _sum: { amount: true } })
     ]);
 
     const total_salary = (dailyWages._sum.wageAmount || 0) + 
                          (weeklySettlements._sum.totalAmount || 0) + 
                          (monthlySettlements._sum.salary || 0);
     
-    const pending_salary = total_salary - labour_expense;
+    const total_paid_val = (staffPayments._sum.amount || 0); // User wants total_paid = SUM(staff_payments)
+    const pending_salary = total_salary - total_paid_val;
 
     // 6. Transport Summary
     const transportStats = await prisma.transportEntry.aggregate({
@@ -659,7 +661,7 @@ export class ReportsService {
       category_expenses,
       salary_summary: {
         total_salary,
-        total_paid: labour_expense,
+        total_paid: total_paid_val,
         pending: Math.max(0, pending_salary)
       },
       transport_summary: {

@@ -28,6 +28,7 @@ import { reportsApi } from "@/api/reports.api";
 import { User, Receipt, CreditCard, TrendingDown } from "lucide-react";
 import { GlobalDateFilter, DateRange } from "@/components/GlobalDateFilter";
 import { BIReportsDashboard } from "@/components/BIReportsDashboard";
+import { SalaryPaymentModal } from "@/components/SalaryPaymentModal";
 
 // ─── Worker report type ───────────────────────────────────────────────────────
 interface WorkerWageRecord {
@@ -41,6 +42,8 @@ interface WorkerWageRecord {
   totalBricks: number;
   grossWage: number;
   advanceBalance: number;
+  totalPaid?: number;
+  pendingAmount?: number;
   daysPresent: number;
   advanceDetails?: { id: string; amount: number; date: string; paymentMode: string }[];
 }
@@ -60,6 +63,21 @@ const ReportsPage = () => {
 
   const handleRangeChange = (range: DateRange) => {
     setDateRange(range);
+  };
+
+  // ── Payment Modal state ───────────────────────────────────────────────────
+  const [selectedWorker, setSelectedWorker] = useState<any>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  const handleOpenPayment = (worker: any, netPayable: number, type: string) => {
+    setSelectedWorker({ 
+      id: worker.workerId || worker.id, 
+      name: worker.workerName || worker.name, 
+      role: worker.role, 
+      netPayable,
+      paymentType: type
+    });
+    setIsPaymentModalOpen(true);
   };
 
   // ── Operations tab state (now using global range) ─────────────────────────
@@ -218,26 +236,45 @@ const ReportsPage = () => {
                         <StatusBadge label={s.role} variant={(roleColor[s.role] as any) || "default"} />
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Net Payable</p>
-                        <p className="text-lg font-black text-primary">₹{s.netPaid.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground uppercase font-black tracking-tight">Pending Balance</p>
+                        <p className="text-lg font-black text-primary">₹{(s.pendingAmount || 0).toLocaleString()}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-y-2 text-xs border-t border-border/50 pt-3">
+                    <div className="grid grid-cols-3 gap-2 text-[11px] border-t border-border/50 pt-3 mb-4">
+                      <div className="flex flex-col items-center p-2 bg-secondary/30 rounded-xl">
+                        <span className="text-muted-foreground font-bold uppercase text-[9px]">Gross</span>
+                        <span className="font-black">₹{s.salary.toLocaleString()}</span>
+                      </div>
+                      <div className="flex flex-col items-center p-2 bg-secondary/30 rounded-xl">
+                        <span className="text-muted-foreground font-bold uppercase text-[9px]">Advances</span>
+                        <span className="font-black text-destructive">-₹{s.advanceUsed?.toLocaleString() ?? 0}</span>
+                      </div>
+                      <div className="flex flex-col items-center p-2 bg-success/10 rounded-xl border border-success/20">
+                        <span className="text-success font-bold uppercase text-[9px]">Paid</span>
+                        <span className="font-black text-success">₹{(s.totalPaid || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <ActionButton 
+                        label="Pay Salary" 
+                        icon={IndianRupee} 
+                        variant="primary" 
+                        size="sm" 
+                        className="flex-1 h-10 shadow-sm"
+                        onClick={() => handleOpenPayment(s, s.pendingAmount, 'SALARY')}
+                      />
+                    </div>
+
+                    {/* Meta stats */}
+                    <div className="grid grid-cols-2 gap-y-2 text-[10px] items-center mt-3 pt-3 border-t border-border/20 uppercase font-bold text-muted-foreground">
                       <div className="flex justify-between pr-4 border-r border-border/30">
-                        <span className="text-muted-foreground">Days Worked:</span>
-                        <span className="font-bold">{s.presentDays}</span>
+                        <span>Days Worked:</span>
+                        <span className="text-foreground font-black">{s.presentDays}</span>
                       </div>
                       <div className="flex justify-between pl-4">
-                        <span className="text-muted-foreground">Daily Rate:</span>
-                        <span className="font-bold">₹{s.dailyRate}</span>
-                      </div>
-                      <div className="flex justify-between pr-4 border-r border-border/30">
-                        <span className="text-muted-foreground">Gross Salary:</span>
-                        <span className="font-bold">₹{s.salary.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between pl-4">
-                        <span className="text-muted-foreground text-destructive">Total Adv:</span>
-                        <span className="font-bold text-destructive">-₹{s.advanceUsed?.toLocaleString() ?? 0}</span>
+                        <span>Daily Rate:</span>
+                        <span className="text-foreground font-black">₹{s.dailyRate}</span>
                       </div>
                     </div>
                     {/* Advance Breakdown */}
@@ -341,12 +378,38 @@ const ReportsPage = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-muted-foreground">Net Payable</p>
-                          <p className="text-lg font-black text-primary">₹{netPayable.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tight">Pending Balance</p>
+                          <p className="text-lg font-black text-primary">₹{(w.pendingAmount || 0).toLocaleString()}</p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-y-2 text-xs border-t border-border/50 pt-3">
+                      <div className="grid grid-cols-3 gap-2 text-[10px] border-t border-border/50 pt-3 mb-4">
+                        <div className="flex flex-col items-center p-2 bg-secondary/30 rounded-xl">
+                          <span className="text-muted-foreground font-bold uppercase text-[8px]">Gross</span>
+                          <span className="font-black">₹{w.grossWage.toLocaleString()}</span>
+                        </div>
+                        <div className="flex flex-col items-center p-2 bg-secondary/30 rounded-xl">
+                          <span className="text-muted-foreground font-bold uppercase text-[8px]">Advances</span>
+                          <span className="font-black text-destructive">-₹{w.advanceBalance?.toLocaleString() ?? 0}</span>
+                        </div>
+                        <div className="flex flex-col items-center p-2 bg-success/10 rounded-xl border border-success/20">
+                          <span className="text-success font-bold uppercase text-[8px]">Paid</span>
+                          <span className="font-black text-success">₹{(w.totalPaid || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <ActionButton 
+                          label="Pay Wage" 
+                          icon={IndianRupee} 
+                          variant="primary" 
+                          size="sm" 
+                          className="flex-1 h-10 shadow-sm"
+                          onClick={() => handleOpenPayment(w, w.pendingAmount, 'WAGE')}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-y-2 text-[10px] border-t border-border/50 pt-3 mt-3 font-bold uppercase text-muted-foreground">
                         {isMason ? (
                           <>
                             <div className="flex justify-between pr-4 border-r border-border/30">
@@ -437,6 +500,17 @@ const ReportsPage = () => {
           className="w-full"
         />
       </div>
+      {selectedWorker && (
+        <SalaryPaymentModal 
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          worker={selectedWorker}
+          onSuccess={() => {
+            if (activeTab === "Staff Salaries") refetchSalary();
+            if (activeTab === "Worker Wages") refetchWages();
+          }}
+        />
+      )}
     </MobileFormLayout>
   );
 };

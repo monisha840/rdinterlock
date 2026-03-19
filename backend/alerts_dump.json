@@ -1,0 +1,119 @@
+[
+  {
+    "id": "7988d9dd-7f44-40b7-b05c-a8331d069fbd",
+    "type": "material",
+    "message": "⚠ Low Material: Cement stock is at 0 BAG.",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-18T13:38:04.515Z"
+  },
+  {
+    "id": "e6531fe6-c9b3-44f9-88e6-e36970415406",
+    "type": "material",
+    "message": "⚠ Low Material: Fly Ash stock is at 0 KG.",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-18T13:38:05.856Z"
+  },
+  {
+    "id": "bcde2cf5-a6f4-422e-bd42-c6a526c819e9",
+    "type": "material",
+    "message": "⚠ Low Material: Add Mixture stock is at 0 LTR.",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-18T13:38:07.189Z"
+  },
+  {
+    "id": "871f2ce5-7d85-4e45-9018-83ecfb1d4deb",
+    "type": "material",
+    "message": "⚠ Low Material: Crusher Powder stock is at 0 TON.",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-18T13:38:08.657Z"
+  },
+  {
+    "id": "0617de27-9511-4ee1-9507-eb0b14d7b2a6",
+    "type": "material",
+    "message": "Low Raw Material Stock: Cement (0 BAG)",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T09:45:04.693Z"
+  },
+  {
+    "id": "3277c418-1030-42a5-b1b4-b3c2dfeee93c",
+    "type": "material",
+    "message": "Low Raw Material Stock: Fly Ash (0 KG)",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T09:45:06.052Z"
+  },
+  {
+    "id": "0d84d711-b2c6-4ec6-ac32-a941f2cb8916",
+    "type": "material",
+    "message": "Low Raw Material Stock: Add Mixture (0 LTR)",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T09:45:07.373Z"
+  },
+  {
+    "id": "e6187eb1-9cb2-460f-b4d2-722b6291de58",
+    "type": "material",
+    "message": "Low Raw Material Stock: Crusher Powder (0 TON)",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T09:45:08.757Z"
+  },
+  {
+    "id": "765bc3e9-b253-46ab-b6e2-8b53bbcde056",
+    "type": "payment",
+    "message": "1 Clients Pending Payment",
+    "severity": "medium",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T09:45:14.935Z"
+  },
+  {
+    "id": "f0f84146-0af6-4313-8d29-a6e52be692fc",
+    "type": "payment",
+    "message": "2 Clients Pending Payment",
+    "severity": "medium",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T10:01:10.642Z"
+  },
+  {
+    "id": "77a1998a-8046-4b73-8456-a7efe51ca1a1",
+    "type": "stock",
+    "message": "Low Brick Stock: 8 inch (500 remaining)",
+    "severity": "high",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T10:06:02.076Z"
+  },
+  {
+    "id": "0f4348f0-377f-454a-b003-2095e19983e1",
+    "type": "payment",
+    "message": "3 Clients Pending Payment",
+    "severity": "medium",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T10:06:11.594Z"
+  },
+  {
+    "id": "e13c48bc-17a0-4b82-9edd-722d60d09c19",
+    "type": "payment",
+    "message": "4 Clients Pending Payment",
+    "severity": "medium",
+    "referenceId": null,
+    "isRead": false,
+    "createdAt": "2026-03-19T10:24:59.844Z"
+  }
+]

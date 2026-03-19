@@ -9,7 +9,9 @@ export interface MonthlySalaryCalculation {
     salary: number;
     advanceBalance: number;
     advanceUsed: number;
-    netPaid: number;
+    netPayable: number;
+    totalPaid: number;
+    pendingAmount: number;
 }
 
 export interface MonthlySettlementResponse {

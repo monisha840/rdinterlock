@@ -1,0 +1,19 @@
+Latest Alerts:
+- ID: 64147761-ea45-4b99-b69c-608fe1779906, Msg: 5 Clients Pending Payment, isRead: false, Created: Thu Mar 19 2026 16:56:32 GMT+0530 (India Standard Time)
+- ID: 0f42f795-cf59-4fd3-ba1b-cf4971b8b002, Msg: Low Brick Stock: 6 inch (4,640 remaining), isRead: false, Created: Thu Mar 19 2026 16:56:19 GMT+0530 (India Standard Time)
+- ID: e13c48bc-17a0-4b82-9edd-722d60d09c19, Msg: 4 Clients Pending Payment, isRead: false, Created: Thu Mar 19 2026 15:54:59 GMT+0530 (India Standard Time)
+- ID: 0f4348f0-377f-454a-b003-2095e19983e1, Msg: 3 Clients Pending Payment, isRead: false, Created: Thu Mar 19 2026 15:36:11 GMT+0530 (India Standard Time)
+- ID: 77a1998a-8046-4b73-8456-a7efe51ca1a1, Msg: Low Brick Stock: 8 inch (500 remaining), isRead: false, Created: Thu Mar 19 2026 15:36:02 GMT+0530 (India Standard Time)
+- ID: f0f84146-0af6-4313-8d29-a6e52be692fc, Msg: 2 Clients Pending Payment, isRead: false, Created: Thu Mar 19 2026 15:31:10 GMT+0530 (India Standard Time)
+- ID: 765bc3e9-b253-46ab-b6e2-8b53bbcde056, Msg: 1 Clients Pending Payment, isRead: false, Created: Thu Mar 19 2026 15:15:14 GMT+0530 (India Standard Time)
+- ID: e6187eb1-9cb2-460f-b4d2-722b6291de58, Msg: Low Raw Material Stock: Crusher Powder (0 TON), isRead: false, Created: Thu Mar 19 2026 15:15:08 GMT+0530 (India Standard Time)
+- ID: 0d84d711-b2c6-4ec6-ac32-a941f2cb8916, Msg: Low Raw Material Stock: Add Mixture (0 LTR), isRead: false, Created: Thu Mar 19 2026 15:15:07 GMT+0530 (India Standard Time)
+- ID: 3277c418-1030-42a5-b1b4-b3c2dfeee93c, Msg: Low Raw Material Stock: Fly Ash (0 KG), isRead: false, Created: Thu Mar 19 2026 15:15:06 GMT+0530 (India Standard Time)
+- ID: 0617de27-9511-4ee1-9507-eb0b14d7b2a6, Msg: Low Raw Material Stock: Cement (0 BAG), isRead: false, Created: Thu Mar 19 2026 15:15:04 GMT+0530 (India Standard Time)
+- ID: 871f2ce5-7d85-4e45-9018-83ecfb1d4deb, Msg: ⚠ Low Material: Crusher Powder stock is at 0 TON., isRead: false, Created: Wed Mar 18 2026 19:08:08 GMT+0530 (India Standard Time)
+- ID: bcde2cf5-a6f4-422e-bd42-c6a526c819e9, Msg: ⚠ Low Material: Add Mixture stock is at 0 LTR., isRead: false, Created: Wed Mar 18 2026 19:08:07 GMT+0530 (India Standard Time)
+- ID: e6531fe6-c9b3-44f9-88e6-e36970415406, Msg: ⚠ Low Material: Fly Ash stock is at 0 KG., isRead: false, Created: Wed Mar 18 2026 19:08:05 GMT+0530 (India Standard Time)
+- ID: 7988d9dd-7f44-40b7-b05c-a8331d069fbd, Msg: ⚠ Low Material: Cement stock is at 0 BAG., isRead: false, Created: Wed Mar 18 2026 19:08:04 GMT+0530 (India Standard Time)
+
+Stock for 6 inch: 4640
+Stock for 8 inch: 8500

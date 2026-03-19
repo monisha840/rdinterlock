@@ -30,12 +30,11 @@ export class RemindersService {
     return await (prisma.reminder as any).findMany({
       where: {
         dueDate: {
-          gte: today,
           lt: tomorrow
         },
         status: 'PENDING'
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { dueDate: 'asc' }
     });
   }
 

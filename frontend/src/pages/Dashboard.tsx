@@ -19,6 +19,7 @@ import { clientsApi } from "@/api/clients.api";
 import { format, isToday } from "date-fns";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { RemindersPanel } from "@/components/RemindersPanel";
+import { TodaysTasksPanel } from "@/components/TodaysTasksPanel";
 
 const productionData = [
   { day: "Mon", qty: 2400 },
@@ -213,6 +214,7 @@ const Dashboard = () => {
       </div>
 
       {/* 📌 Phase 7: Manual Reminders / Tasks */}
+      <TodaysTasksPanel />
       <RemindersPanel />
 
       <div className="card-modern p-5 animate-fade-in">

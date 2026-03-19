@@ -1,7 +1,9 @@
 import app from './app';
 import { config } from './config';
 import prisma from './config/database';
-// Server restarted at 2026-03-05T17:47
+import { AlertsService } from './modules/alerts/alerts.service';
+
+const alertsService = new AlertsService();
 
 const PORT = config.port;
 
@@ -14,6 +16,23 @@ async function testDatabaseConnection() {
     console.error('❌ Database connection failed:', error);
     process.exit(1);
   }
+}
+
+// Background Alert Job (Run every 10 minutes)
+function startAlertJob() {
+  console.log('⏰ Starting background alert engine...');
+  // Initial run
+  alertsService.generateAlerts().catch(err => console.error('Error in initial alert job:', err));
+  
+  // Schedule
+  setInterval(async () => {
+    try {
+      console.log('🔍 Running scheduled alert checks...');
+      await alertsService.generateAlerts();
+    } catch (error) {
+      console.error('Error in scheduled alert job:', error);
+    }
+  }, 10 * 60 * 1000); // 10 minutes
 }
 
 // Start server
@@ -31,6 +50,9 @@ async function startServer() {
       console.log(`📊 Health Check: http://localhost:${PORT}/api/v1/health`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('');
+
+      // Start background jobs
+      startAlertJob();
     });
   } catch (error) {
     console.error('Failed to start server:', error);

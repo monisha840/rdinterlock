@@ -69,9 +69,19 @@ export class MonthlySettlementService {
 
       const totalAdvancePaid = givenAdvances.reduce((sum, adv) => sum + adv.amount, 0);
 
+      // Fetch formal staff payments for this month
+      const formalPayments = await (prisma as any).staffPayment.findMany({
+        where: {
+          personId: worker.id,
+          date: { gte: startDate, lte: endDate }
+        }
+      });
+      const totalPaid = formalPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
+
       // Check advance balance (we use the sum of advances given in this period as per user requirements)
       const advanceUsed = totalAdvancePaid; // Or Math.min(totalAdvancePaid, salary) if we only deduct up to salary
-      const netPaid = Math.max(0, salary - advanceUsed);
+      const netPayable = Math.max(0, salary - advanceUsed);
+      const pendingAmount = Math.max(0, netPayable - totalPaid);
 
       salaries.push({
         workerId: worker.id,
@@ -82,7 +92,9 @@ export class MonthlySettlementService {
         salary,
         advanceBalance: worker.advanceBalance, // Still pass the running balance if needed elsewhere
         advanceUsed,
-        netPaid,
+        netPayable,
+        totalPaid,
+        pendingAmount,
         advanceDetails: givenAdvances.map(a => ({
           id: a.id,
           amount: a.amount,
