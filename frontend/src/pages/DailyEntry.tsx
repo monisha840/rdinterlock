@@ -30,6 +30,7 @@ const DailyEntry = () => {
   const [damagedQuantity, setDamagedQuantity] = useState("");
   const [workers, setWorkers] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
+  const [siteName, setSiteName] = useState("");
   const [lastResult, setLastResult] = useState<any>(null);
 
   const [expenseDate, setExpenseDate] = useState(new Date());
@@ -75,6 +76,7 @@ const DailyEntry = () => {
       setDamagedQuantity("");
       setWorkers([""]);
       setNotes("");
+      setSiteName("");
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save production", {
@@ -159,6 +161,7 @@ const DailyEntry = () => {
       quantity: totalQty,
       damagedBricks: damagedQty,
       notes,
+      siteName,
       workers: workers
         .filter(w => w !== "")
         .map((workerId, index, filteredArray) => {
@@ -306,13 +309,22 @@ const DailyEntry = () => {
               <div className="text-sm text-muted-foreground italic">No active brick sizes found.</div>
             )}
           </FormField>
-
+          
+          <FormField label="Site Name">
+            <input
+              type="text"
+              value={siteName}
+              onChange={(e) => setSiteName(e.target.value)}
+              placeholder="e.g. Site A, Main Road"
+              className="flex-1 h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+            />
+          </FormField>
+          
           <FormField label="Quantity Produced" required>
             <BigNumberInput
               value={quantity}
               onChange={setQuantity}
               placeholder="Enter number of bricks"
-              min={0}
             />
             {/* Quick Quantity Chips */}
             <div className="flex flex-wrap gap-2 mt-3">

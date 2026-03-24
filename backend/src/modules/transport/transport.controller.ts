@@ -4,7 +4,8 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { 
   createTransportVehicleSchema, updateTransportVehicleSchema,
   createTransportVendorSchema, updateTransportVendorSchema,
-  createTransportEntrySchema, updateTransportEntrySchema
+  createTransportEntrySchema, updateTransportEntrySchema,
+  createVehicleEmiSchema, updateVehicleEmiSchema
 } from './transport.validation';
 
 const transportService = new TransportService();
@@ -61,4 +62,26 @@ export const deleteEntry = asyncHandler(async (req: Request, res: Response) => {
 export const getSummary = asyncHandler(async (req: Request, res: Response) => {
   const summary = await transportService.getSummary(req.query.startDate as string, req.query.endDate as string);
   res.json({ success: true, data: summary });
+});
+
+export const createEmi = asyncHandler(async (req: Request, res: Response) => {
+  const data = createVehicleEmiSchema.parse(req.body);
+  const emi = await transportService.createEmi(data);
+  res.status(201).json({ success: true, data: emi });
+});
+
+export const getEmis = asyncHandler(async (req: Request, res: Response) => {
+  const emis = await transportService.getEmis(req.query as any);
+  res.json({ success: true, data: emis });
+});
+
+export const updateEmi = asyncHandler(async (req: Request, res: Response) => {
+  const data = updateVehicleEmiSchema.parse(req.body);
+  const emi = await transportService.updateEmi(req.params.id, data);
+  res.json({ success: true, data: emi });
+});
+
+export const deleteEmi = asyncHandler(async (req: Request, res: Response) => {
+  await transportService.deleteEmi(req.params.id);
+  res.json({ success: true, message: 'EMI record deleted' });
 });

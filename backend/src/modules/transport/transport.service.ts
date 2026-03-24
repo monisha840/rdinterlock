@@ -3,7 +3,8 @@ import { AppError } from '../../middleware/errorHandler';
 import { 
   CreateTransportVehicleInput, UpdateTransportVehicleInput,
   CreateTransportVendorInput, UpdateTransportVendorInput,
-  CreateTransportEntryInput, UpdateTransportEntryInput
+  CreateTransportEntryInput, UpdateTransportEntryInput,
+  CreateVehicleEmiInput, UpdateVehicleEmiInput
 } from './transport.validation';
 
 export class TransportService {
@@ -163,5 +164,84 @@ export class TransportService {
       ...summary,
       netCost: summary.totalExpense - summary.totalIncome
     };
+  }
+
+  // --- EMI Tracking ---
+  async createEmi(data: CreateVehicleEmiInput) {
+    const emi = await prisma.vehicleEmi.create({
+      data: {
+        ...data,
+        dueDate: new Date(data.dueDate),
+      },
+      include: { vehicle: true }
+    });
+
+    // Auto-create reminder for the dashboard
+    await prisma.reminder.create({
+      data: {
+        title: `Vehicle EMI Payment - ${emi.vehicle.vehicleNumber}`,
+        description: `₹${emi.amount.toLocaleString()} due for vehicle ${emi.vehicle.vehicleNumber}${emi.notes ? ` (${emi.notes})` : ''}`,
+        dueDate: emi.dueDate,
+        status: 'PENDING',
+      }
+    });
+
+    return emi;
+  }
+
+  async getEmis(filters: { vehicleId?: string; status?: string; startDate?: string; endDate?: string }) {
+    const where: any = {};
+    if (filters.vehicleId) where.vehicleId = filters.vehicleId;
+    if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.dueDate = {};
+      if (filters.startDate) where.dueDate.gte = new Date(filters.startDate);
+      if (filters.endDate) where.dueDate.lte = new Date(filters.endDate);
+    }
+
+    return await prisma.vehicleEmi.findMany({
+      where,
+      include: { vehicle: true },
+      orderBy: { dueDate: 'asc' }
+    });
+  }
+
+  async updateEmi(id: string, data: UpdateVehicleEmiInput) {
+    const { syncToCashBook, ...updateData } = data;
+    
+    return await prisma.$transaction(async (tx) => {
+      const emi = await tx.vehicleEmi.update({
+        where: { id },
+        data: {
+          ...updateData,
+          paidDate: updateData.paidDate ? new Date(updateData.paidDate) : undefined,
+        },
+        include: { vehicle: true }
+      });
+
+      if (syncToCashBook && emi.status === 'PAID' && emi.amount > 0) {
+        await (tx as any).cashEntry.create({
+          data: {
+            date: emi.paidDate || new Date(),
+            type: 'DEBIT',
+            amount: emi.amount,
+            description: `Vehicle EMI Paid: ${emi.vehicle.vehicleNumber} (EMI ID: ${emi.id})`,
+            category: 'Transport',
+            paymentMode: emi.paymentMode || 'BANK',
+          }
+        });
+      }
+
+      return emi;
+    });
+  }
+
+  async deleteEmi(id: string) {
+    return await prisma.$transaction(async (tx) => {
+      await (tx as any).cashEntry.deleteMany({
+        where: { description: { contains: `(EMI ID: ${id})` } }
+      });
+      return await tx.vehicleEmi.delete({ where: { id } });
+    });
   }
 }

@@ -41,6 +41,7 @@ const emptyOrderForm = (clientId = "") => ({
     paidAmount: "0",
     paymentStatus: "PENDING" as any,
     dispatchDate: new Date().toISOString().split("T")[0],
+    extraItems: [] as Array<{ name: string; price: number }>,
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -240,19 +241,79 @@ const ClientManagementPage = () => {
             paidAmount: String(o.paidAmount || "0"),
             paymentStatus: o.paymentStatus || "PENDING",
             dispatchDate: o.dispatchDate ? new Date(o.dispatchDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+            extraItems: o.extraItems || [],
         });
         setAutoCalc(false);
         setShowOrderModal(true);
     };
 
     const handleOrderCalcChange = (field: "quantity" | "rate", value: string) => {
-        const updated = { ...orderForm, [field]: value };
-        if (autoCalc) {
-            const q = parseInt(field === "quantity" ? value : orderForm.quantity) || 0;
-            const r = parseFloat(field === "rate" ? value : orderForm.rate) || 0;
-            updated.totalAmount = q > 0 && r > 0 ? String(q * r) : "";
-        }
-        setOrderForm(updated);
+        setOrderForm(prev => {
+            const updated = { ...prev, [field]: value };
+            if (autoCalc) {
+                const q = parseInt(field === "quantity" ? value : prev.quantity) || 0;
+                const r = parseFloat(field === "rate" ? value : prev.rate) || 0;
+                const extraCosts = (prev.extraItems || []).reduce((s, i) => s + (i.price || 0), 0);
+                updated.totalAmount = (q > 0 || extraCosts > 0) ? String((q * r) + extraCosts) : "";
+            }
+            return updated;
+        });
+    };
+
+    const addExtraItem = () => {
+        const name = prompt("Item name (e.g. Cement, Loading, Lintel)");
+        if (!name?.trim()) return;
+        const priceStr = prompt("Price (₹)");
+        const price = parseFloat(priceStr || "0") || 0;
+
+        setOrderForm(prev => {
+            const newItems = [...(prev.extraItems || []), { name: name.trim(), price }];
+            const extraTotal = newItems.reduce((s, i) => s + (i.price || 0), 0);
+            const q = parseInt(prev.quantity) || 0;
+            const r = parseFloat(prev.rate) || 0;
+
+            let newTotal = prev.totalAmount;
+            if (autoCalc) {
+                newTotal = String((q * r) + extraTotal);
+            } else {
+                // In manual mode, add the new item price to the currently set total
+                const current = parseFloat(prev.totalAmount) || 0;
+                newTotal = String(current + price);
+            }
+
+            return {
+                ...prev,
+                extraItems: newItems,
+                totalAmount: newTotal,
+            };
+        });
+    };
+
+    const removeExtraItem = (idx: number) => {
+        setOrderForm(prev => {
+            const itemToRemove = (prev.extraItems || [])[idx];
+            if (!itemToRemove) return prev;
+
+            const newItems = prev.extraItems.filter((_, i) => i !== idx);
+            const extraTotal = newItems.reduce((s, i) => s + (i.price || 0), 0);
+            const q = parseInt(prev.quantity) || 0;
+            const r = parseFloat(prev.rate) || 0;
+
+            let newTotal = prev.totalAmount;
+            if (autoCalc) {
+                newTotal = String((q * r) + extraTotal);
+            } else {
+                // In manual mode, subtract the item price from the currently set total
+                const current = parseFloat(prev.totalAmount) || 0;
+                newTotal = String(Math.max(0, current - itemToRemove.price));
+            }
+
+            return {
+                ...prev,
+                extraItems: newItems,
+                totalAmount: newTotal,
+            };
+        });
     };
 
     const handleOrderSubmit = async () => {
@@ -275,6 +336,7 @@ const ClientManagementPage = () => {
             status: orderForm.status,
             notes: orderForm.notes || undefined,
             driverId: orderForm.driverId || null,
+            extraItems: orderForm.extraItems || [],
         };
 
         try {
@@ -784,6 +846,36 @@ const ClientManagementPage = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Extra Items */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Extra Items</p>
+                                    <button
+                                        type="button"
+                                        onClick={addExtraItem}
+                                        className="text-[11px] font-bold text-primary hover:underline px-1"
+                                    >
+                                        + ADD ITEM
+                                    </button>
+                                </div>
+                                <div className="space-y-1">
+                                    {(orderForm.extraItems || []).map((item: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center bg-secondary/30 px-3 py-2 rounded-xl text-xs">
+                                            <span className="font-medium">{item.name}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold">₹{item.price.toLocaleString()}</span>
+                                                <button type="button" onClick={() => removeExtraItem(idx)}>
+                                                    <X className="h-3 w-3 text-destructive" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(orderForm.extraItems || []).length === 0 && (
+                                        <p className="text-[10px] text-muted-foreground italic px-1">No extra items yet</p>
+                                    )}
+                                </div>
+                            </div>
 
                             {/* Notes */}
                             <textarea

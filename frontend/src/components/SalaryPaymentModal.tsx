@@ -31,6 +31,12 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
   const [note, setNote] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setAmount(worker.netPayable.toString());
+    }
+  }, [isOpen, worker.netPayable]);
+
   const paymentMutation = useMutation({
     mutationFn: () => paymentsApi.createStaffPayment({
       personId: worker.id,
@@ -60,7 +66,8 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
     setAmount(worker.netPayable.toString());
   };
 
-  const isInvalid = parseFloat(amount) <= 0 || parseFloat(amount) > worker.netPayable || isNaN(parseFloat(amount));
+  const isInvalid = parseFloat(amount) <= 0 || isNaN(parseFloat(amount));
+  const exceedsBalance = parseFloat(amount) > worker.netPayable;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -113,9 +120,9 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
                 placeholder="0.00"
                 className="w-full h-14 bg-secondary/50 border-none rounded-2xl px-5 text-xl font-black focus:ring-4 ring-primary/20 transition-all outline-none text-foreground"
               />
-              {parseFloat(amount) > worker.netPayable && (
-                <p className="text-[10px] text-destructive font-bold uppercase mt-1 animate-pulse">
-                  Error: Amount exceeds pending balance!
+              {exceedsBalance && (
+                <p className="text-[10px] text-amber-600 font-bold uppercase mt-1 animate-pulse">
+                  Warning: Amount exceeds pending balance!
                 </p>
               )}
             </div>

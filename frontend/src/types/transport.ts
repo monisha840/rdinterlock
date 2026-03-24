@@ -65,3 +65,32 @@ export interface CreateTransportEntryRequest {
   material?: string | null;
   syncToCashBook?: boolean;
 }
+
+export interface VehicleEmi {
+  id: string;
+  vehicleId: string;
+  amount: number;
+  dueDate: string;
+  paidDate?: string | null;
+  status: 'PENDING' | 'PAID';
+  paymentMode?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  vehicle?: TransportVehicle;
+}
+
+export interface CreateVehicleEmiRequest {
+  vehicleId: string;
+  amount: number;
+  dueDate: string;
+  notes?: string | null;
+}
+
+export interface UpdateVehicleEmiRequest {
+  paidDate?: string | null;
+  status?: 'PENDING' | 'PAID';
+  paymentMode?: string | null;
+  notes?: string | null;
+  syncToCashBook?: boolean;
+}

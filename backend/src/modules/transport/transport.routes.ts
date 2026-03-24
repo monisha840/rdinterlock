@@ -22,4 +22,10 @@ router.get('/entries', transportController.getEntries);
 router.delete('/entries/:id', transportController.deleteEntry);
 router.get('/summary', transportController.getSummary);
 
+// --- EMIs ---
+router.post('/emis', transportController.createEmi);
+router.get('/emis', transportController.getEmis);
+router.patch('/emis/:id', transportController.updateEmi);
+router.delete('/emis/:id', transportController.deleteEmi);
+
 export default router;

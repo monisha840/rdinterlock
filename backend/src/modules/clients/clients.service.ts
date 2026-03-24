@@ -20,10 +20,11 @@ export class ClientsService {
         const clients = await prisma.customer.findMany({
             where,
             orderBy: { name: 'asc' },
-            include: {
+                include: {
                 _count: { select: { orders: true, payments: true } },
                 orders: { select: { totalAmount: true } },
-                payments: { select: { type: true, amount: true, paymentMethod: true, paymentDate: true } }
+                payments: { select: { type: true, amount: true, paymentMethod: true, paymentDate: true } },
+                brickReturns: { select: { totalAmount: true } }
             },
         });
 
@@ -33,9 +34,10 @@ export class ClientsService {
             const totalAdvance = client.payments.filter((p: any) => p.type === 'ADVANCE').reduce((sum: number, p: any) => sum + p.amount, 0);
             const advanceUsed = client.payments.filter((p: any) => p.type === 'PAYMENT' && p.paymentMethod === 'ADVANCE_APPLIED').reduce((sum: number, p: any) => sum + p.amount, 0);
             const totalPaid = client.payments.filter((p: any) => p.type === 'PAYMENT').reduce((sum: number, p: any) => sum + p.amount, 0);
+            const totalReturns = client.brickReturns.reduce((sum: number, r: any) => sum + r.totalAmount, 0);
 
             const advanceBalance = totalAdvance - advanceUsed;
-            const pendingAmount = totalOrderAmount - (totalPaid + advanceBalance);
+            const pendingAmount = totalOrderAmount - (totalPaid + advanceBalance + totalReturns);
 
             // Latest Activity
             const sortedPayments = [...client.payments].sort((a: any, b: any) =>
@@ -76,6 +78,10 @@ export class ClientsService {
                     include: { brickType: true },
                     orderBy: { date: 'desc' },
                 },
+                brickReturns: {
+                    include: { brickType: true },
+                    orderBy: { date: 'desc' },
+                },
             },
         });
         if (!client) throw new AppError('Client not found', 404);
@@ -113,6 +119,8 @@ export class ClientsService {
             prisma.clientPayment.deleteMany({ where: { clientId: id } }),
             // Delete related orders
             prisma.clientOrder.deleteMany({ where: { clientId: id } }),
+            // Delete related returns
+            prisma.brickReturn.deleteMany({ where: { clientId: id } }),
             // Finally delete the client
             prisma.customer.delete({ where: { id } }),
         ]);
@@ -124,7 +132,9 @@ export class ClientsService {
 
     async createOrder(data: any) {
         return await prisma.$transaction(async (tx: any) => {
-            const totalAmount = data.totalAmount || (data.quantity * (data.rate || 0));
+            const extraItems = data.extraItems || [];
+            const extraTotal = extraItems.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
+            const totalAmount = data.totalAmount || (data.quantity * (data.rate || 0)) + extraTotal;
             const requestedStatus = data.status || 'PENDING';
 
             // If creating an order directly as DISPATCHED, validate stock
@@ -168,6 +178,7 @@ export class ClientsService {
                     expectedDispatchDate: data.expectedDispatchDate ? new Date(data.expectedDispatchDate) : null,
                     status: requestedStatus,
                     notes: data.notes,
+                    extraItems: extraItems,
                     driverId: data.driverId || null,
                 },
                 include: { client: true, brickType: true, driver: true },
@@ -240,10 +251,13 @@ export class ClientsService {
             if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
             if (data.expectedDispatchDate) updateData.expectedDispatchDate = new Date(data.expectedDispatchDate);
             
-            if (data.quantity || data.rate) {
-                const qty = data.quantity || order.quantity;
+            if (data.quantity !== undefined || data.rate !== undefined || data.extraItems !== undefined) {
+                const qty = data.quantity !== undefined ? data.quantity : order.quantity;
                 const rate = data.rate !== undefined ? data.rate : order.rate;
-                updateData.totalAmount = qty * rate;
+                const extraItems = data.extraItems !== undefined ? data.extraItems : (order.extraItems || []);
+                const extraTotal = extraItems.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
+                updateData.totalAmount = (qty * rate) + extraTotal;
+                updateData.extraItems = extraItems;
             }
 
             // Handling Status Change to DISPATCHED
@@ -607,6 +621,31 @@ export class ClientsService {
 
     // ═══════════════════════ CLIENT LEDGER SUMMARY ═══════════════════════
 
+    async createReturn(data: { clientId: string; brickTypeId: string; returnedQuantity: number; date: string; reason?: string; dispatchId?: string; rate?: number }) {
+        let rate = data.rate;
+        if (rate === undefined || rate === null) {
+            const latestOrder = await prisma.clientOrder.findFirst({
+                where: { clientId: data.clientId, brickTypeId: data.brickTypeId },
+                orderBy: { orderDate: 'desc' }
+            });
+            rate = latestOrder?.rate || 0;
+        }
+
+        return prisma.brickReturn.create({
+            data: {
+                clientId: data.clientId,
+                brickTypeId: data.brickTypeId,
+                returnedQuantity: data.returnedQuantity,
+                rate,
+                totalAmount: data.returnedQuantity * rate,
+                date: new Date(data.date),
+                reason: data.reason,
+                dispatchId: data.dispatchId || null
+            },
+            include: { client: true, brickType: true, dispatch: true }
+        });
+    }
+
     async getClientLedger(clientId: string) {
         const orders = await prisma.clientOrder.findMany({
             where: { clientId },
@@ -622,9 +661,16 @@ export class ClientsService {
         });
         const totalAdvance = allPayments.filter((p: any) => p.type === 'ADVANCE').reduce((s: number, p: any) => s + p.amount, 0);
         const advanceUsed = allPayments.filter((p: any) => p.type === 'PAYMENT' && p.paymentMethod === 'ADVANCE_APPLIED').reduce((s: number, p: any) => s + p.amount, 0);
-        const advanceBalance = totalAdvance - advanceUsed;
-        const pendingAmount = totalOrderAmount - (totalPaid + advanceBalance);
+        const returns = await prisma.brickReturn.findMany({
+            where: { clientId },
+            include: { brickType: true }
+        });
 
-        return { orders, totalOrderAmount, totalPaid, pendingAmount, totalAdvance, advanceUsed, advanceBalance };
+        const totalReturnAmount = returns.reduce((s, r) => s + r.totalAmount, 0);
+        
+        const advanceBalance = totalAdvance - advanceUsed;
+        const pendingAmount = totalOrderAmount - (totalPaid + advanceBalance + totalReturnAmount); 
+
+        return { orders, returns, totalOrderAmount, totalPaid, pendingAmount, totalAdvance, advanceUsed, advanceBalance, totalReturnAmount };
     }
 }

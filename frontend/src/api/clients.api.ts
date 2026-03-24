@@ -87,6 +87,12 @@ export const clientsApi = {
         await apiClient.delete(`/clients/schedules/${id}`);
     },
 
+    // ─── Returns ───
+    createReturn: async (data: any) => {
+        const res = await apiClient.post('/clients/returns', data);
+        return (res as any).data;
+    },
+
     // ─── Reminders ───
     getUpcomingDispatches: async () => {
         const res = await apiClient.get('/clients/upcoming-dispatches');

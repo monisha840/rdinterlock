@@ -105,6 +105,30 @@ export class AlertsService {
         });
       }
       console.log('Salary step:', Date.now() - st);
+
+      // 5. DISPATCH PENDING
+      st = Date.now();
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+      const readyOrders = await prisma.clientOrder.findMany({
+        where: {
+          status: 'READY',
+          updatedAt: { lte: oneDayAgo }
+        },
+        include: { client: true }
+      });
+
+      for (const order of readyOrders) {
+        await this.createAlert({
+          type: 'dispatch',
+          message: `Pending Dispatch: ${order.client.name} - ${order.quantity} bricks (Ready since ${order.updatedAt.toLocaleDateString()})`,
+          severity: 'medium',
+          referenceId: order.id
+        });
+      }
+      console.log('Dispatch step:', Date.now() - st);
+
       console.log('Total generateAlerts:', Date.now() - startAll);
     } catch (error) {
       console.error('Error generating alerts:', error);

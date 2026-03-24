@@ -55,6 +55,8 @@ const SettingsPage = () => {
   const [newWorkerName, setNewWorkerName] = useState("");
   const [newWorkerRole, setNewWorkerRole] = useState("OPERATOR");
   const [newWorkerPayment, setNewWorkerPayment] = useState("PER_BRICK");
+  const [newWorkerRate6Inch, setNewWorkerRate6Inch] = useState(0);
+  const [newWorkerRate8Inch, setNewWorkerRate8Inch] = useState(0);
 
   // Track edited changes for staff/workers in salary rates section
   const [editedWorkerRates, setEditedWorkerRates] = useState<Record<string, string>>({});
@@ -969,16 +971,64 @@ const SettingsPage = () => {
               </select>
             </div>
 
+            {/* Mason-specific rate fields */}
+            {newWorkerRole === 'MASON' && (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  value={newWorkerRate6Inch || ""}
+                  onChange={e => setNewWorkerRate6Inch(parseFloat(e.target.value) || 0)}
+                  placeholder="6-inch Rate (₹)"
+                  step="0.5"
+                  className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+                />
+                <input
+                  type="number"
+                  value={newWorkerRate8Inch || ""}
+                  onChange={e => setNewWorkerRate8Inch(parseFloat(e.target.value) || 0)}
+                  placeholder="8-inch Rate (₹)"
+                  step="0.5"
+                  className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+                />
+              </div>
+            )}
+
+            {/* Rate field for non-mason roles */}
+            {newWorkerRole !== 'MASON' && (
+              <input
+                type="number"
+                value={newWorkerPayment === 'PER_BRICK' ? newWorkerPerBrickRate || "" : newWorkerWeeklyWage || ""}
+                onChange={e => newWorkerPayment === 'PER_BRICK'
+                  ? setNewWorkerPerBrickRate(parseFloat(e.target.value) || 0)
+                  : setNewWorkerWeeklyWage(parseFloat(e.target.value) || 0)
+                }
+                placeholder={newWorkerPayment === 'PER_BRICK' ? "Per Brick Rate (₹)" : "Weekly Wage (₹)"}
+                step="0.5"
+                className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+              />
+            )}
+
             <button
               onClick={() => {
                 if (!newWorkerName.trim()) return;
+                if (newWorkerRole === 'MASON' && (!newWorkerRate6Inch || !newWorkerRate8Inch)) {
+                  toast.error("Please enter both 6-inch and 8-inch rates for Mason");
+                  return;
+                }
                 addWorkerMutation.mutate({
                   name: newWorkerName.trim(),
                   role: newWorkerRole,
                   paymentType: newWorkerPayment,
-                  perBrickRate: 0,
-                  weeklyWage: 0
-                });
+                  perBrickRate: newWorkerRole !== 'MASON' && newWorkerPayment === 'PER_BRICK' ? newWorkerPerBrickRate : 0,
+                  weeklyWage: newWorkerRole !== 'MASON' && newWorkerPayment === 'WEEKLY' ? newWorkerWeeklyWage : 0,
+                  rate6Inch: newWorkerRole === 'MASON' ? newWorkerRate6Inch : 0,
+                  rate8Inch: newWorkerRole === 'MASON' ? newWorkerRate8Inch : 0,
+                } as any);
+                setNewWorkerName("");
+                setNewWorkerRate6Inch(0);
+                setNewWorkerRate8Inch(0);
+                setNewWorkerPerBrickRate(0);
+                setNewWorkerWeeklyWage(0);
               }}
               disabled={!newWorkerName.trim() || addWorkerMutation.isPending}
               className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"

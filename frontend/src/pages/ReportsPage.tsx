@@ -88,14 +88,13 @@ const ReportsPage = () => {
   });
 
   // ── Staff Salary tab state ────────────────────────────────────────────────
-  const [staffPeriodDate, setStaffPeriodDate] = useState(new Date());
   const { data: salaryReport, isLoading: isSalaryLoading, error: salaryError, refetch: refetchSalary } = useQuery({
-    queryKey: ["salary-report", staffPeriodDate.getMonth() + 1, staffPeriodDate.getFullYear()],
-    queryFn: () => settlementsApi.calculateMonthly(staffPeriodDate.getMonth() + 1, staffPeriodDate.getFullYear()),
+    queryKey: ["salary-report", dateRange.from.getMonth() + 1, dateRange.from.getFullYear()],
+    queryFn: () => settlementsApi.calculateMonthly(dateRange.from.getMonth() + 1, dateRange.from.getFullYear()),
     enabled: activeTab === "Staff Salaries",
   });
   const saveSalariesMutation = useMutation({
-    mutationFn: () => settlementsApi.saveMonthly(staffPeriodDate.getMonth() + 1, staffPeriodDate.getFullYear()),
+    mutationFn: () => settlementsApi.saveMonthly(dateRange.from.getMonth() + 1, dateRange.from.getFullYear()),
     onSuccess: () => { toast.success("✅ Monthly salaries saved"); queryClient.invalidateQueries({ queryKey: ["salary-report"] }); },
     onError: (e: any) => toast.error("❌ Failed", { description: e.message }),
   });
@@ -198,22 +197,22 @@ const ReportsPage = () => {
       {/* ══════════════════ STAFF SALARIES TAB ══════════════════ */}
       {activeTab === "Staff Salaries" && (
         <div className="space-y-4">
-          <EntryCard title="Select Period">
-            <div className="flex items-center gap-3">
-              <DatePickerField date={staffPeriodDate} onDateChange={setStaffPeriodDate} label="Month/Year" />
-              <ActionButton
-                label="Refresh"
-                icon={TrendingUp}
-                variant="outline"
-                size="sm"
-                onClick={() => refetchSalary()}
-                className="h-12 mt-6"
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 italic">
+          <div className="bg-secondary/50 rounded-2xl p-4 mb-4">
+            <p className="text-xs text-muted-foreground font-medium text-center">
+              Salary Month: <span className="font-bold text-foreground">{format(dateRange.from, "MMMM yyyy")}</span>
+            </p>
+            <ActionButton
+              label="Recalculate"
+              icon={TrendingUp}
+              variant="primary"
+              size="sm"
+              onClick={() => refetchSalary()}
+              className="w-full mt-3"
+            />
+            <p className="text-[10px] text-muted-foreground mt-2 italic text-center">
               * Calculated from attendance records for Manager, Driver, Telecaller
             </p>
-          </EntryCard>
+          </div>
 
           {isSalaryLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 card-modern">
@@ -479,7 +478,7 @@ const ReportsPage = () => {
       )}
 
       {/* ══════════════════════ LOGS TAB ══════════════════════ */}
-      {activeTab === "Logs" && <LogsTabContent />}
+      {activeTab === "Logs" && <LogsTabContent globalDateRange={dateRange} />}
 
       {/* Export buttons */}
       <div className="grid grid-cols-2 gap-3 mt-2">
@@ -515,15 +514,11 @@ const ReportsPage = () => {
   );
 };
 
-const LogsTabContent = () => {
+const LogsTabContent = ({ globalDateRange }: { globalDateRange: DateRange }) => {
   const [personId, setPersonId] = useState<string>("");
   const [logType, setLogType] = useState("All");
 
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(new Date().getDate() - 30)),
-    to: new Date(),
-    label: "30 Days"
-  });
+  const dateRange = globalDateRange;
 
   const { data: people } = useQuery({
     queryKey: ["all-workers-for-logs"],
@@ -611,14 +606,10 @@ const LogsTabContent = () => {
             ))}
           </div>
 
-          <GlobalDateFilter onRangeChange={setDateRange} currentLabel={dateRange.label} />
-          
-          {dateRange.label === "Custom" && (
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <DatePickerField date={dateRange.from} onDateChange={(d) => setDateRange(prev => ({ ...prev, from: d }))} label="From" />
-              <DatePickerField date={dateRange.to} onDateChange={(d) => setDateRange(prev => ({ ...prev, to: d }))} label="To" />
-            </div>
-          )}
+          <div className="bg-primary/5 p-3 rounded-xl border border-primary/10">
+            <p className="text-[10px] text-primary font-black uppercase tracking-wider mb-1">Active Range</p>
+            <p className="text-xs font-bold">{format(dateRange.from, "dd MMM yyyy")} - {format(dateRange.to, "dd MMM yyyy")}</p>
+          </div>
         </div>
       </EntryCard>
 

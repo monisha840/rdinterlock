@@ -138,6 +138,8 @@ const WorkersPage = () => {
   const [payType, setPayType] = useState("PER_BRICK");
   const [weeklyWage, setWeeklyWage] = useState("");
   const [perBrickRate, setPerBrickRate] = useState("");
+  const [rate6Inch, setRate6Inch] = useState("");
+  const [rate8Inch, setRate8Inch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
   const { data: workers = [], isLoading } = useQuery({
@@ -162,6 +164,8 @@ const WorkersPage = () => {
       setName("");
       setWeeklyWage("");
       setPerBrickRate("");
+      setRate6Inch("");
+      setRate8Inch("");
     },
   });
 
@@ -170,19 +174,41 @@ const WorkersPage = () => {
   };
 
   const saveWorker = () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      toast.error("Please enter a worker name");
+      return;
+    }
+
+    const isMason = role.toUpperCase() === 'MASON';
     const isPerBrick = payType === 'PER_BRICK';
-    if (isPerBrick && !perBrickRate) return;
-    if (!isPerBrick && !weeklyWage) return;
+
+    // Masons use size-specific rates, not the generic rate fields
+    if (isMason) {
+      if (!rate6Inch || !rate8Inch) {
+        toast.error("Please enter both 6-inch and 8-inch rates for Mason");
+        return;
+      }
+    } else {
+      if (isPerBrick && !perBrickRate) {
+        toast.error("Please enter a per-brick rate");
+        return;
+      }
+      if (!isPerBrick && !weeklyWage) {
+        toast.error("Please enter a weekly wage");
+        return;
+      }
+    }
 
     createWorkerMutation.mutate({
       name: name.trim(),
       role: role.toUpperCase(),
       employeeType: 'Worker',
       paymentType: payType.toUpperCase(),
-      perBrickRate: isPerBrick ? parseFloat(perBrickRate) : 0,
-      weeklyWage: !isPerBrick ? parseFloat(weeklyWage) : 0,
-      rate: isPerBrick ? parseFloat(perBrickRate) : parseFloat(weeklyWage),
+      perBrickRate: isMason ? 0 : (isPerBrick ? parseFloat(perBrickRate) : 0),
+      rate6Inch: isMason ? parseFloat(rate6Inch) : 0,
+      rate8Inch: isMason ? parseFloat(rate8Inch) : 0,
+      weeklyWage: isMason ? 0 : (!isPerBrick ? parseFloat(weeklyWage) : 0),
+      rate: isMason ? parseFloat(rate6Inch) : (isPerBrick ? parseFloat(perBrickRate) : parseFloat(weeklyWage)),
       isActive: true
     } as any);
   };
@@ -221,7 +247,24 @@ const WorkersPage = () => {
           </FormField>
 
           <FormField label="Rate (₹)" required>
-            {payType === 'PER_BRICK' ? (
+            {role.toUpperCase() === 'MASON' ? (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  value={rate6Inch}
+                  onChange={(e) => setRate6Inch(e.target.value)}
+                  placeholder="6-inch Rate"
+                  className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+                />
+                <input
+                  type="number"
+                  value={rate8Inch}
+                  onChange={(e) => setRate8Inch(e.target.value)}
+                  placeholder="8-inch Rate"
+                  className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+                />
+              </div>
+            ) : payType === 'PER_BRICK' ? (
               <input
                 type="number"
                 value={perBrickRate}
@@ -288,7 +331,7 @@ const WorkersPage = () => {
                 </div>
                 <div className="flex flex-col items-end gap-1 mr-2">
                   <span className="text-sm font-bold text-foreground">
-                    ₹{w.paymentType === 'PER_BRICK' ? w.perBrickRate : w.weeklyWage}
+                    {w.role === 'MASON' ? `₹${w.rate6Inch}/${w.rate8Inch}` : `₹${w.paymentType === 'PER_BRICK' ? w.perBrickRate : w.weeklyWage}`}
                   </span>
                   <Dialog>
                     <DialogTrigger asChild>

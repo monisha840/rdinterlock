@@ -43,6 +43,8 @@ export interface Worker {
   monthlySalary: number;
   weeklyWage: number;
   perBrickRate: number;
+  rate6Inch: number;
+  rate8Inch: number;
   advanceBalance: number;
   isActive: boolean;
   createdAt: string;
@@ -57,6 +59,8 @@ export interface CreateWorkerRequest {
   monthlySalary?: number;
   weeklyWage?: number;
   perBrickRate?: number;
+  rate6Inch?: number;
+  rate8Inch?: number;
   rate?: number;
 }
 

@@ -52,6 +52,7 @@ export class ProductionService {
         damagedBricks: damagedBricks,
         availableBricks: availableBricks,
         notes: data.notes,
+        siteName: data.siteName,
         workers: data.workers
           ? {
             create: data.workers.map((w: any) => ({

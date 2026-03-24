@@ -5,6 +5,7 @@ import {
     createOrderSchema, updateOrderSchema,
     createPaymentSchema, updatePaymentSchema,
     createScheduleSchema, updateScheduleSchema,
+    createReturnSchema,
 } from './clients.validation';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
@@ -135,5 +136,11 @@ export class ClientsController {
     getClientLedger = asyncHandler(async (req: Request, res: Response) => {
         const ledger = await svc.getClientLedger(req.params.id);
         sendSuccess(res, ledger, 'Client ledger retrieved');
+    });
+
+    createReturn = asyncHandler(async (req: Request, res: Response) => {
+        const data = createReturnSchema.parse(req.body);
+        const result = await svc.createReturn(data);
+        sendSuccess(res, result, 'Return recorded', 201);
     });
 }

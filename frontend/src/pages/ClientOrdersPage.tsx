@@ -21,7 +21,23 @@ const ClientOrdersPage = () => {
     const [editing, setEditing] = useState<any>(null);
     const [filterClient, setFilterClient] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
-    const [form, setForm] = useState({ clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "", orderDate: new Date().toISOString().split("T")[0], expectedDispatchDate: "", status: "PENDING", notes: "" });
+    const [form, setForm] = useState<{
+        clientId: string;
+        brickTypeId: string;
+        quantity: string;
+        rate: string;
+        totalAmount: string;
+        orderDate: string;
+        expectedDispatchDate: string;
+        status: string;
+        notes: string;
+        extraItems: Array<{ name: string; price: number }>;
+    }>({ 
+        clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "", 
+        orderDate: new Date().toISOString().split("T")[0], 
+        expectedDispatchDate: "", status: "PENDING", notes: "",
+        extraItems: []
+    });
     const [autoDetect, setAutoDetect] = useState(true);
 
     const { data: orders = [], isLoading } = useQuery({
@@ -57,7 +73,11 @@ const ClientOrdersPage = () => {
     });
 
     const resetForm = () => {
-        setForm({ clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "", orderDate: new Date().toISOString().split("T")[0], expectedDispatchDate: "", status: "PENDING", notes: "" });
+        setForm({ 
+            clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "", 
+            orderDate: new Date().toISOString().split("T")[0], expectedDispatchDate: "", 
+            status: "PENDING", notes: "", extraItems: [] 
+        });
         setAutoDetect(true);
     };
 
@@ -68,6 +88,7 @@ const ClientOrdersPage = () => {
             orderDate: new Date(o.orderDate).toISOString().split("T")[0],
             expectedDispatchDate: o.expectedDispatchDate ? new Date(o.expectedDispatchDate).toISOString().split("T")[0] : "",
             status: o.status, notes: o.notes || "",
+            extraItems: o.extraItems || []
         });
         setAutoDetect(false);
         setShowModal(true);
@@ -78,10 +99,40 @@ const ClientOrdersPage = () => {
         if (autoDetect) {
             const q = parseInt(newForm.quantity) || 0;
             const r = parseFloat(newForm.rate) || 0;
-            if (q > 0 && r > 0) newForm.totalAmount = String(q * r);
+            const extraTotal = newForm.extraItems.reduce((sum, item) => sum + (item.price || 0), 0);
+            if (q > 0 || extraTotal > 0) newForm.totalAmount = String((q * r) + extraTotal);
             else newForm.totalAmount = "";
         }
         setForm(newForm);
+    };
+
+    const addExtraItem = () => {
+        const name = prompt("Item name (e.g. Cement, Loading)");
+        if (!name) return;
+        const price = parseFloat(prompt("Price (₹)") || "0");
+        const newExtraItems = [...form.extraItems, { name, price }];
+        const extraTotal = newExtraItems.reduce((sum, item) => sum + (item.price || 0), 0);
+        const q = parseInt(form.quantity) || 0;
+        const r = parseFloat(form.rate) || 0;
+        
+        setForm({ 
+            ...form, 
+            extraItems: newExtraItems,
+            totalAmount: autoDetect ? String((q * r) + extraTotal) : form.totalAmount
+        });
+    };
+
+    const removeExtraItem = (idx: number) => {
+        const newExtraItems = form.extraItems.filter((_, i) => i !== idx);
+        const extraTotal = newExtraItems.reduce((sum, item) => sum + (item.price || 0), 0);
+        const q = parseInt(form.quantity) || 0;
+        const r = parseFloat(form.rate) || 0;
+        
+        setForm({ 
+            ...form, 
+            extraItems: newExtraItems,
+            totalAmount: autoDetect ? String((q * r) + extraTotal) : form.totalAmount
+        });
     };
 
     const handleTotalOverride = (val: string) => {
@@ -101,6 +152,7 @@ const ClientOrdersPage = () => {
             expectedDispatchDate: form.expectedDispatchDate || undefined,
             status: form.status,
             notes: form.notes || undefined,
+            extraItems: form.extraItems,
         };
         if (editing) updateMut.mutate({ id: editing.id, data: payload });
         else createMut.mutate(payload);
@@ -186,9 +238,29 @@ const ClientOrdersPage = () => {
                                 <option value="">Select Brick Type *</option>
                                 {brickTypes.map((b: any) => <option key={b.id} value={b.id}>{b.size}</option>)}
                             </select>
-                            <div className="grid grid-cols-2 gap-2">
+                             <div className="grid grid-cols-2 gap-2">
                                 <input value={form.quantity} onChange={(e) => handleCalcChange('quantity', e.target.value)} type="number" placeholder="Quantity *" className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
                                 <input value={form.rate} onChange={(e) => handleCalcChange('rate', e.target.value)} type="number" placeholder="Rate per brick" className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
+                            </div>
+
+                            {/* Extra Items Section */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase px-1">Extra Items</label>
+                                    <button onClick={addExtraItem} className="text-[10px] font-bold text-primary hover:underline">+ ADD ITEM</button>
+                                </div>
+                                <div className="space-y-1">
+                                    {form.extraItems.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center bg-secondary/30 p-2 rounded-lg text-xs">
+                                            <span>{item.name}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold">₹{item.price}</span>
+                                                <button onClick={() => removeExtraItem(idx)}><X className="h-3 w-3 text-destructive" /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {form.extraItems.length === 0 && <p className="text-[10px] text-muted-foreground italic px-1">No extra items added</p>}
+                                </div>
                             </div>
                             <div>
                                 <label className="text-xs font-medium text-foreground ml-1">ESTIMATED AMOUNT (₹) *</label>

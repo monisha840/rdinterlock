@@ -1,5 +1,5 @@
 import prisma from '../../config/database';
-import { getTodayRange } from '../../utils/dateUtils';
+import { getTodayRange, getDateRange } from '../../utils/dateUtils';
 
 export class ReportsService {
   /**
@@ -123,12 +123,10 @@ export class ReportsService {
    * Production report
    */
   async getProductionReport(startDate: string, endDate: string) {
+    const dateRange = getDateRange(new Date(startDate), new Date(endDate));
     const productions = await prisma.production.findMany({
       where: {
-        date: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        },
+        date: dateRange,
       },
       include: {
         machine: true,
@@ -185,12 +183,10 @@ export class ReportsService {
    * Dispatch report
    */
   async getDispatchReport(startDate: string, endDate: string) {
+    const dateRange = getDateRange(new Date(startDate), new Date(endDate));
     const dispatches = await prisma.dispatch.findMany({
       where: {
-        date: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        },
+        date: dateRange,
       },
       include: {
         customer: true,
@@ -250,10 +246,7 @@ export class ReportsService {
    * Financial report
    */
   async getFinancialReport(startDate: string, endDate: string) {
-    const dateRange = {
-      gte: new Date(startDate),
-      lte: new Date(endDate),
-    };
+    const dateRange = getDateRange(new Date(startDate), new Date(endDate));
 
     // Revenue from dispatches
     const dispatches = await prisma.dispatch.aggregate({
@@ -330,10 +323,7 @@ export class ReportsService {
         productionWorkers: {
           where: {
             production: {
-              date: {
-                gte: new Date(startDate),
-                lte: new Date(endDate),
-              },
+              date: getDateRange(new Date(startDate), new Date(endDate)),
             },
           },
           include: {
@@ -354,10 +344,12 @@ export class ReportsService {
       const totalDays = worker.productionWorkers.length;
 
       let earnings = 0;
+      const workerRate = worker.rate > 0 ? worker.rate : null;
+
       if (worker.paymentType === 'PER_BRICK') {
-        earnings = totalQuantity * worker.rate;
+         earnings = totalQuantity * (workerRate || (worker.role.toUpperCase() === 'MASON' ? 9.00 : 2.50));
       } else {
-        earnings = totalDays * worker.rate;
+        earnings = totalDays * (workerRate || 0);
       }
 
       return {
@@ -381,10 +373,9 @@ export class ReportsService {
    * Person-wise unified logs
    */
   async getPersonLogs(personId: string, startDate?: string, endDate?: string) {
-    const dateFilter: any = {
-      ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
-    };
+    const dateFilter = (startDate && endDate) 
+      ? getDateRange(new Date(startDate), new Date(endDate))
+      : {};
 
     const [
       attendance,
@@ -395,6 +386,7 @@ export class ReportsService {
       salesOrders,
       dispatches,
       productionWorkers,
+      brickReturns,
       settings
     ] = await Promise.all([
       prisma.attendance.findMany({
@@ -439,6 +431,11 @@ export class ReportsService {
           }
         },
         orderBy: { production: { date: 'desc' } }
+      }),
+      prisma.brickReturn.findMany({
+        where: { clientId: personId, date: dateFilter },
+        include: { brickType: true },
+        orderBy: { date: 'desc' }
       }),
       prisma.systemSetting.findMany()
     ]);
@@ -513,13 +510,28 @@ export class ReportsService {
         amount: d.totalAmount,
         reference: 'Dispatch'
       })),
+      ...brickReturns.map((r: any) => ({
+        id: r.id,
+        date: r.date,
+        type: 'return',
+        title: `Returned ${r.returnedQuantity.toLocaleString()} bricks (${r.brickType.size})`,
+        amount: r.returnedQuantity * 0, // Need value?
+        reference: 'Return'
+      })),
       ...productionWorkers.map((pw: any) => {
         let wage = 0;
+        const workerRate = worker?.rate && worker.rate > 0 ? worker.rate : null;
+        
         if (worker?.role.toUpperCase() === 'MASON') {
-          wage = pw.quantity * masonRate;
+          wage = pw.quantity * (workerRate || masonRate);
         } else {
-          const shiftRate = pw.production.shift === 'NIGHT' ? prodNightRate : prodDayRate;
-          wage = pw.quantity * shiftRate;
+          // If worker has individual rate, use it. Otherwise use shift rate.
+          if (workerRate) {
+            wage = pw.quantity * workerRate;
+          } else {
+            const shiftRate = pw.production.shift === 'NIGHT' ? prodNightRate : prodDayRate;
+            wage = pw.quantity * shiftRate;
+          }
         }
         return {
           id: pw.id,
@@ -539,6 +551,10 @@ export class ReportsService {
     // Earnings include: sales commission/total (for managers), transport income (drivers), and production wages
     const totalEarned = logs
       .filter(l => l.type === 'sales' || l.type === 'production' || (l.type === 'transport' && l.amount > 0))
+      .reduce((sum, l) => sum + (l.amount || 0), 0);
+    
+    const totalReturned = logs
+      .filter(l => l.type === 'return')
       .reduce((sum, l) => sum + (l.amount || 0), 0);
     
     const totalPaid = logs
@@ -562,10 +578,7 @@ export class ReportsService {
    * BI Summary Report
    */
   async getSummary(startDate: string, endDate: string) {
-    const dateRange = {
-      gte: new Date(startDate),
-      lte: new Date(endDate),
-    };
+    const dateRange = getDateRange(new Date(startDate), new Date(endDate));
 
     // 1. Income
     const [dispatchIncome, transportIncome] = await Promise.all([

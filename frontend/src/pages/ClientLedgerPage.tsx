@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
+import { settingsApi } from "@/api/settings.api";
 import { cn } from "@/lib/utils";
 
 const PAYMENT_METHODS = ["CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "OTHER"];
@@ -14,8 +15,13 @@ const ClientLedgerPage = () => {
     const [editing, setEditing] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [filterType, setFilterType] = useState("ALL");
-    const [formType, setFormType] = useState<"PAYMENT" | "ADVANCE">("PAYMENT");
-    const [form, setForm] = useState({ clientId: "", orderId: "", amount: "", paymentDate: new Date().toISOString().split("T")[0], paymentMethod: "CASH", notes: "" });
+    const [formType, setFormType] = useState<"PAYMENT" | "ADVANCE" | "RETURN">("PAYMENT");
+    const [form, setForm] = useState({ 
+        clientId: "", orderId: "", amount: "", 
+        paymentDate: new Date().toISOString().split("T")[0], 
+        paymentMethod: "CASH", notes: "",
+        brickTypeId: "", returnedQuantity: "" 
+    });
 
     const { data: clients = [], isLoading } = useQuery({
         queryKey: ["clients", search],
@@ -26,6 +32,11 @@ const ClientLedgerPage = () => {
         queryKey: ["client-orders-for-payment", form.clientId],
         queryFn: () => clientsApi.getAllOrders({ clientId: form.clientId }),
         enabled: !!form.clientId && formType === "PAYMENT",
+    });
+
+    const { data: brickTypes = [] } = useQuery({
+        queryKey: ["brick-types"],
+        queryFn: () => settingsApi.getBrickTypes(),
     });
 
     const createMut = useMutation({
@@ -39,17 +50,33 @@ const ClientLedgerPage = () => {
         onError: (e: any) => toast.error("❌ Failed", { description: e.message }),
     });
 
+    const returnMut = useMutation({
+        mutationFn: (data: any) => clientsApi.createReturn(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["clients"] });
+            setShowModal(false);
+            resetForm();
+            toast.success("✅ Return recorded");
+        },
+        onError: (e: any) => toast.error("❌ Failed", { description: e.message }),
+    });
+
     const deleteMut = useMutation({
         mutationFn: (id: string) => clientsApi.deletePayment(id),
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); toast.success("✅ Deleted successfully"); },
     });
 
     const resetForm = () => {
-        setForm({ clientId: "", orderId: "", amount: "", paymentDate: new Date().toISOString().split("T")[0], paymentMethod: "CASH", notes: "" });
+        setForm({ 
+            clientId: "", orderId: "", amount: "", 
+            paymentDate: new Date().toISOString().split("T")[0], 
+            paymentMethod: "CASH", notes: "",
+            brickTypeId: "", returnedQuantity: ""
+        });
         setEditing(null);
     };
 
-    const openModal = (type: "PAYMENT" | "ADVANCE", clientId?: string) => {
+    const openModal = (type: "PAYMENT" | "ADVANCE" | "RETURN", clientId?: string) => {
         setFormType(type);
         resetForm();
         if (clientId) setForm(prev => ({ ...prev, clientId }));
@@ -57,6 +84,18 @@ const ClientLedgerPage = () => {
     };
 
     const handleSubmit = () => {
+        if (formType === "RETURN") {
+            if (!form.clientId || !form.brickTypeId || !form.returnedQuantity) return toast.error("Fill required fields");
+            returnMut.mutate({
+                clientId: form.clientId,
+                brickTypeId: form.brickTypeId,
+                returnedQuantity: parseInt(form.returnedQuantity),
+                date: form.paymentDate,
+                notes: form.notes || undefined
+            });
+            return;
+        }
+
         if (!form.clientId || !form.amount) return toast.error("Fill required fields");
         const payload = {
             clientId: form.clientId,
@@ -107,6 +146,9 @@ const ClientLedgerPage = () => {
                 <button onClick={() => openModal("ADVANCE")} className="w-full h-11 flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
                     <Plus className="h-4 w-4" /> Add Advance
                 </button>
+                <button onClick={() => openModal("RETURN")} className="w-full h-11 flex items-center justify-center gap-2 rounded-xl bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition-colors col-span-2">
+                    <Plus className="h-4 w-4" /> Add Brick Return
+                </button>
             </div>
 
             {/* Search & Filter */}
@@ -143,9 +185,12 @@ const ClientLedgerPage = () => {
                                         <MapPin className="h-3 w-3" /> {c.address || "No Location"}
                                     </p>
                                 </div>
-                                <div className="flex gap-1">
+                                 <div className="flex gap-1">
                                     <button onClick={() => openModal("PAYMENT", c.id)} className="p-1.5 rounded-lg bg-secondary/50 hover:bg-secondary text-primary" title="Quick Payment">
                                         <Plus className="h-4 w-4" />
+                                    </button>
+                                    <button onClick={() => openModal("RETURN", c.id)} className="p-1.5 rounded-lg bg-secondary/50 hover:bg-secondary text-orange-600" title="Quick Return">
+                                        < IndianRupee className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
@@ -184,7 +229,7 @@ const ClientLedgerPage = () => {
                     <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">
-                                {editing ? (formType === 'ADVANCE' ? "Edit Advance" : "Edit Payment") : (formType === 'ADVANCE' ? "Add Advance" : "Add Payment")}
+                                {editing ? (formType === 'ADVANCE' ? "Edit Advance" : formType === 'RETURN' ? "Edit Return" : "Edit Payment") : (formType === 'ADVANCE' ? "Add Advance" : formType === 'RETURN' ? "Add Return" : "Add Payment")}
                             </h2>
                             <button onClick={() => { setShowModal(false); resetForm(); }}><X className="h-5 w-5" /></button>
                         </div>
@@ -219,17 +264,37 @@ const ClientLedgerPage = () => {
                             {formType === "PAYMENT" && form.clientId && (
                                 <p className="text-xs text-muted-foreground mt-1 px-1">If client has Advance Balance, it will be automatically applied to the order.</p>
                             )}
-                            <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} type="number" placeholder="Amount (₹) *" className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
+                            
+                            {formType === "RETURN" ? (
+                                <>
+                                    <select 
+                                        value={form.brickTypeId} 
+                                        onChange={(e) => setForm({ ...form, brickTypeId: e.target.value })} 
+                                        className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
+                                    >
+                                        <option value="">Select Brick Type *</option>
+                                        {brickTypes.map((b: any) => <option key={b.id} value={b.id}>{b.size}</option>)}
+                                    </select>
+                                    <input value={form.returnedQuantity} onChange={(e) => setForm({ ...form, returnedQuantity: e.target.value })} type="number" placeholder="Returned Quantity *" className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
+                                </>
+                            ) : (
+                                <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} type="number" placeholder="Amount (₹) *" className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
+                            )}
+
                             <input value={form.paymentDate} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} type="date" className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
-                            <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
-                                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
-                            </select>
+                            
+                            {formType !== "RETURN" && (
+                                <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
+                                    {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
+                                </select>
+                            )}
+
                             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notes" rows={3} className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm resize-none" />
                         </div>
                         <div className="flex gap-2 mt-5">
                             <button onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors">Cancel</button>
-                            <button onClick={handleSubmit} disabled={createMut.isPending} className={cn("flex-1 h-11 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50", formType === 'ADVANCE' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-primary hover:bg-primary/90')}>
-                                {createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Save"}
+                            <button onClick={handleSubmit} disabled={createMut.isPending || returnMut.isPending} className={cn("flex-1 h-11 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50", formType === 'ADVANCE' ? 'bg-blue-600 hover:bg-blue-700' : formType === 'RETURN' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-primary hover:bg-primary/90')}>
+                                {(createMut.isPending || returnMut.isPending) ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Save"}
                             </button>
                         </div>
                     </div>

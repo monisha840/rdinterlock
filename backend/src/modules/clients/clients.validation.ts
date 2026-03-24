@@ -86,3 +86,13 @@ export const updateScheduleSchema = z.object({
     notes: z.string().optional(),
     orderId: z.string().uuid().optional().nullable(),
 });
+
+// --- Brick Returns ---
+export const createReturnSchema = z.object({
+    clientId: z.string().uuid(),
+    dispatchId: z.string().uuid().optional(),
+    brickTypeId: z.string().uuid(),
+    returnedQuantity: z.number().int().positive(),
+    reason: z.string().optional(),
+    date: z.string(),
+});

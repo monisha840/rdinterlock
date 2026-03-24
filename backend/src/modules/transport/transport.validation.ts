@@ -39,9 +39,26 @@ export const createTransportEntrySchema = z.object({
 
 export const updateTransportEntrySchema = createTransportEntrySchema.partial();
 
+export const createVehicleEmiSchema = z.object({
+  vehicleId: z.string().uuid('Invalid vehicle ID'),
+  amount: z.number().positive('Amount must be positive'),
+  dueDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  notes: z.string().optional().nullable(),
+});
+
+export const updateVehicleEmiSchema = z.object({
+  paidDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().nullable(),
+  status: z.enum(['PENDING', 'PAID']).optional(),
+  paymentMode: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  syncToCashBook: z.boolean().optional(),
+});
+
 export type CreateTransportVehicleInput = z.infer<typeof createTransportVehicleSchema>;
 export type UpdateTransportVehicleInput = z.infer<typeof updateTransportVehicleSchema>;
 export type CreateTransportVendorInput = z.infer<typeof createTransportVendorSchema>;
 export type UpdateTransportVendorInput = z.infer<typeof updateTransportVendorSchema>;
 export type CreateTransportEntryInput = z.infer<typeof createTransportEntrySchema>;
 export type UpdateTransportEntryInput = z.infer<typeof updateTransportEntrySchema>;
+export type CreateVehicleEmiInput = z.infer<typeof createVehicleEmiSchema>;
+export type UpdateVehicleEmiInput = z.infer<typeof updateVehicleEmiSchema>;

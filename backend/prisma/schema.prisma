@@ -78,6 +78,8 @@ model Worker {
   handledDispatches  Dispatch[]          @relation("DispatchHandler")
   transportEntries   TransportEntry[]    @relation("DriverTransport")
   staffPayments      StaffPayment[]
+  rate6Inch          Float?              @default(0)
+  rate8Inch          Float?              @default(0)
 
   @@map("workers")
 }
@@ -92,6 +94,7 @@ model Production {
   damagedBricks   Int                      @default(0)
   availableBricks Int                      @default(0)
   notes           String?
+  siteName        String?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
   workers         ProductionWorker[]       @relation("ProductionToWorkers")
@@ -144,6 +147,7 @@ model ClientOrder {
   expectedDispatchDate DateTime?
   status               String          @default("PENDING")
   notes                String?
+  extraItems           Json?           @default("[]")
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   brickType            BrickType       @relation("OrderBrickType", fields: [brickTypeId], references: [id])
@@ -256,15 +260,17 @@ model MaterialConsumptionLog {
 
 model BrickReturn {
   id               String    @id @default(uuid())
-  dispatchId       String
+  dispatchId       String?
   clientId         String
   brickTypeId      String
   returnedQuantity Int
+  rate             Float     @default(0)
+  totalAmount      Float     @default(0)
   reason           String?
   date             DateTime
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  dispatch         Dispatch  @relation(fields: [dispatchId], references: [id])
+  dispatch         Dispatch? @relation(fields: [dispatchId], references: [id])
   client           Customer  @relation(fields: [clientId], references: [id])
   brickType        BrickType @relation(fields: [brickTypeId], references: [id])
 
@@ -433,8 +439,26 @@ model TransportVehicle {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   entries       TransportEntry[]
+  emis          VehicleEmi[]
 
   @@map("transport_vehicles")
+}
+
+model VehicleEmi {
+  id           String           @id @default(uuid())
+  vehicleId    String
+  amount       Float
+  dueDate      DateTime
+  paidDate     DateTime?
+  status       String           @default("PENDING") // PENDING / PAID
+  paymentMode  String?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  
+  vehicle      TransportVehicle @relation(fields: [vehicleId], references: [id])
+
+  @@map("vehicle_emis")
 }
 
 model TransportVendor {

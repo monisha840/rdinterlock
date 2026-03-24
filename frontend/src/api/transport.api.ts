@@ -2,7 +2,8 @@ import apiClient from './apiClient';
 import type { ApiResponse } from '../types/api';
 import type { 
   TransportVehicle, TransportVendor, TransportEntry, 
-  TransportSummary, CreateTransportEntryRequest 
+  TransportSummary, CreateTransportEntryRequest,
+  VehicleEmi, CreateVehicleEmiRequest, UpdateVehicleEmiRequest
 } from '../types/transport';
 
 export const transportApi = {
@@ -56,5 +57,27 @@ export const transportApi = {
   getSummary: async (params?: { startDate?: string; endDate?: string }): Promise<TransportSummary> => {
     const response = await apiClient.get<any, ApiResponse<TransportSummary>>('/transport/summary', { params });
     return response.data;
+  },
+  
+  // EMIs
+  getEmis: async (params?: { 
+    vehicleId?: string; 
+    status?: string; 
+    startDate?: string; 
+    endDate?: string 
+  }): Promise<VehicleEmi[]> => {
+    const response = await apiClient.get<any, ApiResponse<VehicleEmi[]>>('/transport/emis', { params });
+    return response.data;
+  },
+  createEmi: async (data: CreateVehicleEmiRequest): Promise<VehicleEmi> => {
+    const response = await apiClient.post<any, ApiResponse<VehicleEmi>>('/transport/emis', data);
+    return response.data;
+  },
+  updateEmi: async (id: string, data: UpdateVehicleEmiRequest): Promise<VehicleEmi> => {
+    const response = await apiClient.patch<any, ApiResponse<VehicleEmi>>(`/transport/emis/${id}`, data);
+    return response.data;
+  },
+  deleteEmi: async (id: string): Promise<void> => {
+    await apiClient.delete(`/transport/emis/${id}`);
   },
 };

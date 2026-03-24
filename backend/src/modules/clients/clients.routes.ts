@@ -29,6 +29,7 @@ router.post('/payments', ctrl.createPayment);
 router.get('/payments/all', ctrl.getAllPayments);
 router.patch('/payments/:id', ctrl.updatePayment);
 router.delete('/payments/:id', ctrl.deletePayment);
+router.post('/returns', ctrl.createReturn);
 
 // ─── Dispatch Scheduling ───
 router.post('/schedules', ctrl.createSchedule);

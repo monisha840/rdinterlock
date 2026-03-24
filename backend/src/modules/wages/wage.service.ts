@@ -51,7 +51,9 @@ export class WageService {
             },
           },
           include: {
-            production: true,
+            production: {
+              include: { brickType: true }
+            },
           },
         },
         attendance: {
@@ -81,10 +83,14 @@ export class WageService {
         // Apply rules-based rate or worker rate
         let activeRate = worker.rate;
         if (masonActive && worker.role.toUpperCase() === 'MASON') {
-          activeRate = masonRate;
+          // Mason rates vary by brick size
+          wageAmount = worker.productionWorkers.reduce((sum: number, pw: any) => {
+            const size = pw.production.brickType.size;
+            const rate = size.includes('6') ? (worker.rate6Inch || masonRate) : (worker.rate8Inch || masonRate);
+            return sum + (pw.quantity * rate);
+          }, 0);
         } else if (productionActive && worker.role.toUpperCase() === 'PRODUCTION_WORKER') {
           // For production workers, we need to distinguish shift if possible
-          // But since we sum up all bricks, we check each production entry
           wageAmount = worker.productionWorkers.reduce((sum: number, pw: any) => {
             const shiftRate = pw.production.shift === 'NIGHT' ? prodNightRate : prodDayRate;
             return sum + (pw.quantity * shiftRate);
@@ -103,6 +109,19 @@ export class WageService {
             netPayable: wageAmount - Math.min(worker.advanceBalance, wageAmount),
           });
           continue; // Skip the default calculation below
+        } else if (worker.role.toUpperCase() === 'LOADER' && worker.paymentType === 'PER_BRICK') {
+           // For loaders, we need to fetch dispatches they handled
+           const dispatches = await prisma.dispatch.findMany({
+             where: {
+               handledById: worker.id,
+               date: {
+                 gte: new Date(date.setHours(0, 0, 0, 0)),
+                 lt: new Date(date.setHours(23, 59, 59, 999)),
+               }
+             }
+           });
+           bricksMade = dispatches.reduce((sum, d) => sum + d.quantity, 0);
+           wageAmount = bricksMade * worker.rate;
         }
 
         wageAmount = bricksMade * activeRate;
@@ -382,7 +401,7 @@ export class WageService {
     // Fetch global settings for rates
     const settings = await systemSettingsService.getAllSettings();
     const prodDayRate = parseFloat(settings['production_day_rate'] || '2.50');
-    const prodNightRate = parseFloat(settings['production_night_rate'] || '1.25');
+    const prodNightRate = parseFloat(settings['production_night_rate'] || '3.00');
     const masonRate = parseFloat(settings['mason_rate'] || '9.00');
 
     // Get all non-monthly active workers
@@ -410,7 +429,9 @@ export class WageService {
             },
           },
           include: {
-            production: true,
+            production: {
+              include: { brickType: true }
+            },
           },
         });
 
@@ -430,11 +451,32 @@ export class WageService {
 
         // Calculate gross wage based on role/type
         let grossWage = 0;
+        const workerRate = worker.rate > 0 ? worker.rate : null;
+
         if (worker.role.toUpperCase() === 'MASON') {
-          grossWage = totalBricks * masonRate;
+          grossWage = productionWorkers.reduce((sum, pw) => {
+            const size = pw.production.brickType.size;
+            const rate = size.includes('6') ? (worker.rate6Inch || masonRate) : (worker.rate8Inch || masonRate);
+            return sum + (pw.quantity * rate);
+          }, 0);
+        } else if (worker.role.toUpperCase() === 'LOADER' && worker.paymentType === 'PER_BRICK') {
+           // Loader wages based on Dispatch records
+           const dispatches = await prisma.dispatch.findMany({
+             where: {
+               handledById: worker.id,
+               date: { gte: startOfDay, lte: endOfDay }
+             }
+           });
+           const loadedBricks = dispatches.reduce((sum, d) => sum + d.quantity, 0);
+           grossWage = loadedBricks * (worker.rate || 0);
         } else {
-          // Production worker - day rate + night premium
-          grossWage = (dayBricks * prodDayRate) + (nightBricks * prodNightRate);
+          // Production worker - prioritize worker individual rate if set
+          if (workerRate) {
+            grossWage = totalBricks * workerRate;
+          } else {
+            // Fallback to shift-based global rates
+            grossWage = (dayBricks * prodDayRate) + (nightBricks * prodNightRate);
+          }
         }
 
         // Get attendance count
