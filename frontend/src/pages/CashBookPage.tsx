@@ -39,7 +39,6 @@ const CashBookPage = () => {
   const [amount, setAmount] = useState("");
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'BANK' | 'CHEQUE' | 'BANK_TRANSFER'>("CASH");
   const [category, setCategory] = useState("");
-  const [vendorName, setVendorName] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [linkedId, setLinkedId] = useState("");
@@ -99,12 +98,12 @@ const CashBookPage = () => {
     queryFn: () => workersApi.getAll(true),
   });
 
-  const staffList = workers.filter((w: any) => ['MANAGER', 'DRIVER', 'TELECALLER'].includes(w.role));
-  const workerList = workers.filter((w: any) => !['MANAGER', 'DRIVER', 'TELECALLER'].includes(w.role));
+  const workerList = workers.filter((w: any) => w.employeeType === 'Worker');
+  const staffList = workers.filter((w: any) => w.employeeType === 'Staff');
 
   // Mutations
-  const createEntryMutation = useMutation({
-    mutationFn: cashApi.create,
+  const createEntryMut = useMutation({
+    mutationFn: (data: any) => cashApi.create(data),
     onSuccess: () => {
       toast.success("✅ Saved Successfully");
       queryClient.invalidateQueries({ queryKey: ['cash-entries'] });
@@ -112,7 +111,6 @@ const CashBookPage = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       setAmount("");
       setDescription("");
-      setVendorName("");
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save entry", {
@@ -133,7 +131,6 @@ const CashBookPage = () => {
       amount: parseFloat(amount),
       description: description.trim() || category,
       category: category,
-      vendorName: type === "OUT" ? vendorName.trim() : null,
       paymentMode: paymentMode,
     };
 
@@ -141,7 +138,7 @@ const CashBookPage = () => {
     if (["Worker Advance", "Staff Advance", "Worker Wages", "Staff Salary"].includes(category)) payload.workerId = linkedId;
     if (type === "OUT") payload.isRecordOnly = !deductFromBalance;
 
-    createEntryMutation.mutate(payload);
+    createEntryMut.mutate(payload);
   };
 
   const deleteEntryMutation = useMutation({
@@ -423,16 +420,6 @@ const CashBookPage = () => {
             </FormField>
           ) : null}
 
-          {type === "OUT" && (
-            <FormField label="Vendor Name">
-              <input
-                value={vendorName}
-                onChange={(e) => setVendorName(e.target.value)}
-                placeholder="Enter vendor name..."
-                className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
-              />
-            </FormField>
-          )}
 
           <FormField label="Amount (₹)" required>
             <BigNumberInput value={amount} onChange={setAmount} />
@@ -475,13 +462,13 @@ const CashBookPage = () => {
 
           <div className="sticky bottom-20 md:bottom-4 z-10 pt-2">
             <ActionButton
-              label={createEntryMutation.isPending ? "Saving..." : "Save Entry"}
-              icon={createEntryMutation.isPending ? Loader2 : Save}
+              label={createEntryMut.isPending ? "Saving..." : "Save Entry"}
+              icon={createEntryMut.isPending ? Loader2 : Save}
               variant="success"
               size="lg"
               onClick={saveEntry}
               className="w-full shadow-lg"
-              disabled={createEntryMutation.isPending}
+              disabled={createEntryMut.isPending}
             />
           </div>
         </div>

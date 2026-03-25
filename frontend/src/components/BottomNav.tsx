@@ -13,6 +13,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  ClipboardList,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,11 +40,76 @@ const clientLoungeItems = [
   { title: "Client History", url: "/client-history", icon: Truck },
 ];
 
+const transportItems = [
+  { title: "Transport Entry", url: "/transport", icon: ClipboardList },
+  { title: "Vehicles", url: "/transport/vehicles", icon: Truck },
+  { title: "Reports", url: "/transport/reports", icon: BarChart3 },
+];
+
 const moreNavItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
+
+function NavGrid({
+  items,
+  isActive,
+  navigate,
+  onClose,
+}: {
+  items: { title: string; url: string; icon: any }[];
+  isActive: (url: string) => boolean;
+  navigate: (url: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      {items.map((item) => (
+        <button
+          key={item.url}
+          onClick={() => {
+            navigate(item.url);
+            onClose();
+          }}
+          className={cn(
+            "flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-transparent",
+            isActive(item.url)
+              ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
+              : "text-muted-foreground hover:bg-secondary/50"
+          )}
+        >
+          <div
+            className={cn(
+              "h-10 w-10 rounded-xl flex items-center justify-center",
+              isActive(item.url) ? "bg-primary/20" : "bg-secondary"
+            )}
+          >
+            <item.icon className="h-5 w-5" />
+          </div>
+          <span className="text-[10px] font-medium text-center leading-tight">
+            {item.title}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  label,
+}: {
+  icon?: any;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-3 text-[11px] font-black text-muted-foreground uppercase tracking-widest">
+      {Icon && <Icon className="h-3.5 w-3.5" />}
+      <span>{label}</span>
+    </div>
+  );
+}
 
 export function BottomNav() {
   const location = useLocation();
@@ -54,7 +121,11 @@ export function BottomNav() {
     return location.pathname.startsWith(url);
   };
 
-  const isMoreActive = [...clientLoungeItems, ...moreNavItems].some((i) => isActive(i.url));
+  const isMoreActive = [
+    ...clientLoungeItems,
+    ...moreNavItems,
+    ...transportItems,
+  ].some((i) => isActive(i.url));
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass-effect border-t border-border/50 safe-area-bottom">
@@ -65,12 +136,12 @@ export function BottomNav() {
             onClick={() => navigate(item.url)}
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 w-16 h-14 rounded-xl transition-colors relative",
-              isActive(item.url)
-                ? "text-primary"
-                : "text-muted-foreground"
+              isActive(item.url) ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <item.icon className={cn("h-5 w-5", isActive(item.url) && "text-primary")} />
+            <item.icon
+              className={cn("h-5 w-5", isActive(item.url) && "text-primary")}
+            />
             <span className="text-[10px] font-medium">{item.title}</span>
             {isActive(item.url) && (
               <div className="absolute top-0 w-8 h-0.5 bg-primary rounded-full transition-all duration-300" />
@@ -90,76 +161,49 @@ export function BottomNav() {
               <span className="text-[10px] font-medium">More</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-3xl pb-8 max-h-[85vh] overflow-y-auto">
-            <SheetTitle className="text-xl font-bold mb-6 px-2">Navigation Menu</SheetTitle>
-            
+          <SheetContent
+            side="bottom"
+            className="rounded-t-3xl pb-8 max-h-[90vh] overflow-y-auto"
+          >
+            <SheetTitle className="text-xl font-bold mb-6 px-2">
+              Navigation Menu
+            </SheetTitle>
+
             <div className="space-y-6">
-              {/* Client Lounge Section */}
+              {/* Client Lounge */}
               <div className="px-2">
-                <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  <Users className="h-4 w-4" />
-                  <span>Client Lounge</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {clientLoungeItems.map((item) => (
-                    <button
-                      key={item.url}
-                      onClick={() => {
-                        navigate(item.url);
-                        setMoreOpen(false);
-                      }}
-                      className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-transparent",
-                        isActive(item.url) 
-                          ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
-                          : "text-muted-foreground hover:bg-secondary/50"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-10 w-10 rounded-xl flex items-center justify-center",
-                        isActive(item.url) ? "bg-primary/20" : "bg-secondary"
-                      )}>
-                        <item.icon className="h-5 w-5" />
-                      </div>
-                      <span className="text-[10px] font-medium text-center leading-tight">{item.title}</span>
-                    </button>
-                  ))}
-                </div>
+                <SectionHeader icon={Users} label="Client Lounge" />
+                <NavGrid
+                  items={clientLoungeItems}
+                  isActive={isActive}
+                  navigate={navigate}
+                  onClose={() => setMoreOpen(false)}
+                />
               </div>
 
-              {/* Other Items Section */}
+              {/* Transport */}
               <div className="px-2">
-                <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  <span>General</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {moreNavItems.map((item) => (
-                    <button
-                      key={item.url}
-                      onClick={() => {
-                        navigate(item.url);
-                        setMoreOpen(false);
-                      }}
-                      className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-transparent",
-                        isActive(item.url) 
-                          ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
-                          : "text-muted-foreground hover:bg-secondary/50"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-10 w-10 rounded-xl flex items-center justify-center",
-                        isActive(item.url) ? "bg-primary/20" : "bg-secondary"
-                      )}>
-                        <item.icon className="h-5 w-5" />
-                      </div>
-                      <span className="text-[10px] font-medium text-center leading-tight">{item.title}</span>
-                    </button>
-                  ))}
-                </div>
+                <SectionHeader icon={Truck} label="Transport" />
+                <NavGrid
+                  items={transportItems}
+                  isActive={isActive}
+                  navigate={navigate}
+                  onClose={() => setMoreOpen(false)}
+                />
               </div>
 
-              {/* Logout Section */}
+              {/* General */}
+              <div className="px-2">
+                <SectionHeader label="General" />
+                <NavGrid
+                  items={moreNavItems}
+                  isActive={isActive}
+                  navigate={navigate}
+                  onClose={() => setMoreOpen(false)}
+                />
+              </div>
+
+              {/* Logout */}
               <div className="pt-4 border-t border-border/50 px-2">
                 <Button
                   variant="ghost"

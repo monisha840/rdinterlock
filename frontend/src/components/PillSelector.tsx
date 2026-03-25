@@ -19,10 +19,10 @@ export function PillSelector({ options, value, onChange, className }: PillSelect
             type="button"
             onClick={() => onChange(val)}
             className={cn(
-              "h-11 px-5 rounded-full text-sm font-semibold transition-all duration-200 active:scale-[0.96] touch-target",
+              "h-12 px-5 rounded-full text-[10px] font-black uppercase tracking-tight transition-all duration-200 active:scale-[0.96] shadow-sm",
               value === val
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
+                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50"
             )}
           >
             {label}

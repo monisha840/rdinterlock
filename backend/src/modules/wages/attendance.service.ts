@@ -6,19 +6,9 @@ export class AttendanceService {
   /**
    * Mark attendance for a worker on a specific date
    */
-  async markAttendance(workerId: string, date: Date, present: boolean) {
-    // Check if worker exists
-    const worker = await prisma.worker.findUnique({
-      where: { id: workerId },
-    });
-
-    if (!worker) {
-      throw new Error('Worker not found');
-    }
-
-    if (!worker.isActive) {
-      throw new Error('Worker is not active');
-    }
+  async markAttendance(workerId: string, date: Date, present: boolean, notes?: string) {
+    // 1. Log transition for debugging
+    console.log(`[Attendance] Marking ${workerId} as ${present ? 'PRESENT' : 'ABSENT'} on ${date.toISOString().split('T')[0]}`);
 
     // Upsert attendance record
     const attendance = await prisma.attendance.upsert({
@@ -30,11 +20,13 @@ export class AttendanceService {
       },
       update: {
         present,
+        notes: notes || null,
       },
       create: {
         workerId,
         date,
         present,
+        notes: notes || null,
       },
     });
 
@@ -45,27 +37,25 @@ export class AttendanceService {
    * Get attendance records with filters
    */
   async getAttendance(filters: {
-    date?: Date;
     workerId?: string;
     startDate?: Date;
     endDate?: Date;
+    date?: Date;
   }) {
+    const { workerId, startDate, endDate, date } = filters;
+
     const where: any = {};
-
-    if (filters.workerId) {
-      where.workerId = filters.workerId;
-    }
-
-    if (filters.date) {
-      where.date = filters.date;
-    } else if (filters.startDate || filters.endDate) {
+    if (workerId) where.workerId = workerId;
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      where.date = { gte: startOfDay, lte: endOfDay };
+    } else if (startDate || endDate) {
       where.date = {};
-      if (filters.startDate) {
-        where.date.gte = filters.startDate;
-      }
-      if (filters.endDate) {
-        where.date.lte = filters.endDate;
-      }
+      if (startDate) where.date.gte = startDate;
+      if (endDate) where.date.lte = endDate;
     }
 
     const attendance = await prisma.attendance.findMany({
@@ -76,12 +66,13 @@ export class AttendanceService {
             id: true,
             name: true,
             role: true,
-            paymentType: true,
-            rate: true,
-          },
-        },
+            employeeType: true
+          }
+        }
       },
-      orderBy: [{ date: 'desc' }, { worker: { name: 'asc' } }],
+      orderBy: {
+        date: 'desc',
+      },
     });
 
     return attendance;

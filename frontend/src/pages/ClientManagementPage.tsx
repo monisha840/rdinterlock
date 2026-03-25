@@ -4,8 +4,11 @@ import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { toast } from "sonner";
 import {
     Plus, Search, X, Edit2, Trash2, Loader2, Phone, MapPin,
-    ChevronDown, ChevronRight, ShoppingCart, IndianRupee
+    ChevronDown, ChevronRight, ShoppingCart, IndianRupee, CreditCard,
+    Calendar as CalendarIcon, AlertCircle, Truck, Save
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
@@ -14,13 +17,12 @@ import { stockApi } from "@/api/stock.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = ["PENDING", "IN_PRODUCTION", "READY", "DISPATCHED", "COMPLETED"];
+const STATUS_OPTIONS = ["PENDING", "IN_PRODUCTION", "READY", "DISPATCHED"];
 const STATUS_COLORS: Record<string, string> = {
     PENDING: "bg-yellow-100 text-yellow-700",
     IN_PRODUCTION: "bg-blue-100   text-blue-700",
     READY: "bg-purple-100 text-purple-700",
     DISPATCHED: "bg-orange-100 text-orange-700",
-    COMPLETED: "bg-green-100  text-green-700",
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,8 +37,6 @@ const emptyOrderForm = (clientId = "") => ({
     expectedDispatchDate: "",
     status: "PENDING",
     notes: "",
-    driverId: "",
-    vehicleNumber: "",
     location: "",
     paidAmount: "0",
     paymentStatus: "PENDING" as any,
@@ -90,24 +90,17 @@ const ClientManagementPage = () => {
         queryFn: () => settingsApi.getBrickTypes(),
     });
 
-    const { data: drivers = [] } = useQuery({
-        queryKey: ["drivers"],
-        queryFn: () => workersApi.getAll(true), // fetching all active employees to act as drivers
-    });
-
-    const eligibleDrivers = useMemo(() => {
-        return (drivers as any[]).filter((d: any) => {
-            const r = d.role?.toLowerCase().trim() || '';
-            return r === 'driver' || r === 'drivers' || r.includes('driver');
-        });
-    }, [drivers]);
-
     const isLoading = isLoadingClients || isLoadingOrders;
 
     // ─── Group orders by client ────────────────────────────────────────────────
     const ordersByClient = useMemo(() => {
         const map: Record<string, any[]> = {};
         (allOrders as any[]).forEach((o: any) => {
+            // Only show active orders in management (pending, production, ready)
+            // Dispatched/Completed orders move to History
+            const status = (o.status || "").toUpperCase();
+            if (status === "DISPATCHED" || status === "COMPLETED") return;
+
             if (!map[o.clientId]) map[o.clientId] = [];
             map[o.clientId].push(o);
         });
@@ -182,6 +175,41 @@ const ClientManagementPage = () => {
         },
     });
 
+    const fullyPaidMut = useMutation({
+        mutationFn: async (order: any) => {
+            const client = (clients as any[]).find(c => c.id === order.clientId);
+            if (!client) throw new Error("Client not found");
+
+            // Calculate remaining balance for this specific order
+            // Note: Since we track balance per client in the UI, but payments can be per order or generic,
+            // we'll record a payment for the specific order if possible.
+            const total = order.totalAmount || 0;
+            const paid = order.paidAmount || 0;
+            const balance = Math.max(0, total - paid);
+
+            if (balance <= 0) {
+                toast.info("Order is already fully paid");
+                return;
+            }
+
+            return clientsApi.createPayment({
+                clientId: order.clientId,
+                orderId: order.id,
+                amount: balance,
+                paymentDate: new Date().toISOString().split("T")[0],
+                paymentMethod: "CASH",
+                notes: `Fully Paid one-click - Order: ${order.brickType?.size}`,
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["clients"] });
+            queryClient.invalidateQueries({ queryKey: ["client-orders-all"] });
+            queryClient.invalidateQueries({ queryKey: ["cashbook"] });
+            toast.success("✅ Payment recorded. Order is now fully paid.");
+        },
+        onError: (e: any) => toast.error("❌ Action failed", { description: e.message }),
+    });
+
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -235,8 +263,6 @@ const ClientManagementPage = () => {
             expectedDispatchDate: o.expectedDispatchDate ? new Date(o.expectedDispatchDate).toISOString().split("T")[0] : "",
             status: o.status,
             notes: o.notes || "",
-            driverId: o.driverId || "",
-            vehicleNumber: o.vehicleNumber || "",
             location: o.location || "",
             paidAmount: String(o.paidAmount || "0"),
             paymentStatus: o.paymentStatus || "PENDING",
@@ -335,7 +361,6 @@ const ClientManagementPage = () => {
             expectedDispatchDate: orderForm.expectedDispatchDate || undefined,
             status: orderForm.status,
             notes: orderForm.notes || undefined,
-            driverId: orderForm.driverId || null,
             extraItems: orderForm.extraItems || [],
         };
 
@@ -345,7 +370,6 @@ const ClientManagementPage = () => {
                     id: editingOrder.id, 
                     data: {
                         ...payload,
-                        vehicleNumber: orderForm.vehicleNumber,
                         location: orderForm.location,
                         paidAmount: parseFloat(orderForm.paidAmount || "0"),
                         paymentStatus: orderForm.paymentStatus,
@@ -633,121 +657,189 @@ const ClientManagementPage = () => {
 
             {/* ─── Order Modal ───────────────────────────────────────────────── */}
             {showOrderModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[92vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold">{editingOrder ? "Edit Order" : "New Order"}</h2>
-                            <button onClick={() => { setShowOrderModal(false); setEditingOrder(null); setOrderForm(emptyOrderForm()); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-card w-full max-w-md max-h-[95vh] rounded-3xl border border-primary/10 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="p-6 border-b border-border/50 flex justify-between items-center bg-secondary/20">
+                            <div>
+                                <h2 className="text-xl font-black text-primary tracking-tight">
+                                    {editingOrder ? "Edit Client Order" : "Record New Order"}
+                                </h2>
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-0.5">Order workflow</p>
+                            </div>
+                            <button 
+                                onClick={() => { setShowOrderModal(false); setEditingOrder(null); setOrderForm(emptyOrderForm()); }}
+                                className="h-9 w-9 flex items-center justify-center rounded-xl bg-background border border-border shadow-sm active:scale-95 transition-all"
+                            >
                                 <X className="h-5 w-5 text-muted-foreground" />
                             </button>
                         </div>
 
-                        <div className="space-y-3">
-                            {/* Brick Type */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Brick Type *</p>
-                                <select
-                                    value={orderForm.brickTypeId}
-                                    onChange={(e) => setOrderForm({ ...orderForm, brickTypeId: e.target.value })}
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                >
-                                    <option value="">Select Brick Type</option>
-                                    {(brickTypes as any[]).map((b: any) => (
-                                        <option key={b.id} value={b.id}>{b.size}</option>
-                                    ))}
-                                </select>
+                        {/* Content */}
+                        <div className="p-6 flex-1 overflow-y-auto space-y-6">
+                            {/* Brick Selection */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Select Brick Type *</label>
+                                <div className="relative">
+                                    <ShoppingCart className="absolute left-3.5 top-3 h-4 w-4 text-primary opacity-50" />
+                                    <select
+                                        value={orderForm.brickTypeId}
+                                        onChange={(e) => setOrderForm({ ...orderForm, brickTypeId: e.target.value })}
+                                        className="w-full h-12 pl-10 pr-4 bg-background border border-primary/10 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+                                    >
+                                        <option value="">Choose item size...</option>
+                                        {(brickTypes as any[]).map((b: any) => (
+                                            <option key={b.id} value={b.id}>{b.size}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3.5 top-4 h-3 w-3 text-muted-foreground pointer-events-none" />
+                                </div>
                             </div>
 
-                            {/* Quantity + Rate */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Quantity *</p>
-                                    <input
+                            {/* Quantities */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Quantity *</label>
+                                    <Input
                                         value={orderForm.quantity}
                                         onChange={(e) => handleOrderCalcChange("quantity", e.target.value)}
                                         type="number"
-                                        placeholder="pcs"
-                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
+                                        placeholder="0"
+                                        className="h-12 rounded-xl bg-background border-primary/10 font-black text-base"
                                     />
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Rate / brick</p>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Rate / Unit</label>
+                                    <div className="relative">
+                                        <IndianRupee className="absolute left-3 top-3.5 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            value={orderForm.rate}
+                                            onChange={(e) => handleOrderCalcChange("rate", e.target.value)}
+                                            type="number"
+                                            placeholder="0"
+                                            className="h-12 pl-8 rounded-xl bg-background border-primary/10 font-bold"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Amount Display */}
+                            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                                <div className="flex justify-between items-center">
+                                    <p className="text-[10px] font-black text-primary/70 uppercase tracking-widest">Estimated Total</p>
+                                    <Badge variant="outline" className="rounded-lg h-5 text-[9px] font-bold border-primary/20 bg-background text-primary">
+                                        {autoCalc ? "Auto-calculated" : "Custom"}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-2xl font-black text-foreground">₹</span>
                                     <input
-                                        value={orderForm.rate}
-                                        onChange={(e) => handleOrderCalcChange("rate", e.target.value)}
+                                        value={orderForm.totalAmount}
+                                        onChange={(e) => { setAutoCalc(false); setOrderForm({ ...orderForm, totalAmount: e.target.value }); }}
                                         type="number"
-                                        placeholder="₹"
-                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
+                                        className="w-full bg-transparent border-none p-0 text-2xl font-black focus:ring-0"
+                                        placeholder="0"
                                     />
                                 </div>
                             </div>
 
-                            {/* Total Amount */}
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Estimated Amount (₹) *</p>
-                                <input
-                                    value={orderForm.totalAmount}
-                                    onChange={(e) => { setAutoCalc(false); setOrderForm({ ...orderForm, totalAmount: e.target.value }); }}
-                                    type="number"
-                                    placeholder="Auto-calculated or enter manually"
-                                    className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                />
-                            </div>
-
-                            {/* Dates */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Order Date</p>
-                                    <input
-                                        value={orderForm.orderDate}
-                                        onChange={(e) => setOrderForm({ ...orderForm, orderDate: e.target.value })}
-                                        type="date"
-                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Dispatch Date</p>
-                                    <input
-                                        value={orderForm.expectedDispatchDate}
-                                        onChange={(e) => setOrderForm({ ...orderForm, expectedDispatchDate: e.target.value })}
-                                        type="date"
-                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Status and Driver Dropdown */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Status</p>
-                                    <select
-                                        value={orderForm.status}
-                                        onChange={(e) => setOrderForm({ ...orderForm, status: e.target.value })}
-                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
+                            {/* Extra Items List */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-1">
+                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest">Bill Extras</label>
+                                    <button
+                                        type="button"
+                                        onClick={addExtraItem}
+                                        className="text-[10px] font-black text-primary hover:text-primary-foreground hover:bg-primary px-2 py-1 rounded-lg transition-all"
                                     >
-                                        {STATUS_OPTIONS.map((s) => (
-                                            <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
-                                        ))}
-                                    </select>
+                                        + ADD EXTRA
+                                    </button>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Assign Driver (Optional)</p>
-                                    <select
-                                        value={orderForm.driverId}
-                                        onChange={(e) => setOrderForm({ ...orderForm, driverId: e.target.value })}
-                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                    >
-                                        <option value="">No driver assigned</option>
-                                        {eligibleDrivers.map((d: any) => (
-                                            <option key={d.id} value={d.id}>{d.name}</option>
-                                        ))}
-                                    </select>
+                                <div className="space-y-2">
+                                    {(orderForm.extraItems || []).map((item: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center bg-secondary/50 px-4 py-3 rounded-xl border border-border/50 animate-in slide-in-from-left-2 duration-200">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-foreground">{item.name}</span>
+                                                <span className="text-[10px] text-muted-foreground">Service/Product</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-black">₹{item.price.toLocaleString()}</span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => removeExtraItem(idx)}
+                                                    className="h-6 w-6 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive active:scale-95"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(orderForm.extraItems || []).length === 0 && (
+                                        <div className="text-center py-6 rounded-2xl border border-dashed border-border/50 bg-secondary/10">
+                                            <p className="text-[10px] text-muted-foreground italic">No extra charges added</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Stock Validation Banner (Only when status is DISPATCHED) */}
+                            {/* Dates Selection */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Order Placed On</label>
+                                    <div className="relative">
+                                        <CalendarIcon className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            value={orderForm.orderDate}
+                                            onChange={(e) => setOrderForm({ ...orderForm, orderDate: e.target.value })}
+                                            type="date"
+                                            className="h-12 pl-10 rounded-xl bg-background border-primary/10 text-sm font-medium"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Expected Delivery</label>
+                                    <div className="relative">
+                                        <CalendarIcon className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            value={orderForm.expectedDispatchDate}
+                                            onChange={(e) => setOrderForm({ ...orderForm, expectedDispatchDate: e.target.value })}
+                                            type="date"
+                                            className="h-12 pl-10 rounded-xl bg-background border-primary/10 text-sm font-medium"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Status Section */}
+                            <div className="space-y-3 pt-2">
+                                <div className="flex items-center justify-between px-1">
+                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest">Workflow Status</label>
+                                    <span className="text-[10px] font-bold text-primary flex items-center gap-1">
+                                        <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${STATUS_COLORS[orderForm.status] || 'bg-gray-400'}`} />
+                                        {orderForm.status.replace(/_/g, " ")}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {STATUS_OPTIONS.map((s) => (
+                                        <button
+                                            key={s}
+                                            type="button"
+                                            onClick={() => setOrderForm({ ...orderForm, status: s })}
+                                            className={`h-12 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all border ${
+                                                orderForm.status === s 
+                                                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" 
+                                                : "bg-background text-muted-foreground border-border/50 hover:bg-secondary"
+                                            }`}
+                                        >
+                                            {s.replace(/_/g, " ")}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Stock Check (if status changed in real-time) */}
                             {orderForm.status === 'DISPATCHED' && orderForm.brickTypeId && (
-                                <div className="pt-2 animate-in slide-in-from-top-2 duration-300">
+                                <div className="py-2 animate-in slide-in-from-top-4 duration-300">
                                     {(() => {
                                         const stock = (stockData as any[]).find(s => s.brickType.id === orderForm.brickTypeId);
                                         const available = stock?.currentStock || 0;
@@ -755,28 +847,18 @@ const ClientManagementPage = () => {
                                         const isDeficit = requested > available;
 
                                         return (
-                                            <div className={`p-4 rounded-2xl border ${isDeficit ? 'bg-destructive/10 border-destructive animate-pulse' : 'bg-green-500/10 border-green-500/30'}`}>
-                                                <div className="flex justify-between items-center">
-                                                    <div>
-                                                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isDeficit ? 'text-destructive' : 'text-green-600'}`}>
-                                                            Stock Check
-                                                        </p>
-                                                        <p className={`text-sm font-black ${isDeficit ? 'text-destructive' : 'text-green-700'}`}>
-                                                            {available.toLocaleString()} units available
-                                                        </p>
-                                                    </div>
-                                                    {isDeficit && (
-                                                        <div className="text-right">
-                                                            <p className="text-[10px] font-bold text-destructive uppercase">Deficit</p>
-                                                            <p className="text-xs font-bold text-destructive">
-                                                                -{(requested - available).toLocaleString()}
-                                                            </p>
-                                                        </div>
-                                                    )}
+                                            <div className={`p-4 rounded-3xl border-2 ${isDeficit ? 'bg-destructive/5 border-destructive shadow-[0_0_20px_rgba(239,68,68,0.1)]' : 'bg-emerald-500/5 border-emerald-500/30'}`}>
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDeficit ? 'text-destructive' : 'text-emerald-600'}`}>Stock Audit</p>
+                                                    {isDeficit && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                </div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <p className="text-xl font-black text-foreground">{available.toLocaleString()}</p>
+                                                    <p className="text-xs text-muted-foreground font-semibold">units currently available</p>
                                                 </div>
                                                 {isDeficit && (
-                                                    <p className="text-[10px] text-destructive font-bold mt-2">
-                                                        ⚠️ Warning: Saving will fail due to insufficient stock.
+                                                    <p className="text-[10px] font-bold text-destructive mt-2 leading-tight">
+                                                        ⚠️ CRITICAL: Order exceeds current inventory by {(requested - available).toLocaleString()} units.
                                                     </p>
                                                 )}
                                             </div>
@@ -785,131 +867,110 @@ const ClientManagementPage = () => {
                                 </div>
                             )}
 
-                            {/* Dispatch Specific Fields (Shown only when status is DISPATCHED) */}
+                            {/* Final Dispatch Reveal */}
                             {orderForm.status === 'DISPATCHED' && (
-                                <div className="grid grid-cols-1 gap-3 p-4 bg-secondary/30 rounded-2xl border border-dashed border-border mt-2 animate-in slide-in-from-top-2 duration-300">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Final Dispatch Details</p>
-                                    
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Vehicle No</p>
-                                            <input
-                                                value={orderForm.vehicleNumber}
-                                                onChange={(e) => setOrderForm({ ...orderForm, vehicleNumber: e.target.value })}
-                                                placeholder="ABC-123"
-                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
-                                            />
+                                <div className="space-y-4 p-5 rounded-3xl border-2 border-primary/20 bg-primary/5 animate-in slide-in-from-bottom-4 duration-400">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+                                            <Truck className="h-4 w-4 text-primary-foreground" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Actual Date</p>
-                                            <input
+                                            <p className="text-sm font-black text-primary">Final Settlement</p>
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">Complete dispatch info</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase opacity-70 ml-1">Dispatch Date</label>
+                                            <Input
                                                 type="date"
                                                 value={orderForm.dispatchDate}
                                                 onChange={(e) => setOrderForm({ ...orderForm, dispatchDate: e.target.value })}
-                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
+                                                className="h-10 rounded-xl bg-background border-primary/20 font-bold"
                                             />
                                         </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Advance Paid (₹)</p>
-                                            <input
-                                                type="number"
-                                                value={orderForm.paidAmount}
-                                                onChange={(e) => setOrderForm({ ...orderForm, paidAmount: e.target.value })}
-                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
-                                            />
+                                        
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase opacity-70 ml-1">Advance Received</label>
+                                                <div className="relative">
+                                                    <IndianRupee className="absolute left-3 top-3 h-3 w-3 text-emerald-600" />
+                                                    <Input
+                                                        type="number"
+                                                        value={orderForm.paidAmount}
+                                                        onChange={(e) => setOrderForm({ ...orderForm, paidAmount: e.target.value })}
+                                                        className="h-10 pl-8 rounded-xl bg-background border-primary/20 font-black text-emerald-600"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase opacity-70 ml-1">Pay Status</label>
+                                                <select
+                                                    value={orderForm.paymentStatus}
+                                                    onChange={(e) => setOrderForm({ ...orderForm, paymentStatus: e.target.value as any })}
+                                                    className="w-full h-10 px-3 bg-background border border-primary/20 rounded-xl text-xs font-bold"
+                                                >
+                                                    <option value="PENDING">Pending</option>
+                                                    <option value="PARTIAL">Partial Payment</option>
+                                                    <option value="PAID">Fully Paid</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Payment Status</p>
-                                            <select
-                                                value={orderForm.paymentStatus}
-                                                onChange={(e) => setOrderForm({ ...orderForm, paymentStatus: e.target.value as any })}
-                                                className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
-                                            >
-                                                <option value="PENDING">Pending</option>
-                                                <option value="PARTIAL">Partial</option>
-                                                <option value="PAID">Paid</option>
-                                            </select>
-                                        </div>
-                                    </div>
 
-                                    <div>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Specific Delivery Location</p>
-                                        <input
-                                            value={orderForm.location}
-                                            onChange={(e) => setOrderForm({ ...orderForm, location: e.target.value })}
-                                            placeholder="Destination Address"
-                                            className="w-full h-10 px-3 bg-card border border-border rounded-xl text-sm"
-                                        />
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase opacity-70 ml-1">Delivery Destination</label>
+                                            <div className="relative">
+                                                <MapPin className="absolute left-3 top-3 h-3.5 w-3.5 text-primary/50" />
+                                                <Input
+                                                    value={orderForm.location}
+                                                    onChange={(e) => setOrderForm({ ...orderForm, location: e.target.value })}
+                                                    placeholder="Address info..."
+                                                    className="h-10 pl-9 rounded-xl bg-background border-primary/20 text-xs font-semibold"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Extra Items */}
+                            {/* Internal Notes */}
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Extra Items</p>
-                                    <button
-                                        type="button"
-                                        onClick={addExtraItem}
-                                        className="text-[11px] font-bold text-primary hover:underline px-1"
-                                    >
-                                        + ADD ITEM
-                                    </button>
-                                </div>
-                                <div className="space-y-1">
-                                    {(orderForm.extraItems || []).map((item: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between items-center bg-secondary/30 px-3 py-2 rounded-xl text-xs">
-                                            <span className="font-medium">{item.name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold">₹{item.price.toLocaleString()}</span>
-                                                <button type="button" onClick={() => removeExtraItem(idx)}>
-                                                    <X className="h-3 w-3 text-destructive" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {(orderForm.extraItems || []).length === 0 && (
-                                        <p className="text-[10px] text-muted-foreground italic px-1">No extra items yet</p>
-                                    )}
-                                </div>
+                                <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Internal Notes</label>
+                                <textarea
+                                    value={orderForm.notes}
+                                    onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
+                                    placeholder="Add any specific requirements or notes..."
+                                    rows={3}
+                                    className="w-full p-4 bg-background border border-primary/10 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/5 transition-all outline-none resize-none placeholder:text-muted-foreground/50"
+                                />
                             </div>
-
-                            {/* Notes */}
-                            <textarea
-                                value={orderForm.notes}
-                                onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
-                                placeholder="Notes (optional)"
-                                rows={2}
-                                className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm resize-none"
-                            />
                         </div>
 
-                        <div className="flex gap-2 mt-5">
+                        {/* Footer */}
+                        <div className="p-6 border-t border-border/50 bg-secondary/20 flex gap-4">
                             <button
                                 onClick={() => { setShowOrderModal(false); setEditingOrder(null); setOrderForm(emptyOrderForm()); }}
-                                className="flex-1 h-10 rounded-xl border border-border text-sm font-medium hover:bg-secondary"
+                                className="flex-1 h-12 rounded-2xl border border-border bg-background text-sm font-bold active:scale-[0.98] transition-all hover:bg-secondary/80"
                             >
-                                Cancel
+                                Discard
                             </button>
                             <button
                                 onClick={handleOrderSubmit}
                                 disabled={createOrderMut.isPending || updateOrderMut.isPending}
-                                className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+                                className="flex-[2] h-12 rounded-2xl bg-primary text-primary-foreground text-sm font-black shadow-lg shadow-primary/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                {(createOrderMut.isPending || updateOrderMut.isPending)
-                                    ? <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                    : editingOrder ? "Update Record" : "Confirm Order"
-                                }
+                                {createOrderMut.isPending || updateOrderMut.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Save className="h-4 w-4" />
+                                )}
+                                {editingOrder ? "Save Changes" : "Confirm Order"}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-
-
             {/* Delete Confirmation Modal */}
             {showDeleteModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

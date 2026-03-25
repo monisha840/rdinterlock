@@ -29,6 +29,7 @@ import { User, Receipt, CreditCard, TrendingDown } from "lucide-react";
 import { GlobalDateFilter, DateRange } from "@/components/GlobalDateFilter";
 import { BIReportsDashboard } from "@/components/BIReportsDashboard";
 import { SalaryPaymentModal } from "@/components/SalaryPaymentModal";
+import { DragScrollContainer } from "@/components/DragScrollContainer";
 
 // ─── Worker report type ───────────────────────────────────────────────────────
 interface WorkerWageRecord {
@@ -591,7 +592,7 @@ const LogsTabContent = ({ globalDateRange }: { globalDateRange: DateRange }) => 
             </div>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <DragScrollContainer className="pb-2">
             {["All", "Attendance", "Production", "Payments", "Transport", "Sales", "Expenses"].map(t => (
               <button
                 key={t}
@@ -604,7 +605,7 @@ const LogsTabContent = ({ globalDateRange }: { globalDateRange: DateRange }) => 
                 {t}
               </button>
             ))}
-          </div>
+          </DragScrollContainer>
 
           <div className="bg-primary/5 p-3 rounded-xl border border-primary/10">
             <p className="text-[10px] text-primary font-black uppercase tracking-wider mb-1">Active Range</p>

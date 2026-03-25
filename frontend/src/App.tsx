@@ -22,7 +22,6 @@ import ClientManagementPage from "./pages/ClientManagementPage";
 import DispatchSchedulingPage from "./pages/DispatchSchedulingPage";
 import ClientHistoryPage from "./pages/ClientHistoryPage";
 import ClientLedgerPage from "./pages/ClientLedgerPage";
-import BrickReturnPage from "./pages/BrickReturnPage";
 import NotFound from "./pages/NotFound";
 import TransportEntryPage from "./pages/TransportEntryPage";
 import VehiclesPage from "./pages/VehiclesPage";
@@ -61,16 +60,6 @@ const App = () => (
           />
 
           <Route
-            path="/brick-returns"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <BrickReturnPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/clients"
             element={
               <ProtectedRoute>
@@ -96,16 +85,6 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ClientManagementPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/brick-returns"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <BrickReturnPage />
                 </AppLayout>
               </ProtectedRoute>
             }

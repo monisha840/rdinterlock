@@ -6,7 +6,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { dispatchApi } from "@/api/dispatch.api";
 import { clientsApi } from "@/api/clients.api";
-import { Search, Truck, Calendar, User, MapPin, CheckCircle2, IndianRupee, Loader2, X, CreditCard, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Truck, Calendar, User, MapPin, CheckCircle2, IndianRupee, Loader2, X, CreditCard, ChevronDown, ChevronRight, Factory } from "lucide-react";
+import { DragScrollContainer } from "@/components/DragScrollContainer";
 
 /**
  * Client History Page
@@ -46,11 +47,14 @@ const ClientHistoryPage = () => {
 
     const isLoading = isLoadingClients || isLoadingSchedules || isLoadingDispatches || isLoadingOrders;
 
+    const clientsMap = useMemo(() => {
+        return new Map((allClients as any[]).map(c => [c.id, c]));
+    }, [allClients]);
+
     // ─── Filter logic for Dispatches ────────────────────────────────────────────
 
     const historyDispatches = useMemo(() => {
         const dispatches: any[] = [];
-        const clientsMap = new Map((allClients as any[]).map(c => [c.id, c]));
 
         // 1. From schedules marked as DISPATCHED (or COMPLETED if they somehow linger)
         (Array.isArray(dispatchedSchedules) ? dispatchedSchedules : []).forEach((s: any) => {
@@ -91,6 +95,7 @@ const ClientHistoryPage = () => {
                 driver: s.driver?.name ?? '—',
                 status: isFullyPaid ? 'Fully Paid' : status, // OVERRIDE IF PAID
                 source: 'schedule',
+                clientId: s.clientId,
                 raw: s,
             });
         });
@@ -128,6 +133,7 @@ const ClientHistoryPage = () => {
                 driver: d.driver?.name ?? '—',
                 status: isFullyPaid ? 'Fully Paid' : 'COMPLETED',
                 source: 'dispatch',
+                clientId: d.customerId,
                 raw: d,
             });
         });
@@ -138,13 +144,15 @@ const ClientHistoryPage = () => {
             const clientData = clientsMap.get(o.clientId);
             const isFullyPaid = clientData ? (clientData.totalOrderAmount || 0) > 0 && (clientData.pendingAmount || 0) <= 0 : false;
 
-            if (status !== "DISPATCHED" && status !== "COMPLETED" && status !== "PENDING" && !isFullyPaid) return;
+            // Only show if DISPATCHED, COMPLETED or Fully Paid
+            if (status !== "DISPATCHED" && status !== "COMPLETED" && !isFullyPaid) return;
 
             // Filter by status if not ALL
             if (statusFilter !== "ALL") {
                 if (statusFilter === "FULLY PAID") {
                     if (!isFullyPaid) return;
                 } else if (statusFilter === "PENDING") {
+                    // Pending orders should not be in history normally, but if filtered as such:
                     if (status !== "PENDING") return;
                 } else {
                     if (status !== statusFilter) return;
@@ -176,6 +184,7 @@ const ClientHistoryPage = () => {
                 driver: o.driver?.name || '—',
                 status: isFullyPaid ? 'Fully Paid' : (status === 'DISPATCHED' ? 'DISPATCHED' : status === 'COMPLETED' ? 'COMPLETED' : status),
                 source: 'order',
+                clientId: o.clientId,
                 raw: o,
             });
         });
@@ -213,6 +222,7 @@ const ClientHistoryPage = () => {
                     driver: '—',
                     status: 'Fully Paid',
                     source: 'client',
+                    clientId: c.id,
                     raw: c,
                 });
             }
@@ -221,7 +231,7 @@ const ClientHistoryPage = () => {
         // Group by Client ID
         const groupedMap = new Map<string, any>();
         dispatches.forEach(d => {
-            const clientId = d.raw.clientId || d.raw.customerId || d.id;
+            const clientId = d.clientId || d.raw?.clientId || d.raw?.customerId || d.id;
             if (!groupedMap.has(clientId)) {
                 groupedMap.set(clientId, {
                     clientId,
@@ -297,9 +307,7 @@ const ClientHistoryPage = () => {
                         className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none appearance-none font-medium cursor-pointer"
                     >
                         <option value="ALL">All Statuses</option>
-                        <option value="PENDING">Pending</option>
                         <option value="DISPATCHED">Dispatched</option>
-                        <option value="COMPLETED">Completed</option>
                         <option value="FULLY PAID">Fully Paid</option>
                     </select>
                 </div>
@@ -327,7 +335,7 @@ const ClientHistoryPage = () => {
                     )}
                 </div>
             ) : (
-                <div className="overflow-x-auto bg-card border border-border rounded-2xl shadow-sm">
+                <DragScrollContainer showHint className="bg-card border border-border rounded-2xl shadow-sm">
                     <table className="w-full text-sm text-left min-w-[600px]">
                         <thead className="bg-secondary/50 text-xs text-muted-foreground border-b border-border uppercase tracking-wider">
                             <tr>
@@ -385,43 +393,136 @@ const ClientHistoryPage = () => {
                                             </span>
                                         </td>
                                     </tr>
+
                                     {isExpanded && (
                                         <tr>
-                                            <td colSpan={7} className="bg-secondary/10 px-6 py-4">
-                                                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-inner">
-                                                    <table className="w-full text-xs text-left">
-                                                        <thead className="bg-secondary/40 text-muted-foreground border-b border-border font-bold uppercase tracking-tighter">
-                                                            <tr>
-                                                                <th className="py-2 px-3">Date</th>
-                                                                <th className="py-2 px-3">Brick Size</th>
-                                                                <th className="py-2 px-3">Qty</th>
-                                                                <th className="py-2 px-3">Location</th>
-                                                                <th className="py-2 px-3">Driver</th>
-                                                                <th className="py-2 px-3">Status</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-border/50">
-                                                            {group.records.map((r: any, idx: number) => (
-                                                                <tr key={idx} className="hover:bg-secondary/20 transition-colors">
-                                                                    <td className="py-2 px-3 whitespace-nowrap font-medium">{format(new Date(r.date), 'dd MMM yyyy')}</td>
-                                                                    <td className="py-2 px-3 text-muted-foreground">{r.brickSize}</td>
-                                                                    <td className="py-2 px-3 text-muted-foreground">{(r.quantity || 0).toLocaleString()}</td>
-                                                                    <td className="py-2 px-3 text-muted-foreground">{r.location}</td>
-                                                                    <td className="py-2 px-3 text-muted-foreground">{r.driver}</td>
-                                                                    <td className="py-2 px-3">
-                                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                                                                            r.status === 'Fully Paid' ? 'bg-emerald-100 text-emerald-700' :
-                                                                            r.status === 'COMPLETED' || r.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                                            r.status === 'DISPATCHED' ? 'bg-orange-100 text-orange-700' :
-                                                                            'bg-secondary text-secondary-foreground'
-                                                                        }`}>
-                                                                            {r.status}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                            <td colSpan={7} className="bg-secondary/10 px-6 py-6 border-b border-border shadow-inner">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                                                    
+                                                    {/* 🚚 Transport Info */}
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                                                            <Truck className="h-4 w-4 text-blue-600" />
+                                                            <h4 className="text-[11px] font-black uppercase text-secondary-foreground tracking-widest">Transport Details</h4>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between items-center bg-card p-2 rounded-xl border border-border/40">
+                                                                <span className="text-[10px] font-bold text-muted-foreground uppercase px-1">Driver Name</span>
+                                                                <span className="text-xs font-bold text-foreground">{group.records[0]?.driver || 'Not assigned'}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center bg-card p-2 rounded-xl border border-border/40">
+                                                                <span className="text-[10px] font-bold text-muted-foreground uppercase px-1">Vehicle No.</span>
+                                                                <span className="text-xs font-bold text-foreground">{group.records[0]?.raw?.vehicleNumber || '—'}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center bg-card p-2 rounded-xl border border-border/40">
+                                                                <span className="text-[10px] font-bold text-muted-foreground uppercase px-1">Location</span>
+                                                                <span className="text-xs font-bold text-foreground truncate max-w-[150px]" title={group.records[0]?.location}>
+                                                                    {group.records[0]?.location || '—'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 🧱 Order Info */}
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                                                            <Factory className="h-4 w-4 text-orange-600" />
+                                                            <h4 className="text-[11px] font-black uppercase text-secondary-foreground tracking-widest">Order Details</h4>
+                                                        </div>
+                                                        <div className="bg-card rounded-xl border border-border/40 overflow-hidden">
+                                                            <table className="w-full text-[11px]">
+                                                                <thead className="bg-secondary/30 text-muted-foreground font-bold uppercase tracking-tighter">
+                                                                    <tr>
+                                                                        <th className="py-2 px-3 text-left">Brick Type</th>
+                                                                        <th className="py-2 px-3 text-right">Qty</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-border/30">
+                                                                    {group.records.slice(0, 3).map((r: any, idx: number) => (
+                                                                        <tr key={idx}>
+                                                                            <td className="py-2 px-3 font-medium text-foreground">{r.brickSize}</td>
+                                                                            <td className="py-2 px-3 text-right font-black">{(r.quantity || 0).toLocaleString()}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                    {group.records.length > 3 && (
+                                                                        <tr>
+                                                                            <td colSpan={2} className="py-1 px-3 text-center text-[9px] text-muted-foreground italic">
+                                                                                + {group.records.length - 3} more records
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 💰 Financial Info */}
+                                                    <div className="space-y-3 lg:col-span-1 md:col-span-2">
+                                                        <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                                                            <IndianRupee className="h-4 w-4 text-emerald-600" />
+                                                            <h4 className="text-[11px] font-black uppercase text-secondary-foreground tracking-widest">Payment Info</h4>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="bg-card p-3 rounded-xl border border-border/40 flex flex-col justify-center">
+                                                                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Total Bill</p>
+                                                                <p className="text-sm font-black text-foreground">₹{(clientsMap.get(group.clientId)?.totalOrderAmount || 0).toLocaleString()}</p>
+                                                            </div>
+                                                            <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 flex flex-col justify-center">
+                                                                <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1">Paid</p>
+                                                                <p className="text-sm font-black text-emerald-700">₹{(clientsMap.get(group.clientId)?.totalPaid || 0).toLocaleString()}</p>
+                                                            </div>
+                                                            
+                                                            <div className="bg-card p-3 rounded-xl border border-border/40 col-span-2">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">Advance Details</p>
+                                                                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                                                                        ₹{(clientsMap.get(group.clientId)?.totalAdvance || 0).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground">
+                                                                    {(() => {
+                                                                        const adv = clientsMap.get(group.clientId)?.payments?.find((p: any) => p.type === 'ADVANCE');
+                                                                        return adv ? `Received on ${format(new Date(adv.paymentDate), 'dd MMM yyyy')}` : 'No advance recorded';
+                                                                    })()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="bg-card rounded-xl border border-border/40 overflow-hidden mt-3">
+                                                            <div className="bg-secondary/30 px-3 py-1.5 border-b border-border text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                                                                Recent Payments
+                                                            </div>
+                                                            <div className="max-h-[120px] overflow-y-auto">
+                                                                {(() => {
+                                                                    const client = clientsMap.get(group.clientId);
+                                                                    const payments = (client?.payments || [])
+                                                                        .filter((p: any) => p.type === 'PAYMENT' || p.type === 'ADVANCE')
+                                                                        .sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+                                                                    
+                                                                    if (payments.length === 0) {
+                                                                        return <div className="p-4 text-center text-[10px] text-muted-foreground italic">No payment records found</div>;
+                                                                    }
+
+                                                                    return (
+                                                                        <table className="w-full text-[10px]">
+                                                                            <tbody className="divide-y divide-border/20">
+                                                                                {payments.slice(0, 5).map((p: any, idx: number) => (
+                                                                                    <tr key={idx} className="hover:bg-secondary/20 transition-colors">
+                                                                                        <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{format(new Date(p.paymentDate), 'dd MMM')}</td>
+                                                                                        <td className="py-2.5 px-3 font-semibold text-foreground truncate max-w-[100px]">
+                                                                                            {p.type === 'ADVANCE' ? 'Advance' : (p.paymentMethod || 'Payment')}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-black text-emerald-600">₹{p.amount.toLocaleString()}</td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                 </div>
                                             </td>
                                         </tr>
@@ -430,7 +531,7 @@ const ClientHistoryPage = () => {
                             );
                         })}
                     </table>
-                </div>
+                </DragScrollContainer>
             )}
 
             {/* Minimal Client Detail Modal can go here if needed later, but the requirement was simply to show the Dispatched records table */}

@@ -9,12 +9,15 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Calendar,
+  CreditCard,
+  DollarSign
 } from "lucide-react";
 import { transportApi } from "@/api/transport.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -25,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { DragScrollContainer } from "@/components/DragScrollContainer";
 import { 
   Dialog, 
   DialogContent, 
@@ -41,7 +45,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, CreditCard, DollarSign } from "lucide-react";
 
 const VehiclesPage = () => {
   const queryClient = useQueryClient();
@@ -168,27 +171,28 @@ const VehiclesPage = () => {
   const companyVehicles = vehicles.filter(v => v.vehicleType === "COMPANY");
 
   return (
-    <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500 pb-safe">
+      {/* Header section with responsive flex */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-primary flex items-center gap-3">
-            <Truck className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-primary flex items-center gap-3">
+            <Truck className="h-7 w-7 md:h-8 md:w-8 text-primary shrink-0" />
             Fleets & EMIs
           </h1>
-          <p className="text-muted-foreground mt-1">Manage fleet records and vehicle EMI payments</p>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Manage fleet records and vehicle EMI payments</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Dialog open={isEmiDialogOpen} onOpenChange={setIsEmiDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="h-11 px-6 rounded-xl border-primary/20 gap-2">
-                <CreditCard className="h-5 w-5" />
+              <button className="h-10 px-4 rounded-xl border border-primary/20 bg-background hover:bg-muted transition-all flex items-center gap-2 text-sm font-bold shadow-sm active:scale-95">
+                <CreditCard className="h-4 w-4 text-primary" />
                 Schedule EMI
-              </Button>
+              </button>
             </DialogTrigger>
-            <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95">
+            <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 max-w-[95vw] sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-black text-primary">Schedule Vehicle EMI</DialogTitle>
+                <DialogTitle className="text-xl md:text-2xl font-black text-primary">Schedule Vehicle EMI</DialogTitle>
               </DialogHeader>
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -211,13 +215,13 @@ const VehiclesPage = () => {
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Amount</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <span className="absolute left-3 top-3 text-muted-foreground font-bold">₹</span>
                       <Input 
                         type="number"
                         placeholder="0.00"
                         value={emiForm.amount}
                         onChange={(e) => setEmiForm({ ...emiForm, amount: e.target.value })}
-                        className="h-11 pl-9 rounded-xl bg-background/50 border-primary/10"
+                        className="h-11 pl-9 rounded-xl bg-background/50 border-primary/10 text-base"
                         required
                       />
                     </div>
@@ -230,7 +234,7 @@ const VehiclesPage = () => {
                         type="date"
                         value={emiForm.dueDate}
                         onChange={(e) => setEmiForm({ ...emiForm, dueDate: e.target.value })}
-                        className="h-11 pl-9 rounded-xl bg-background/50 border-primary/10"
+                        className="h-11 pl-9 rounded-xl bg-background/50 border-primary/10 text-base"
                         required
                       />
                     </div>
@@ -242,11 +246,11 @@ const VehiclesPage = () => {
                     placeholder="e.g. Monthly installment"
                     value={emiForm.notes}
                     onChange={(e) => setEmiForm({ ...emiForm, notes: e.target.value })}
-                    className="h-11 rounded-xl bg-background/50 border-primary/10"
+                    className="h-11 rounded-xl bg-background/50 border-primary/10 text-base"
                   />
                 </div>
-                <DialogFooter className="mt-6">
-                  <Button type="submit" disabled={emiMutation.isPending} className="w-full rounded-xl h-11">
+                <DialogFooter className="mt-6 flex-col sm:flex-row gap-2">
+                  <Button type="submit" disabled={emiMutation.isPending} className="w-full rounded-xl h-12 text-base font-bold">
                     {emiMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Schedule EMI"}
                   </Button>
                 </DialogFooter>
@@ -259,14 +263,14 @@ const VehiclesPage = () => {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button className="h-11 px-6 rounded-xl shadow-lg shadow-primary/20 gap-2">
-                <Plus className="h-5 w-5" />
+              <button className="h-10 px-4 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all flex items-center gap-2 text-sm font-bold shadow-lg shadow-primary/20 active:scale-95">
+                <Plus className="h-4 w-4" />
                 Add Vehicle
-              </Button>
+              </button>
             </DialogTrigger>
-            <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95">
+            <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 max-w-[95vw] sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-black text-primary">
+                <DialogTitle className="text-xl md:text-2xl font-black text-primary">
                   {editingVehicle ? "Edit Vehicle" : "Add Vehicle"}
                 </DialogTitle>
               </DialogHeader>
@@ -278,7 +282,7 @@ const VehiclesPage = () => {
                     placeholder="e.g. TN-01-AB-1234"
                     value={vehicleNumber}
                     onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                    className="h-11 rounded-xl bg-background/50 border-primary/10"
+                    className="h-11 rounded-xl bg-background/50 border-primary/10 text-base uppercase"
                     required
                   />
                 </div>
@@ -316,7 +320,7 @@ const VehiclesPage = () => {
                     placeholder="e.g. RD Interlock"
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
-                    className="h-11 rounded-xl bg-background/50 border-primary/10"
+                    className="h-11 rounded-xl bg-background/50 border-primary/10 text-base"
                     required
                   />
                 </div>
@@ -327,7 +331,7 @@ const VehiclesPage = () => {
                     placeholder="e.g. Mani"
                     value={driverName}
                     onChange={(e) => setDriverName(e.target.value)}
-                    className="h-11 rounded-xl bg-background/50 border-primary/10"
+                    className="h-11 rounded-xl bg-background/50 border-primary/10 text-base"
                   />
                 </div>
 
@@ -335,7 +339,7 @@ const VehiclesPage = () => {
                   <Button 
                     type="submit" 
                     disabled={mutation.isPending}
-                    className="w-full rounded-xl h-11"
+                    className="w-full rounded-xl h-12 text-base font-bold shadow-lg shadow-primary/20"
                   >
                     {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Vehicle"}
                   </Button>
@@ -347,65 +351,114 @@ const VehiclesPage = () => {
       </div>
 
       <Tabs defaultValue="fleet" className="w-full">
-        <TabsList className="bg-muted/50 p-1 rounded-xl mb-6">
-          <TabsTrigger value="fleet" className="rounded-lg px-6">Fleet Management</TabsTrigger>
-          <TabsTrigger value="emis" className="rounded-lg px-6">EMI Tracking</TabsTrigger>
+        <TabsList className="bg-secondary/50 p-1 rounded-2xl mb-6 grid grid-cols-2 max-w-sm">
+          <TabsTrigger value="fleet" className="rounded-xl px-4 py-2 font-bold text-sm">Fleet Management</TabsTrigger>
+          <TabsTrigger value="emis" className="rounded-xl px-4 py-2 font-bold text-sm">EMI Tracking</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="fleet">
-          <Card className="rounded-2xl border-border/50 shadow-xl overflow-hidden">
-            <CardContent className="p-0">
+        <TabsContent value="fleet" className="space-y-4">
+          {/* Mobile View: Stacked Cards */}
+          <div className="md:hidden space-y-3">
+            {isLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" /></div>
+            ) : vehicles.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground italic">No vehicles registered yet.</div>
+            ) : (
+              vehicles.map((v: any) => (
+                <div key={v.id} className="card-modern p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div className="min-w-0">
+                      <p className="text-lg font-black text-primary tracking-tight leading-none mb-2">{v.vehicleNumber}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant={v.vehicleType === "COMPANY" ? "default" : "secondary"} className="rounded-lg text-[10px] font-black tracking-tight">
+                          {v.vehicleType}
+                        </Badge>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary text-[10px] font-bold">
+                          <div className={`h-1.5 w-1.5 rounded-full ${v.status === "ACTIVE" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500"}`} />
+                          {v.status}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-9 w-9 bg-secondary/50 rounded-xl" onClick={() => handleEdit(v)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
+                        if (confirm("Delete this vehicle?")) deleteMutation.mutate(v.id);
+                      }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border/30">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Owner</p>
+                      <p className="text-sm font-semibold truncate leading-tight">{v.ownerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Driver</p>
+                      <p className="text-sm font-medium text-foreground truncate">{v.driverName || "Not assigned"}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop View: Interactive Table */}
+          <div className="hidden md:block">
+            <DragScrollContainer showHint className="rounded-2xl border border-border/50 shadow-xl overflow-hidden bg-card/30 backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow className="border-border/50">
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Vehicle Number</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Type</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Owner</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Driver</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Status</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-right">Actions</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Vehicle Number</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Type</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Owner</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Driver</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-center h-12">Status</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-12 px-6">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center">
+                      <TableCell colSpan={6} className="h-48 text-center">
                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-20" />
                       </TableCell>
                     </TableRow>
                   ) : vehicles.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic">
+                      <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic">
                         No vehicles registered yet.
                       </TableCell>
                     </TableRow>
                   ) : (
                     vehicles.map((v: any) => (
-                      <TableRow key={v.id} className="group hover:bg-muted/20 border-border/50">
-                        <TableCell className="font-black text-primary">{v.vehicleNumber}</TableCell>
+                      <TableRow key={v.id} className="group hover:bg-muted/30 border-border/50 transition-colors">
+                        <TableCell className="font-black text-primary whitespace-nowrap uppercase">{v.vehicleNumber}</TableCell>
                         <TableCell>
-                          <Badge variant={v.vehicleType === "COMPANY" ? "default" : "secondary"} className="rounded-lg text-[10px] font-black">
+                          <Badge variant={v.vehicleType === "COMPANY" ? "default" : "secondary"} className="rounded-lg text-[10px] font-black tracking-tight uppercase">
                             {v.vehicleType}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-medium">{v.ownerName}</TableCell>
-                        <TableCell className="text-muted-foreground italic text-sm">{v.driverName || "-"}</TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">{v.ownerName}</TableCell>
+                        <TableCell className="text-muted-foreground font-medium text-sm whitespace-nowrap">{v.driverName || "-"}</TableCell>
                         <TableCell className="text-center">
                           {v.status === "ACTIVE" ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full h-2 w-2 p-0 animate-pulse" />
+                            <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full h-2 w-2 p-0 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
                           ) : (
                             <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/20 rounded-full h-2 w-2 p-0" />
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleEdit(v)}>
-                              <Edit2 className="h-4 w-4" />
+                        <TableCell className="text-right px-6">
+                          <div className="flex items-center justify-end gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-background shadow-sm border border-transparent hover:border-border" onClick={() => handleEdit(v)}>
+                              <Edit2 className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-lg" onClick={() => {
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
                               if (confirm("Delete this vehicle?")) deleteMutation.mutate(v.id);
                             }}>
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
@@ -414,70 +467,128 @@ const VehiclesPage = () => {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </DragScrollContainer>
+          </div>
         </TabsContent>
 
-        <TabsContent value="emis">
-          <Card className="rounded-2xl border-border/50 shadow-xl overflow-hidden">
-            <CardContent className="p-0">
+        <TabsContent value="emis" className="space-y-4">
+          {/* Mobile View: EMI Cards */}
+          <div className="md:hidden space-y-3">
+             {isLoadingEmis ? (
+                <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" /></div>
+              ) : emis.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground italic">No EMI records found.</div>
+              ) : (
+                emis.map((emi: any) => (
+                  <div key={emi.id} className="card-modern p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-black text-primary leading-tight mb-1 uppercase">{emi.vehicle?.vehicleNumber}</p>
+                        <div className="flex items-center gap-1.5">
+                           <Badge variant={emi.status === 'PAID' ? 'default' : 'outline'} className={`rounded-xl px-2 py-0.5 text-[10px] font-black ${emi.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-orange-500/10 text-orange-600 border-orange-500/20'}`}>
+                              {emi.status}
+                            </Badge>
+                            {emi.status === 'PENDING' && new Date(emi.dueDate) < new Date() && (
+                              <span className="text-[10px] font-black text-destructive uppercase animate-pulse">Overdue</span>
+                            )}
+                        </div>
+                      </div>
+                      <p className="text-lg font-black tracking-tighter text-foreground whitespace-nowrap">₹{emi.amount.toLocaleString()}</p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between py-2 border-y border-border/30">
+                       <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>Due: {new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                       </div>
+                       {emi.paidDate && (
+                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Paid: {new Date(emi.paidDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                         </div>
+                       )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {emi.status === 'PENDING' && (
+                        <button 
+                          onClick={() => { setPayEmiForm({ ...payEmiForm, id: emi.id }); setIsPayEmiDialogOpen(true); }}
+                          className="flex-1 h-10 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                        >
+                          Pay EMI Now
+                        </button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
+                        if (confirm("Delete this EMI record?")) deleteEmiMutation.mutate(emi.id);
+                      }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+          </div>
+
+          {/* Desktop View: EMI Table */}
+          <div className="hidden md:block">
+            <DragScrollContainer showHint className="rounded-2xl border border-border/50 shadow-xl overflow-hidden bg-card/30 backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow className="border-border/50">
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Vehicle</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Amount</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Due Date</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Paid Date</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-right">Actions</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Vehicle</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Amount</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Due Date</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Status</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Paid Date</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-12 px-6">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingEmis ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center">
+                      <TableCell colSpan={6} className="h-48 text-center">
                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-20" />
                       </TableCell>
                     </TableRow>
                   ) : emis.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic">
+                      <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic">
                         No EMI records found.
                       </TableCell>
                     </TableRow>
                   ) : (
                     emis.map((emi: any) => (
-                      <TableRow key={emi.id} className="group hover:bg-muted/20 border-border/50">
-                        <TableCell className="font-black text-primary">{emi.vehicle?.vehicleNumber}</TableCell>
-                        <TableCell className="font-bold">₹{emi.amount.toLocaleString()}</TableCell>
-                        <TableCell className="text-sm font-medium">
-                          {new Date(emi.dueDate).toLocaleDateString()}
+                      <TableRow key={emi.id} className="group hover:bg-muted/30 border-border/50 transition-colors">
+                        <TableCell className="font-black text-primary whitespace-nowrap uppercase">{emi.vehicle?.vehicleNumber}</TableCell>
+                        <TableCell className="font-black text-base whitespace-nowrap">₹{emi.amount.toLocaleString()}</TableCell>
+                        <TableCell className="text-sm font-semibold whitespace-nowrap">
+                          {new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                           {emi.status === 'PENDING' && new Date(emi.dueDate) < new Date() && (
-                            <span className="ml-2 text-destructive font-black text-[10px] uppercase">Overdue</span>
+                            <span className="ml-2 text-destructive font-black text-[10px] uppercase tracking-tighter bg-destructive/10 px-1.5 py-0.5 rounded-lg">Overdue</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={emi.status === 'PAID' ? 'default' : 'outline'} className={`rounded-xl px-2 py-0.5 text-[10px] font-black ${emi.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-orange-500/10 text-orange-600 border-orange-500/20'}`}>
+                          <Badge variant={emi.status === 'PAID' ? 'default' : 'outline'} className={`rounded-xl px-2 py-0.5 text-[10px] font-black tracking-tight ${emi.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.1)]' : 'bg-orange-500/10 text-orange-600 border-orange-500/20'}`}>
                             {emi.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
+                        <TableCell className="text-muted-foreground font-medium text-sm whitespace-nowrap">
                           {emi.paidDate ? new Date(emi.paidDate).toLocaleDateString() : "-"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <TableCell className="text-right px-6">
+                          <div className="flex items-center justify-end gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
                             {emi.status === 'PENDING' && (
-                              <Button variant="ghost" size="sm" className="h-8 rounded-lg text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10" onClick={() => {
-                                setPayEmiForm({ ...payEmiForm, id: emi.id });
-                                setIsPayEmiDialogOpen(true);
-                              }}>
+                              <button 
+                                onClick={() => { setPayEmiForm({ ...payEmiForm, id: emi.id }); setIsPayEmiDialogOpen(true); }}
+                                className="h-8 px-3 rounded-xl text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 text-xs font-black"
+                              >
                                 Pay Now
-                              </Button>
+                              </button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-lg" onClick={() => {
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
                               if (confirm("Delete this EMI record?")) deleteEmiMutation.mutate(emi.id);
                             }}>
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
@@ -486,16 +597,16 @@ const VehiclesPage = () => {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </DragScrollContainer>
+          </div>
         </TabsContent>
       </Tabs>
 
       {/* Payment Modal */}
       <Dialog open={isPayEmiDialogOpen} onOpenChange={setIsPayEmiDialogOpen}>
-        <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95">
+        <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 max-w-[95vw] sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-primary">Record EMI Payment</DialogTitle>
+            <DialogTitle className="text-xl md:text-2xl font-black text-primary">Record EMI Payment</DialogTitle>
           </DialogHeader>
           <form onSubmit={(e) => {
             e.preventDefault();
@@ -508,7 +619,7 @@ const VehiclesPage = () => {
                   type="date"
                   value={payEmiForm.paidDate}
                   onChange={(e) => setPayEmiForm({ ...payEmiForm, paidDate: e.target.value })}
-                  className="h-11 rounded-xl bg-background/50 border-primary/10"
+                  className="h-11 rounded-xl bg-background/50 border-primary/10 text-base"
                   required
                 />
               </div>
@@ -532,21 +643,21 @@ const VehiclesPage = () => {
                 placeholder="Transaction ID or notes"
                 value={payEmiForm.notes}
                 onChange={(e) => setPayEmiForm({ ...payEmiForm, notes: e.target.value })}
-                className="h-11 rounded-xl bg-background/50 border-primary/10"
+                className="h-11 rounded-xl bg-background/50 border-primary/10 text-base"
               />
             </div>
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+            <div className="flex items-center gap-2 p-4 rounded-xl bg-primary/5 border border-primary/10">
               <input 
                 type="checkbox"
                 id="syncCashBook"
                 checked={payEmiForm.syncToCashBook}
                 onChange={(e) => setPayEmiForm({ ...payEmiForm, syncToCashBook: e.target.checked })}
-                className="h-4 w-4 rounded border-primary/20"
+                className="h-5 w-5 rounded-md border-primary/30 text-primary focus:ring-primary/20 bg-background cursor-pointer"
               />
-              <label htmlFor="syncCashBook" className="text-sm font-medium text-primary">Sync to Cash Book as Expense</label>
+              <label htmlFor="syncCashBook" className="text-sm font-bold text-primary cursor-pointer select-none">Sync to Cash Book as Expense</label>
             </div>
             <DialogFooter className="mt-6">
-              <Button type="submit" disabled={payEmiMutation.isPending} className="w-full rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
+              <Button type="submit" disabled={payEmiMutation.isPending} className="w-full rounded-xl h-12 text-base font-bold bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
                 {payEmiMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Payment"}
               </Button>
             </DialogFooter>

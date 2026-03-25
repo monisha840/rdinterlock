@@ -30,7 +30,6 @@ const DailyEntry = () => {
   const [damagedQuantity, setDamagedQuantity] = useState("");
   const [workers, setWorkers] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
-  const [siteName, setSiteName] = useState("");
   const [lastResult, setLastResult] = useState<any>(null);
 
   const [expenseDate, setExpenseDate] = useState(new Date());
@@ -76,7 +75,6 @@ const DailyEntry = () => {
       setDamagedQuantity("");
       setWorkers([""]);
       setNotes("");
-      setSiteName("");
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save production", {
@@ -161,7 +159,6 @@ const DailyEntry = () => {
       quantity: totalQty,
       damagedBricks: damagedQty,
       notes,
-      siteName,
       workers: workers
         .filter(w => w !== "")
         .map((workerId, index, filteredArray) => {
@@ -310,15 +307,6 @@ const DailyEntry = () => {
             )}
           </FormField>
           
-          <FormField label="Site Name">
-            <input
-              type="text"
-              value={siteName}
-              onChange={(e) => setSiteName(e.target.value)}
-              placeholder="e.g. Site A, Main Road"
-              className="flex-1 h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
-            />
-          </FormField>
           
           <FormField label="Quantity Produced" required>
             <BigNumberInput
@@ -333,7 +321,7 @@ const DailyEntry = () => {
                   key={q}
                   type="button"
                   onClick={() => setQuantity(q.toString())}
-                  className="px-4 h-9 rounded-full border border-border bg-card text-foreground text-xs font-semibold hover:border-primary/40 hover:bg-primary/4 transition-all active:scale-95 touch-target"
+                  className="px-5 h-10 rounded-full border border-border bg-card text-foreground text-xs font-black uppercase tracking-tight hover:border-primary/40 hover:bg-primary/4 transition-all active:scale-95 shadow-sm"
                 >
                   {q.toLocaleString()}
                 </button>

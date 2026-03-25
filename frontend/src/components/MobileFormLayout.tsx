@@ -28,12 +28,14 @@ interface FormFieldProps {
 
 export function FormField({ label, children, required }: FormFieldProps) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-muted-foreground">
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">
         {label}
         {required && <span className="text-destructive ml-1">*</span>}
       </label>
-      {children}
+      <div className="mt-1">
+        {children}
+      </div>
     </div>
   );
 }

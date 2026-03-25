@@ -16,28 +16,10 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/api/dashboard.api";
 import { clientsApi } from "@/api/clients.api";
-import { format, isToday } from "date-fns";
+import { format, isToday, formatDistanceToNow } from "date-fns";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { RemindersPanel } from "@/components/RemindersPanel";
 import { TodaysTasksPanel } from "@/components/TodaysTasksPanel";
-
-const productionData = [
-  { day: "Mon", qty: 2400 },
-  { day: "Tue", qty: 1800 },
-  { day: "Wed", qty: 3200 },
-  { day: "Thu", qty: 2800 },
-  { day: "Fri", qty: 3500 },
-  { day: "Sat", qty: 2100 },
-  { day: "Sun", qty: 1500 },
-];
-
-const recentActivity = [
-  { text: "Production: 3,200 bricks (Machine A, Day Shift)", time: "2 hours ago" },
-  { text: "Dispatch: 5,000 bricks to Kumar Builders", time: "3 hours ago" },
-  { text: "Expense: ₹4,500 for Diesel", time: "5 hours ago" },
-  { text: "Worker Payment: ₹2,800 to Raju", time: "Yesterday" },
-  { text: "Production: 2,800 bricks (Machine B, Night Shift)", time: "Yesterday" },
-];
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -77,14 +59,30 @@ const Dashboard = () => {
   }
 
   // Calculate total ready stock
-  const totalReadyStock = dashboardData?.readyStock?.reduce((sum, item) => sum + item.stock, 0) || 0;
+  const totalReadyStock = dashboardData?.readyStock?.reduce((sum: any, item: any) => sum + item.stock, 0) || 0;
+
+  // Last 7 days production data for chart
+  const productionChartData = dashboardData?.productionChart || [
+    { day: "Mon", qty: 0 },
+    { day: "Tue", qty: 0 },
+    { day: "Wed", qty: 0 },
+    { day: "Thu", qty: 0 },
+    { day: "Fri", qty: 0 },
+    { day: "Sat", qty: 0 },
+    { day: "Sun", qty: 0 },
+  ];
 
   return (
     <MobileFormLayout title="Dashboard">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KPICard
           title="Today Production"
-          value={dashboardData?.todayProduction?.quantity?.toLocaleString() || '0'}
+          value={dashboardData?.todayProduction?.quantity > 0
+            ? dashboardData.todayProduction.quantity.toLocaleString()
+            : "No production today"}
+          trend={dashboardData?.todayProduction?.latestTime 
+            ? `Last: ${formatDistanceToNow(new Date(dashboardData.todayProduction.latestTime), { addSuffix: true })}`
+            : undefined}
           icon={Factory}
           variant="primary"
           onClick={() => navigate("/daily-entry")}
@@ -127,19 +125,26 @@ const Dashboard = () => {
       {/* 🔴 Phase 7: Smart Alerts (Automated) */}
       <AlertsPanel />
 
-      {/* Pending Entries Warning */}
-      <div
-        onClick={() => navigate("/daily-entry")}
-        className="card-modern-hover p-4 flex items-center gap-3 border-warning/30 bg-warning/5"
-      >
-        <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
-          <AlertTriangle className="h-5 w-5 text-warning" />
+      {/* Latest Production Info - Only show if production exists today */}
+      {dashboardData?.todayProduction?.quantity > 0 && dashboardData?.todayProduction?.latestTime && (
+        <div
+          onClick={() => navigate("/daily-entry")}
+          className="card-modern-hover p-4 flex items-center gap-3 border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-500"
+        >
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Factory className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-center">
+                <p className="text-sm font-bold text-foreground">Active Production</p>
+                <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase">Today</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Current output: <span className="font-bold text-foreground">{dashboardData.todayProduction.quantity.toLocaleString()}</span> • Last recorded {formatDistanceToNow(new Date(dashboardData.todayProduction.latestTime), { addSuffix: true })}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">Pending Entries Today</p>
-          <p className="text-xs text-muted-foreground">Machine B Night Shift — no production entry yet</p>
-        </div>
-      </div>
+      )}
 
       {/* Upcoming Dispatch Alert - HIGH PRIORITY */}
       {!isLoadingDispatches && upcomingDispatches && upcomingDispatches.length > 0 && (
@@ -196,7 +201,7 @@ const Dashboard = () => {
         </div>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={productionData}>
+            <BarChart data={productionChartData}>
               <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }} axisLine={false} tickLine={false} />
               <YAxis hide />
               <Tooltip
@@ -220,15 +225,21 @@ const Dashboard = () => {
       <div className="card-modern p-5 animate-fade-in">
         <h2 className="font-semibold text-foreground text-sm mb-4">Recent Activity</h2>
         <div className="space-y-3">
-          {recentActivity.map((item, i) => (
-            <div key={i} className="flex items-start gap-3 pb-3 border-b border-border/50 last:border-0 last:pb-0">
-              <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">{item.text}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
+          {dashboardData?.recentActivity && dashboardData.recentActivity.length > 0 ? (
+            dashboardData.recentActivity.map((item: any, i: number) => (
+              <div key={i} className="flex items-start gap-3 pb-3 border-b border-border/50 last:border-0 last:pb-0">
+                <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">{item.text}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatDistanceToNow(new Date(item.time), { addSuffix: true })}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">No recent activity</p>
+          )}
         </div>
       </div>
     </MobileFormLayout>

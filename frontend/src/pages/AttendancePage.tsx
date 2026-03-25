@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { EntryCard } from "@/components/EntryCard";
 import { ActionButton } from "@/components/ActionButton";
@@ -6,7 +6,8 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Save, Loader2, Banknote, Users, Hammer, FileText } from "lucide-react";
+import { DragScrollContainer } from "@/components/DragScrollContainer";
+import { Save, Loader2, Banknote, Users, Hammer, FileText, ChevronDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workersApi } from "@/api/workers.api";
 import { format } from "date-fns";
@@ -20,17 +21,27 @@ interface AttendanceState { [workerId: string]: boolean }
 const AttendancePage = () => {
     const queryClient = useQueryClient();
     const [date, setDate] = useState(new Date());
-    const [notes, setNotes] = useState("");
-
-    // Attendance for all workers
+    const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
     const [staffAttendance, setStaffAttendance] = useState<AttendanceState>({});
     const [workerAttendance, setWorkerAttendance] = useState<AttendanceState>({});
-
+    const [notes, setNotes] = useState("");
+    const [historyPage, setHistoryPage] = useState(1);
 
     // ─── Queries ──────────────────────────────────────────────────────────────
     const { data: allWorkers = [], isLoading } = useQuery({
         queryKey: ["workers", "all-active"],
         queryFn: () => workersApi.getAll(true),
+    });
+
+    // Attendance History Query
+    const { data: attendanceHistory = [], isLoading: isHistoryLoading } = useQuery({
+        queryKey: ["attendance-history", selectedWorkerId],
+        queryFn: async () => {
+            if (!selectedWorkerId) return [];
+            const res = await apiClient.get(`/wages/attendance?workerId=${selectedWorkerId}`);
+            return res.data as any[];
+        },
+        enabled: !!selectedWorkerId,
     });
 
     // Split workers
@@ -40,6 +51,14 @@ const AttendancePage = () => {
     const weeklyWorkers: Worker[] = allWorkers.filter(w =>
         !["MANAGER", "DRIVER", "TELECALLER"].includes(w.role)
     );
+
+    // Attendance History Summary
+    const historySummary = useMemo(() => {
+        if (!attendanceHistory.length) return { total: 0, present: 0, absent: 0 };
+        const total = attendanceHistory.length;
+        const present = attendanceHistory.filter((a: any) => a.present).length;
+        return { total, present, absent: total - present };
+    }, [attendanceHistory]);
 
     // Fetch existing attendance for the date
     const { data: existingAttendance = [], isLoading: isAttLoading } = useQuery({
@@ -74,15 +93,15 @@ const AttendancePage = () => {
                     workerId: w.id,
                     date: format(date, "yyyy-MM-dd"),
                     present: staffAttendance[w.id] || false,
+                    notes: notes.trim() || undefined,
                 })),
                 ...weeklyWorkers.map(w => ({
                     workerId: w.id,
                     date: format(date, "yyyy-MM-dd"),
                     present: workerAttendance[w.id] || false,
+                    notes: notes.trim() || undefined,
                 })),
             ];
-
-            await apiClient.post("/wages/attendance/bulk", { records: attendanceRecords });
 
             await apiClient.post("/wages/attendance/bulk", { records: attendanceRecords });
         },
@@ -90,6 +109,7 @@ const AttendancePage = () => {
             toast.success("✅ Attendance saved");
             queryClient.invalidateQueries({ queryKey: ["attendance"] });
             queryClient.invalidateQueries({ queryKey: ["workers"] });
+            queryClient.invalidateQueries({ queryKey: ["attendance-history"] });
             setNotes("");
         },
         onError: (err: any) => {
@@ -116,8 +136,110 @@ const AttendancePage = () => {
     return (
         <MobileFormLayout title="📅 Attendance">
             <div className="space-y-5">
+                {/* Attendance History & Selection */}
+                <EntryCard title="Attendance History">
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1">Select Staff / Worker</label>
+                            <div className="relative group">
+                                <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-primary opacity-50 group-focus-within:opacity-100 transition-opacity" />
+                                <select
+                                    value={selectedWorkerId}
+                                    onChange={(e) => setSelectedWorkerId(e.target.value)}
+                                    className="w-full h-14 pl-11 pr-4 bg-secondary/30 border border-primary/10 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-primary/5 focus:border-primary/30 outline-none transition-all appearance-none text-foreground"
+                                >
+                                    <option value="">Choose a person to view history...</option>
+                                    <optgroup label="Monthly Staff">
+                                        {staffWorkers.map(w => (
+                                            <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
+                                        ))}
+                                    </optgroup>
+                                    <optgroup label="Weekly Workers">
+                                        {weeklyWorkers.map(w => (
+                                            <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
+                                        ))}
+                                    </optgroup>
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            </div>
+                        </div>
+
+                        {selectedWorkerId && (
+                            <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-5">
+                                {/* Summary Stats */}
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="bg-gradient-to-br from-secondary/50 to-background p-4 rounded-3xl border border-border/50 text-center shadow-sm">
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter mb-1 opacity-70">Total Days</p>
+                                        <p className="text-2xl font-black text-foreground">{historySummary.total}</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-green-50 to-background p-4 rounded-3xl border border-green-100 text-center shadow-sm">
+                                        <p className="text-[10px] font-black text-green-600 uppercase tracking-tighter mb-1">Present</p>
+                                        <p className="text-2xl font-black text-green-700">{historySummary.present}</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-red-50 to-background p-4 rounded-3xl border border-red-100 text-center shadow-sm">
+                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter mb-1">Absent</p>
+                                        <p className="text-2xl font-black text-red-700">{historySummary.absent}</p>
+                                    </div>
+                                </div>
+
+                                {/* History Table */}
+                                <div className="rounded-3xl border border-border/60 overflow-hidden bg-card/50 shadow-sm backdrop-blur-sm">
+                                    <DragScrollContainer showHint className="max-h-[300px] overflow-y-auto">
+                                        <table className="w-full text-xs text-left border-collapse">
+                                            <thead className="sticky top-0 z-10 bg-secondary/80 backdrop-blur-md text-muted-foreground font-black border-b border-border uppercase tracking-widest text-[9px]">
+                                                <tr>
+                                                    <th className="py-3.5 px-5">Date</th>
+                                                    <th className="py-3.5 px-5 text-center">Status</th>
+                                                    <th className="py-3.5 px-5">Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border/30">
+                                                {isHistoryLoading ? (
+                                                    <tr>
+                                                        <td colSpan={3} className="py-12 text-center text-primary/40">
+                                                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                                                            <p className="font-bold text-[10px] uppercase">Fetching logs...</p>
+                                                        </td>
+                                                    </tr>
+                                                ) : attendanceHistory.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={3} className="py-12 text-center text-muted-foreground italic">
+                                                            <FileText className="h-8 w-8 mx-auto mb-2 opacity-10" />
+                                                            No history found for this person
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    attendanceHistory.map((h: any) => (
+                                                        <tr key={h.id} className="hover:bg-secondary/30 transition-colors group">
+                                                            <td className="py-3.5 px-5 font-bold text-foreground/80">
+                                                                {format(new Date(h.date), "dd MMM, yyyy")}
+                                                            </td>
+                                                            <td className="py-3.5 px-5 text-center">
+                                                                <span className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm ${
+                                                                    h.present 
+                                                                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200" 
+                                                                        : "bg-red-50 text-red-600 border border-red-100"
+                                                                }`}>
+                                                                    {h.present ? "Present" : "Absent"}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3.5 px-5 text-muted-foreground font-medium italic max-w-[140px] truncate group-hover:whitespace-normal group-hover:bg-background/80 transition-all cursor-help" title={h.notes}>
+                                                                {h.notes || "—"}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </DragScrollContainer>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </EntryCard>
+
                 {/* Date Picker */}
-                <EntryCard title="Select Date">
+                <EntryCard title="Mark New Attendance">
                     <DatePickerField date={date} onDateChange={setDate} />
                 </EntryCard>
 

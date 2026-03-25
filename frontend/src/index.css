@@ -97,6 +97,26 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: contain;
+  }
+
+  /* ─── Mobile touch improvements ────────────────────────────────────────────── */
+  /* Prevent callout on long press for interactive elements */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Prevent text selection while dragging nav/scroll areas  */
+  nav, [data-drag-scroll] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Ensure inputs are 16px+ to prevent iOS zoom */
+  input, select, textarea {
+    font-size: max(16px, 1em);
   }
 
   /* Hide spin buttons for number inputs */
@@ -146,5 +166,34 @@
     .pb-safe {
       padding-bottom: 1.5rem;
     }
+  }
+
+  /* ─── Drag-Scroll / Hide Scrollbar utilities ─────────────────────────── */
+  .scrollbar-hide {
+    -ms-overflow-style: none;   /* IE / Edge */
+    scrollbar-width: none;      /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;              /* Chrome, Safari, Opera */
+  }
+
+  /* Global: all overflow-x containers hide scrollbar */
+  .overflow-x-auto {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Grab cursor for drag-scroll wrappers */
+  .cursor-grab {
+    cursor: grab;
+  }
+  .cursor-grab:active,
+  .cursor-grabbing {
+    cursor: grabbing;
   }
 }

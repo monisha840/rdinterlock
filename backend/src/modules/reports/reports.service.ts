@@ -100,10 +100,56 @@ export class ReportsService {
     const pendingAmount =
       (pendingPayments._sum.totalAmount || 0) - (pendingPayments._sum.paidAmount || 0);
 
+    // Latest production entry today
+    const latestProduction = await prisma.production.findFirst({
+      where: {
+        date: todayRange,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { machine: true, brickType: true },
+    });
+
+    // Recent Activity Feed (Last 5 events)
+    const [recentProd, recentDisp, recentCash] = await Promise.all([
+      prisma.production.findMany({ 
+        take: 5, 
+        orderBy: { createdAt: 'desc' },
+        include: { machine: true }
+      }),
+      prisma.dispatch.findMany({ 
+        take: 5, 
+        orderBy: { date: 'desc' },
+        include: { customer: true }
+      }),
+      (prisma.cashEntry as any).findMany({ 
+        take: 5, 
+        orderBy: { date: 'desc' }
+      }),
+    ]);
+
+    const activityFeed: any[] = [
+      ...recentProd.map(p => ({
+        type: 'PRODUCTION',
+        text: `Production: ${p.availableBricks.toLocaleString()} bricks (${p.machine.name}, ${p.shift} Shift)`,
+        time: p.createdAt,
+      })),
+      ...recentDisp.map(d => ({
+        type: 'DISPATCH',
+        text: `Dispatch: ${d.quantity.toLocaleString()} bricks to ${d.customer.name}`,
+        time: d.date,
+      })),
+      ...recentCash.map((c: any) => ({
+        type: 'EXPENSE',
+        text: `${c.type === 'CREDIT' ? 'Payment' : 'Expense'}: ₹${c.amount.toLocaleString()} for ${c.category}`,
+        time: c.date,
+      })),
+    ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
+
     return {
       todayProduction: {
         quantity: todayProduction._sum.availableBricks || 0,
         count: todayProduction._count,
+        latestTime: (todayProduction._sum.availableBricks || 0) > 0 ? latestProduction?.createdAt : null,
       },
       todayDispatch: {
         quantity: combinedTodayDispatch.quantity,
@@ -116,6 +162,7 @@ export class ReportsService {
       readyStock,
       cashBalance,
       pendingPayments: pendingAmount,
+      recentActivity: activityFeed,
     };
   }
 

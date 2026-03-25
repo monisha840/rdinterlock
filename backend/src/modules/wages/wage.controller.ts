@@ -26,7 +26,8 @@ export class WageController {
       const attendance = await attendanceService.markAttendance(
         validated.workerId,
         date,
-        validated.present
+        validated.present,
+        validated.notes
       );
 
       res.json({

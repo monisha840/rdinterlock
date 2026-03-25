@@ -1,5 +1,6 @@
 import React from "react";
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { DragScrollContainer } from "@/components/DragScrollContainer";
 
 export type DateRange = {
   from: Date;
@@ -39,7 +40,7 @@ export const GlobalDateFilter: React.FC<GlobalDateFilterProps> = ({ onRangeChang
   };
 
   return (
-    <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+    <DragScrollContainer className="mb-4 pb-2">
       {options.map((opt) => (
         <button
           key={opt}
@@ -53,6 +54,6 @@ export const GlobalDateFilter: React.FC<GlobalDateFilterProps> = ({ onRangeChang
           {opt}
         </button>
       ))}
-    </div>
+    </DragScrollContainer>
   );
 };

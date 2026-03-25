@@ -4,6 +4,7 @@ export const markAttendanceSchema = z.object({
   workerId: z.string().uuid(),
   date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   present: z.boolean().default(true),
+  notes: z.string().optional(),
 });
 
 export const getAttendanceSchema = z.object({

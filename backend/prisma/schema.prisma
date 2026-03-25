@@ -353,6 +353,7 @@ model Attendance {
   workerId String
   date     DateTime
   present  Boolean  @default(true)
+  notes    String?
   worker   Worker   @relation(fields: [workerId], references: [id])
 
   @@unique([workerId, date])

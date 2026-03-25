@@ -23,7 +23,7 @@ export class ClientsService {
                 include: {
                 _count: { select: { orders: true, payments: true } },
                 orders: { select: { totalAmount: true } },
-                payments: { select: { type: true, amount: true, paymentMethod: true, paymentDate: true } },
+                payments: { select: { type: true, amount: true, paymentMethod: true, paymentDate: true, notes: true } },
                 brickReturns: { select: { totalAmount: true } }
             },
         });
@@ -45,7 +45,7 @@ export class ClientsService {
             );
             const latestPayment = sortedPayments[0] || null;
 
-            const { orders, payments, ...clientData } = client;
+            const { orders, ...clientData } = client;
 
             return {
                 ...clientData,
@@ -56,7 +56,8 @@ export class ClientsService {
                 pendingAmount,
                 advanceBalance,
                 latestPaymentDate: latestPayment?.paymentDate || null,
-                latestPaymentMethod: latestPayment?.paymentMethod || 'N/A'
+                latestPaymentMethod: latestPayment?.paymentMethod || 'N/A',
+                payments: client.payments // Include payments for recent history display
             };
         });
     }

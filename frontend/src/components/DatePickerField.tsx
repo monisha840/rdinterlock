@@ -16,21 +16,26 @@ export function DatePickerField({ date, onDateChange, label = "Entry Date" }: Da
   const isBackdated = isBefore(startOfDay(date), startOfDay(new Date()));
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-muted-foreground">{label}</label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "w-full h-12 justify-start text-left font-normal rounded-xl border-border",
-              !date && "text-muted-foreground"
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-            {date ? format(date, "PPP") : <span>Pick a date</span>}
-          </Button>
-        </PopoverTrigger>
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">{label}</label>
+      <div className="mt-1">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full h-12 justify-start text-left font-bold rounded-xl border-border bg-background shadow-sm hover:bg-secondary/50",
+                !date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2.5 h-4 w-4 text-primary/60" />
+              {date ? (
+                <span className="text-sm font-black text-foreground">{format(date, "PPP")}</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">Pick a date</span>
+              )}
+            </Button>
+          </PopoverTrigger>
         <PopoverContent className="w-auto p-0 rounded-xl" align="start">
           <Calendar
             mode="single"
@@ -41,6 +46,7 @@ export function DatePickerField({ date, onDateChange, label = "Entry Date" }: Da
           />
         </PopoverContent>
       </Popover>
+      </div>
       {isBackdated && (
         <div className="flex items-center gap-1.5 text-warning text-xs font-medium bg-warning/8 px-3 py-1.5 rounded-lg">
           <AlertTriangle className="h-3.5 w-3.5" />
