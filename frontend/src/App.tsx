@@ -49,6 +49,16 @@ const App = () => (
             }
           />
           <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Dashboard />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/daily-entry"
             element={
               <ProtectedRoute>
