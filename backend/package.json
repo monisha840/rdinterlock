@@ -5,13 +5,13 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "npx prisma@5.15.0 generate && tsc",
-    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && npm install @prisma/client@5.15.0 && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma@5.15.0 generate && echo '--- STAGE: BUILD ---' && npx tsc && echo '--- STAGE: MIGRATE ---' && npx prisma@5.15.0 migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
+    "build": "npx prisma generate && tsc",
+    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma generate && echo '--- STAGE: BUILD ---' && npx tsc && echo '--- STAGE: MIGRATE ---' && npx prisma migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
     "start": "node dist/src/server.js",
-    "prisma:migrate": "npx prisma@5.15.0 migrate dev",
-    "prisma:safe-update": "npx prisma@5.15.0 migrate deploy",
-    "prisma:studio": "npx prisma@5.15.0 studio",
-    "prisma:generate": "npx prisma@5.15.0 generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:safe-update": "npx prisma migrate deploy",
+    "prisma:studio": "npx prisma studio",
+    "prisma:generate": "npx prisma generate",
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "prisma": {
@@ -32,23 +32,21 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^2.0.0",
     "@types/node": "^20.10.6",
+    "@prisma/client": "5.15.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0",
-    "multer": "^2.1.1",
     "pg": "^8.20.0",
+    "prisma": "5.15.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "xlsx": "^0.18.5",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@prisma/client": "5.15.0",
-    "prisma": "5.15.0",
-    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0"
   }
 }
