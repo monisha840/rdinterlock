@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "prisma generate && tsc",
-    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && echo '--- STAGE: PRISMA GENERATE ---' && prisma generate && echo '--- STAGE: BUILD ---' && tsc && echo '--- STAGE: MIGRATE ---' && prisma migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
+    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma generate && echo '--- STAGE: BUILD ---' && tsc && echo '--- STAGE: MIGRATE ---' && npx prisma migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
     "start": "node dist/src/server.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:safe-update": "prisma migrate deploy",
@@ -46,8 +46,8 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@prisma/client": "^5.15.0",
-    "prisma": "^5.15.0",
+    "@prisma/client": "5.15.0",
+    "prisma": "5.15.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0"
   }
