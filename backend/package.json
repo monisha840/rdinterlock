@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "prisma generate && tsc",
-    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma generate && echo '--- STAGE: BUILD ---' && tsc && echo '--- STAGE: MIGRATE ---' && npx prisma migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
+    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma@5.15.0 generate && echo '--- STAGE: BUILD ---' && tsc && echo '--- STAGE: MIGRATE ---' && npx prisma@5.15.0 migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
     "start": "node dist/src/server.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:safe-update": "prisma migrate deploy",
