@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "npx prisma@5.15.0 generate && tsc",
-    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma@5.15.0 generate && echo '--- STAGE: BUILD ---' && tsc && echo '--- STAGE: MIGRATE ---' && npx prisma@5.15.0 migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
+    "render-build": "echo '--- STAGE: INSTALL ---' && npm install && npm install @prisma/client@5.15.0 && echo '--- STAGE: PRISMA GENERATE ---' && npx prisma@5.15.0 generate && echo '--- STAGE: BUILD ---' && npx tsc && echo '--- STAGE: MIGRATE ---' && npx prisma@5.15.0 migrate deploy && echo '--- STAGE: SEED ---' && node dist/prisma/seed.js && echo '--- BUILD SUCCESSFUL ---'",
     "start": "node dist/src/server.js",
     "prisma:migrate": "npx prisma@5.15.0 migrate dev",
     "prisma:safe-update": "npx prisma@5.15.0 migrate deploy",
