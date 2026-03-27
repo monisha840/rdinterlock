@@ -19,7 +19,8 @@ app.use(cors({
     'http://10.108.141.40:8080',
     'http://10.108.141.41:8080', 
     'http://172.26.208.1:8080',
-    'https://rdinterlocks.vercel.app'
+    'https://rdinterlocks.vercel.app',
+    'https://rdinterlocks.vercel.app/' // Robustness for trailing slash
   ],
   credentials: true,
 }));
