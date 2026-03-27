@@ -145,6 +145,45 @@ export class ReportsService {
       })),
     ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
 
+    // --- PRODUCTION CHART DATA (LAST 7 DAYS) ---
+    const last7Days: Date[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      last7Days.push(d);
+    }
+
+    const startOfRange = last7Days[0];
+    const endOfRange = new Date();
+    endOfRange.setHours(23, 59, 59, 999);
+
+    const weeklyProductions = await prisma.production.findMany({
+      where: {
+        date: {
+          gte: startOfRange,
+          lte: endOfRange,
+        },
+      },
+      select: {
+        date: true,
+        availableBricks: true,
+      },
+    });
+
+    const productionChart = last7Days.map(dayDate => {
+      // Using weekday: 'short' to get Mon, Tue, etc.
+      const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short' });
+      const dailyTotal = weeklyProductions
+        .filter(p => new Date(p.date).toDateString() === dayDate.toDateString())
+        .reduce((sum, p) => sum + p.availableBricks, 0);
+      
+      return {
+        day: dayName,
+        qty: dailyTotal
+      };
+    });
+
     return {
       todayProduction: {
         quantity: todayProduction._sum.availableBricks || 0,
@@ -163,6 +202,7 @@ export class ReportsService {
       cashBalance,
       pendingPayments: pendingAmount,
       recentActivity: activityFeed,
+      productionChart,
     };
   }
 
