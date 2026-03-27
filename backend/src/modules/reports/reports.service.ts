@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import prisma from '../../config/database';
 import { getTodayRange, getDateRange } from '../../utils/dateUtils';
 
@@ -172,16 +173,13 @@ export class ReportsService {
     });
 
     const productionChart = last7Days.map(dayDate => {
-      // Using weekday: 'short' to get Mon, Tue, etc.
-      const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short' });
-      const dailyTotal = weeklyProductions
-        .filter(p => new Date(p.date).toDateString() === dayDate.toDateString())
-        .reduce((sum, p) => sum + p.availableBricks, 0);
+      const dayName = format(dayDate, 'EEE'); // Standardized 'Mon', 'Tue' etc.
       
-      return {
-        day: dayName,
-        qty: dailyTotal
-      };
+      const dayQty = weeklyProductions
+        .filter(p => format(new Date(p.date), 'yyyy-MM-dd') === format(dayDate, 'yyyy-MM-dd'))
+        .reduce((sum, p) => sum + (p.availableBricks || 0), 0);
+      
+      return { day: dayName, qty: dayQty };
     });
 
     return {
@@ -726,10 +724,10 @@ export class ReportsService {
 
     // 5. Staff Summary (Salary vs Paid vs Pending)
     const [dailyWages, weeklySettlements, monthlySettlements, staffPayments] = await Promise.all([
-      prisma.dailyWage.aggregate({ where: { date: dateRange }, _sum: { wageAmount: true } }),
-      prisma.weeklySettlement.aggregate({ where: { generatedAt: dateRange }, _sum: { totalAmount: true } }),
-      prisma.monthlySettlement.aggregate({ where: { createdAt: dateRange }, _sum: { salary: true } }),
-      (prisma as any).staffPayment.aggregate({ where: { date: dateRange }, _sum: { amount: true } })
+      prisma.dailyWage.aggregate({ where: { date: dateRange }, _sum: { wageAmount: true } }).catch((e: any) => { console.error('Error in dailyWage aggregate:', e); return { _sum: { wageAmount: 0 } } }),
+      prisma.weeklySettlement.aggregate({ where: { generatedAt: dateRange }, _sum: { totalAmount: true } }).catch((e: any) => { console.error('Error in weeklySettlement aggregate:', e); return { _sum: { totalAmount: 0 } } }),
+      prisma.monthlySettlement.aggregate({ where: { createdAt: dateRange }, _sum: { salary: true } }).catch((e: any) => { console.error('Error in monthlySettlement aggregate:', e); return { _sum: { salary: 0 } } }),
+      (prisma as any).staffPayment.aggregate({ where: { date: dateRange }, _sum: { amount: true } }).catch((e: any) => { console.error('Error in staffPayment aggregate:', e); return { _sum: { amount: 0 } } })
     ]);
 
     const total_salary = (dailyWages._sum.wageAmount || 0) + 

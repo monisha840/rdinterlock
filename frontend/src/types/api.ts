@@ -283,6 +283,7 @@ export interface DashboardSummary {
   todayProduction: {
     quantity: number;
     count: number;
+    latestTime: string | null;
   };
   todayDispatch: {
     quantity: number;
@@ -298,6 +299,15 @@ export interface DashboardSummary {
   }>;
   cashBalance: number;
   pendingPayments: number;
+  recentActivity: Array<{
+    type: string;
+    text: string;
+    time: string;
+  }>;
+  productionChart: Array<{
+    day: string;
+    qty: number;
+  }>;
 }
 
 export interface FormMetadata {

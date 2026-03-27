@@ -23,7 +23,7 @@ interface BIReportsDashboardProps {
 export const BIReportsDashboard: React.FC<BIReportsDashboardProps> = ({ startDate, endDate }) => {
   const { data: summary, isLoading, error } = useQuery({
     queryKey: ["reports-summary", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")],
-    queryFn: () => reportsApi.getSummary(format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")),
+    queryFn: () => reportsApi.getSummary(format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")).then(res => res.data),
   });
 
   if (isLoading) {

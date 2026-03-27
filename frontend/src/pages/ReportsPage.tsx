@@ -107,10 +107,10 @@ const ReportsPage = () => {
   const { data: workerWages, isLoading: isWageLoading, error: wageError, refetch: refetchWages } = useQuery<WorkerWageRecord[]>({
     queryKey: ["worker-wages", format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")],
     queryFn: async () => {
-      const res = await apiClient.get(
-        `/wages/worker-report?startDate=${format(dateRange.from, "yyyy-MM-dd")}&endDate=${format(dateRange.to, "yyyy-MM-dd")}`
+      const res = await apiClient.get<any, ApiResponse<WorkerWageRecord[]>>(
+        `/reports/workers?startDate=${format(dateRange.from, "yyyy-MM-dd")}&endDate=${format(dateRange.to, "yyyy-MM-dd")}`
       );
-      return res.data as WorkerWageRecord[];
+      return res.data.data;
     },
     enabled: activeTab === "Worker Wages",
   });
