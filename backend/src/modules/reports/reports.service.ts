@@ -670,11 +670,11 @@ export class ReportsService {
       prisma.dispatch.aggregate({
         where: { date: dateRange, status: { not: 'Cancelled' } },
         _sum: { totalAmount: true },
-      }),
+      }).catch(e => { console.error('Error in dispatch aggregate:', e); return { _sum: { totalAmount: 0 } } }),
       prisma.transportEntry.aggregate({
         where: { date: dateRange, transactionType: 'INCOME' },
         _sum: { incomeAmount: true },
-      })
+      }).catch(e => { console.error('Error in transport income aggregate:', e); return { _sum: { incomeAmount: 0 } } })
     ]);
 
     const sales_income = dispatchIncome._sum.totalAmount || 0;
@@ -711,7 +711,7 @@ export class ReportsService {
     const transportExpense = await prisma.transportEntry.aggregate({
       where: { date: dateRange, transactionType: 'EXPENSE' },
       _sum: { expenseAmount: true },
-    });
+    }).catch(e => { console.error('Error in transport expense aggregate:', e); return { _sum: { expenseAmount: 0 } } });
     const transport_expense_val = transportExpense._sum.expenseAmount || 0;
 
     const total_expense = labour_expense + material_expense + transport_expense_val + other_expense;
@@ -742,7 +742,7 @@ export class ReportsService {
       where: { date: dateRange },
       _count: true,
       _sum: { loads: true, incomeAmount: true, expenseAmount: true }
-    });
+    }).catch(e => { console.error('Error in transport summary aggregate:', e); return { _count: 0, _sum: { loads: 0, incomeAmount: 0, expenseAmount: 0 } } });
 
     return {
       total_income,
