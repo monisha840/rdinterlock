@@ -6,7 +6,7 @@ export class AdvanceService {
   /**
    * Give advance to a worker
    */
-  async giveAdvance(workerId: string, amount: number, note?: string) {
+  async giveAdvance(workerId: string, amount: number, note?: string, paymentMode?: string) {
     // Validate amount
     if (amount <= 0) {
       throw new Error('Advance amount must be positive');
@@ -38,8 +38,9 @@ export class AdvanceService {
         data: {
           workerId,
           amount,
-          type: 'GIVEN',
+          type: 'ADVANCE',
           date: new Date(),
+          paymentMode: paymentMode || 'CASH',
           note,
         },
       });
@@ -62,6 +63,8 @@ export class AdvanceService {
           amount,
           description: `Advance given to ${worker.name}`,
           category: 'Worker Advance',
+          paymentMode: paymentMode || 'CASH',
+          workerId,
         } as any,
       });
 
@@ -117,7 +120,7 @@ export class AdvanceService {
     filters?: {
       startDate?: Date;
       endDate?: Date;
-      type?: 'GIVEN' | 'ADJUSTED';
+      type?: 'ADVANCE' | 'ADJUSTED';
     }
   ) {
     const where: any = { workerId };
@@ -144,7 +147,7 @@ export class AdvanceService {
     // Calculate running balance
     let runningBalance = 0;
     const advancesWithBalance = advances.reverse().map((advance: any) => {
-      if (advance.type === 'GIVEN') {
+      if (advance.type === 'ADVANCE') {
         runningBalance += advance.amount;
       } else {
         runningBalance += advance.amount; // Already negative
@@ -199,6 +202,45 @@ export class AdvanceService {
     });
 
     return workers;
+  }
+
+  /**
+   * Get all workers with advances filtered by role
+   */
+  async getAdvancesByRole(role?: string) {
+    const where: any = { isActive: true };
+    if (role && role !== 'ALL') {
+      where.role = role.toUpperCase();
+    }
+
+    const workers = await prisma.worker.findMany({
+      where,
+      include: {
+        advances: {
+          orderBy: { date: 'desc' },
+          take: 20,
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return workers
+      .filter((w: any) => w.advanceBalance > 0 || w.advances.length > 0)
+      .map((w: any) => ({
+        workerId: w.id,
+        workerName: w.name,
+        role: w.role,
+        employeeType: w.employeeType,
+        advanceBalance: w.advanceBalance,
+        advances: w.advances.map((a: any) => ({
+          id: a.id,
+          amount: a.amount,
+          type: a.type,
+          date: a.date,
+          paymentMode: a.paymentMode,
+          note: a.note,
+        })),
+      }));
   }
 
   /**

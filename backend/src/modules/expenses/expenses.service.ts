@@ -89,7 +89,7 @@ export class ExpensesService {
           data: {
             workerId: data.workerId,
             amount: data.amount,
-            type: 'GIVEN',
+            type: 'ADVANCE',
             date: new Date(data.date),
             paymentMode: data.paymentMode || 'CASH',
             note: data.notes ? `${data.notes} (Exp: ${expense.id})` : `Advance via Expenses (Exp: ${expense.id})`,
@@ -274,7 +274,7 @@ export class ExpensesService {
           data: {
             workerId: updated.workerId,
             amount: updated.amount,
-            type: 'GIVEN',
+            type: 'ADVANCE',
             date: updated.date,
             paymentMode: updated.paymentMode || 'CASH',
             note: updated.notes ? `${updated.notes} (Exp: ${updated.id})` : `Advance via Expenses (Exp: ${updated.id})`,

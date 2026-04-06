@@ -115,6 +115,10 @@ const SettingsPage = () => {
     production_night_rate: "1.25",
     mason_active: "false",
     mason_rate: "9.00",
+    mason_rate_6_ream: "9.00",
+    mason_rate_6_compound: "7.00",
+    mason_rate_8_ream: "10.00",
+    mason_rate_8_compound: "0",
     driver_active: "false",
     driver_rate: "800.00",
   });
@@ -200,14 +204,15 @@ const SettingsPage = () => {
 
   // --- Staff / Worker Mutations ---
   const addStaffMutation = useMutation({
-    mutationFn: (data: { name: string; role: string; monthlySalary: number }) =>
+    mutationFn: (data: { name: string; role: string; monthlySalary: number; paymentType?: string; dailyRate?: number }) =>
       workersApi.create({
         name: data.name,
         role: data.role,
         employeeType: 'Staff',
-        paymentType: 'MONTHLY',
-        monthlySalary: data.monthlySalary,
-        rate: data.monthlySalary, // Legacy fallback
+        paymentType: data.role === 'DRIVER' ? 'DAILY' : (data.paymentType || 'MONTHLY'),
+        monthlySalary: data.role === 'DRIVER' ? 0 : data.monthlySalary,
+        weeklyWage: data.role === 'DRIVER' ? (data.dailyRate || 800) : 0,
+        rate: data.role === 'DRIVER' ? (data.dailyRate || 800) : data.monthlySalary,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workers-settings'] });
@@ -475,17 +480,69 @@ const SettingsPage = () => {
                 />
               </div>
             </div>
-            <div className="pl-2 border-l-2 border-primary/20">
-              <div className="space-y-1.5 max-w-[50%]">
-                <p className="text-[10px] text-muted-foreground font-medium uppercase px-1">Rate Per Brick</p>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input
-                    type="number"
-                    value={salaryRates.mason_rate}
-                    onChange={(e) => handleSalaryRateChange('mason_rate', e.target.value)}
-                    className="w-full h-10 pl-8 pr-3 bg-background border border-border rounded-xl text-sm font-bold focus:border-primary outline-none"
-                  />
+            <div className="pl-2 border-l-2 border-primary/20 space-y-3">
+              {/* 6 Inch Rates */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-primary font-bold uppercase px-1">6" Brick Rates</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase px-1">Room</p>
+                    <div className="relative">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="number"
+                        value={salaryRates.mason_rate_6_ream}
+                        onChange={(e) => handleSalaryRateChange('mason_rate_6_ream', e.target.value)}
+                        className="w-full h-10 pl-8 pr-3 bg-background border border-border rounded-xl text-sm font-bold focus:border-primary outline-none"
+                        placeholder="9"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase px-1">Compound</p>
+                    <div className="relative">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="number"
+                        value={salaryRates.mason_rate_6_compound}
+                        onChange={(e) => handleSalaryRateChange('mason_rate_6_compound', e.target.value)}
+                        className="w-full h-10 pl-8 pr-3 bg-background border border-border rounded-xl text-sm font-bold focus:border-primary outline-none"
+                        placeholder="7"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* 8 Inch Rates */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-primary font-bold uppercase px-1">8" Brick Rates</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase px-1">Room</p>
+                    <div className="relative">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="number"
+                        value={salaryRates.mason_rate_8_ream}
+                        onChange={(e) => handleSalaryRateChange('mason_rate_8_ream', e.target.value)}
+                        className="w-full h-10 pl-8 pr-3 bg-background border border-border rounded-xl text-sm font-bold focus:border-primary outline-none"
+                        placeholder="10"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase px-1">Compound</p>
+                    <div className="relative">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="number"
+                        value={salaryRates.mason_rate_8_compound}
+                        onChange={(e) => handleSalaryRateChange('mason_rate_8_compound', e.target.value)}
+                        className="w-full h-10 pl-8 pr-3 bg-background border border-border rounded-xl text-sm font-bold focus:border-primary outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -555,7 +612,7 @@ const SettingsPage = () => {
                           />
                         </div>
                         <div className="relative w-32">
-                          <span className="absolute -top-4 left-1 text-[8px] font-bold text-muted-foreground uppercase">Monthly Salary</span>
+                          <span className="absolute -top-4 left-1 text-[8px] font-bold text-muted-foreground uppercase">{s.paymentType === 'DAILY' || s.role === 'DRIVER' ? 'Daily Rate' : 'Monthly Salary'}</span>
                           <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <input
                             type="number"
@@ -870,14 +927,26 @@ const SettingsPage = () => {
                 <option value="OTHER">Other Staff</option>
               </select>
             </div>
-            <p className="text-[9px] text-muted-foreground italic px-1">Payment Type: Monthly Salary (Fixed)</p>
+            <p className="text-[9px] text-muted-foreground italic px-1">
+              {newStaffRole === 'DRIVER' ? 'Payment Type: Daily Rate (₹800 default)' : 'Payment Type: Monthly Salary (Fixed)'}
+            </p>
+            {newStaffRole === 'DRIVER' && (
+              <input
+                type="number"
+                value={newStaffSalary || ""}
+                onChange={e => setNewStaffSalary(parseFloat(e.target.value) || 0)}
+                placeholder="Daily Rate (₹) e.g. 800"
+                className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
+              />
+            )}
             <button
               onClick={() => {
                 if (!newStaffName.trim()) return;
                 addStaffMutation.mutate({
                   name: newStaffName.trim(),
                   role: newStaffRole,
-                  monthlySalary: 0 // Default to 0, managed individually
+                  monthlySalary: newStaffRole === 'DRIVER' ? 0 : 0,
+                  dailyRate: newStaffRole === 'DRIVER' ? (newStaffSalary || 800) : undefined,
                 });
               }}
               disabled={!newStaffName.trim() || addStaffMutation.isPending}

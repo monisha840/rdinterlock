@@ -72,15 +72,16 @@ export class TransportService {
       entryData.expenseAmount = (data.dieselCost || 0) + (data.otherExpense || 0);
     }
 
-    const entry = await prisma.transportEntry.create({
+    const entry = await (prisma.transportEntry as any).create({
       data: {
         ...entryData,
         date: new Date(entryData.date),
         material: entryData.material || null,
-      } as any,
+      },
       include: {
         vehicle: true,
-        vendor: true
+        vendor: true,
+        brickType: true
       }
     });
 
@@ -116,11 +117,12 @@ export class TransportService {
     if (filters.vendorId) where.vendorId = filters.vendorId;
     if (filters.transportType) where.transportType = filters.transportType;
 
-    return await prisma.transportEntry.findMany({
+    return await (prisma.transportEntry as any).findMany({
       where,
       include: {
         vehicle: true,
-        vendor: true
+        vendor: true,
+        brickType: true
       },
       orderBy: { date: 'desc' }
     });

@@ -20,6 +20,34 @@ export class CashbookService {
       } as any,
     });
 
+    // Sync Client Payment to Client Ledger when "Client Payment" is recorded in Cash Book
+    if (data.category === 'Client Payment' && data.customerId) {
+      await prisma.clientPayment.create({
+        data: {
+          clientId: data.customerId,
+          type: 'PAYMENT',
+          amount: data.amount,
+          paymentDate: new Date(data.date),
+          paymentMethod: data.paymentMode || 'CASH',
+          notes: data.description ? `${data.description} (via CashBook: ${cashEntry.id})` : `Payment via CashBook (ID: ${cashEntry.id})`,
+        }
+      });
+    }
+
+    // Sync Advance Received to Client Ledger
+    if (data.category === 'Advance Return' && data.customerId) {
+      await prisma.clientPayment.create({
+        data: {
+          clientId: data.customerId,
+          type: 'ADVANCE',
+          amount: data.amount,
+          paymentDate: new Date(data.date),
+          paymentMethod: data.paymentMode || 'CASH',
+          notes: data.description ? `${data.description} (via CashBook: ${cashEntry.id})` : `Advance via CashBook (ID: ${cashEntry.id})`,
+        }
+      });
+    }
+
     // Create corresponding advance record if category applies
     if ((data.category === 'Worker Advance' || data.category === 'Staff Advance') && data.workerId) {
       // @ts-ignore
@@ -27,7 +55,7 @@ export class CashbookService {
         data: {
           workerId: data.workerId,
           amount: data.amount,
-          type: 'GIVEN',
+          type: 'ADVANCE',
           date: new Date(data.date),
           // @ts-ignore
           paymentMode: data.paymentMode || 'CASH',
@@ -129,11 +157,14 @@ export class CashbookService {
       throw new AppError('Cash entry not found', 404);
     }
 
+    const updateData: any = { ...data };
+    if (updateData.date) {
+      updateData.date = new Date(updateData.date);
+    }
+
     const updated = await (prisma.cashEntry as any).update({
       where: { id },
-      data: {
-        ...data,
-      } as any,
+      data: updateData,
     });
 
     // Sync Worker Advances
@@ -149,6 +180,37 @@ export class CashbookService {
       await prisma.workerAdvance.delete({ where: { id: adv.id } });
     }
 
+    // Sync: Delete old client payment linked to this cash entry, then recreate if needed
+    await prisma.clientPayment.deleteMany({
+      where: { notes: { contains: `(via CashBook: ${id})` } },
+    });
+
+    if (updated.category === 'Client Payment' && updated.customerId) {
+      await prisma.clientPayment.create({
+        data: {
+          clientId: updated.customerId,
+          type: 'PAYMENT',
+          amount: updated.amount,
+          paymentDate: updated.date,
+          paymentMethod: updated.paymentMode || 'CASH',
+          notes: updated.description ? `${updated.description} (via CashBook: ${updated.id})` : `Payment via CashBook (ID: ${updated.id})`,
+        }
+      });
+    }
+
+    if (updated.category === 'Advance Return' && updated.customerId) {
+      await prisma.clientPayment.create({
+        data: {
+          clientId: updated.customerId,
+          type: 'ADVANCE',
+          amount: updated.amount,
+          paymentDate: updated.date,
+          paymentMethod: updated.paymentMode || 'CASH',
+          notes: updated.description ? `${updated.description} (via CashBook: ${updated.id})` : `Advance via CashBook (ID: ${updated.id})`,
+        }
+      });
+    }
+
     // 2. Create new advance if updated category is an advance
     if ((updated.category === 'Worker Advance' || updated.category === 'Staff Advance') && updated.workerId) {
       // @ts-ignore
@@ -156,7 +218,7 @@ export class CashbookService {
         data: {
           workerId: updated.workerId,
           amount: updated.amount,
-          type: 'GIVEN',
+          type: 'ADVANCE',
           date: updated.date,
           // @ts-ignore
           paymentMode: updated.paymentMode || 'CASH',
@@ -192,6 +254,11 @@ export class CashbookService {
       });
       await prisma.workerAdvance.delete({ where: { id: adv.id } });
     }
+
+    // Delete corresponding client payment linked to this cash entry
+    await prisma.clientPayment.deleteMany({
+      where: { notes: { contains: `(via CashBook: ${id})` } },
+    });
 
     await prisma.cashEntry.delete({
       where: { id },

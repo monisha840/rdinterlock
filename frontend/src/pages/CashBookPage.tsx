@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Save, ArrowDownCircle, ArrowUpCircle, Wallet, Eye, Loader2, X, Check, ChevronsUpDown, User, Calendar, Briefcase } from "lucide-react";
+import { Save, ArrowDownCircle, ArrowUpCircle, Wallet, Eye, Loader2, X, Check, ChevronsUpDown, User, Calendar, Briefcase, Edit2, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cashApi } from "@/api/cash.api";
 import apiClient from "@/api/apiClient";
@@ -54,6 +54,7 @@ const CashBookPage = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importResults, setImportResults] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
 
   const categoriesIn = ["Client Payment", "Advance Return", "Other Income"];
   const groupedCategoriesOut = {
@@ -109,8 +110,11 @@ const CashBookPage = () => {
       queryClient.invalidateQueries({ queryKey: ['cash-entries'] });
       queryClient.invalidateQueries({ queryKey: ['cash-balance'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client-orders-all'] });
       setAmount("");
       setDescription("");
+      setCategory("");
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save entry", {
@@ -118,6 +122,46 @@ const CashBookPage = () => {
       });
     },
   });
+
+  const deleteEntryMutation = useMutation({
+    mutationFn: (id: string) => cashApi.delete(id),
+    onSuccess: () => {
+      toast.success("🗑️ Entry Deleted");
+      queryClient.invalidateQueries({ queryKey: ['cash-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    }
+  });
+
+  const updateEntryMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => cashApi.update(id, data),
+    onSuccess: () => {
+      toast.success("✅ Entry Updated");
+      queryClient.invalidateQueries({ queryKey: ['cash-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setEditingEntry(null);
+      setAmount("");
+      setDescription("");
+      setCategory("");
+    },
+    onError: (error: any) => {
+      toast.error("❌ Failed to update", { description: error.response?.data?.message || error.message });
+    },
+  });
+
+  const startEditEntry = (entry: any) => {
+    setEditingEntry(entry);
+    setEntryDate(new Date(entry.date));
+    setType(entry.type === "CREDIT" ? "IN" : "OUT");
+    setAmount(String(entry.amount));
+    setCategory(entry.category);
+    setDescription(entry.description || "");
+    setPaymentMode(entry.paymentMode || "CASH");
+    setLinkedId(entry.customerId || entry.workerId || "");
+    setDeductFromBalance(!entry.isRecordOnly);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const saveEntry = () => {
     if (!amount || isNaN(parseFloat(amount)) || !category) {
@@ -138,17 +182,12 @@ const CashBookPage = () => {
     if (["Worker Advance", "Staff Advance", "Worker Wages", "Staff Salary"].includes(category)) payload.workerId = linkedId;
     if (type === "OUT") payload.isRecordOnly = !deductFromBalance;
 
-    createEntryMut.mutate(payload);
-  };
-
-  const deleteEntryMutation = useMutation({
-    mutationFn: (id: string) => cashApi.delete(id),
-    onSuccess: () => {
-      toast.success("🗑️ Entry Deleted");
-      queryClient.invalidateQueries({ queryKey: ['cash-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['cash-balance'] });
+    if (editingEntry) {
+      updateEntryMut.mutate({ id: editingEntry.id, data: payload });
+    } else {
+      createEntryMut.mutate(payload);
     }
-  });
+  };
 
   const getRelativeDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -275,7 +314,7 @@ const CashBookPage = () => {
         />
       </div>
 
-      <EntryCard title="New Entry">
+      <EntryCard title={editingEntry ? "Edit Entry" : "New Entry"}>
         <div className="space-y-5">
           <DatePickerField date={entryDate} onDateChange={setEntryDate} />
 
@@ -460,15 +499,28 @@ const CashBookPage = () => {
             </div>
           )}
 
-          <div className="sticky bottom-20 md:bottom-4 z-10 pt-2">
+          <div className="sticky bottom-20 md:bottom-4 z-10 pt-2 space-y-2">
+            {editingEntry && (
+              <button
+                onClick={() => {
+                  setEditingEntry(null);
+                  setAmount("");
+                  setDescription("");
+                  setCategory("");
+                }}
+                className="w-full h-10 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                Cancel Editing
+              </button>
+            )}
             <ActionButton
-              label={createEntryMut.isPending ? "Saving..." : "Save Entry"}
-              icon={createEntryMut.isPending ? Loader2 : Save}
-              variant="success"
+              label={(createEntryMut.isPending || updateEntryMut.isPending) ? "Saving..." : editingEntry ? "Update Entry" : "Save Entry"}
+              icon={(createEntryMut.isPending || updateEntryMut.isPending) ? Loader2 : Save}
+              variant={editingEntry ? "primary" : "success"}
               size="lg"
               onClick={saveEntry}
               className="w-full shadow-lg"
-              disabled={createEntryMut.isPending}
+              disabled={createEntryMut.isPending || updateEntryMut.isPending}
             />
           </div>
         </div>
@@ -788,7 +840,14 @@ const CashBookPage = () => {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center justify-end gap-2 mt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => startEditEntry(e)}
+                      className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all"
+                      title="Edit Entry"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={() => {
                         if (confirm("Are you sure you want to delete this transaction?")) {
@@ -796,8 +855,9 @@ const CashBookPage = () => {
                         }
                       }}
                       className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
+                      title="Delete Entry"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>

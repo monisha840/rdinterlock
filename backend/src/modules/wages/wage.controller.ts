@@ -263,7 +263,8 @@ export class WageController {
       const result = await advanceService.giveAdvance(
         workerId,
         validated.amount,
-        validated.note
+        validated.note,
+        validated.paymentMode
       );
 
       res.json({
@@ -327,6 +328,16 @@ export class WageController {
         success: true,
         data: workers,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAdvancesByRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const role = req.query.role as string | undefined;
+      const data = await advanceService.getAdvancesByRole(role);
+      res.json({ success: true, data });
     } catch (error) {
       next(error);
     }

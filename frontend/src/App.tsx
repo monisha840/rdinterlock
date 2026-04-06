@@ -27,6 +27,7 @@ import TransportEntryPage from "./pages/TransportEntryPage";
 import VehiclesPage from "./pages/VehiclesPage";
 import VendorsPage from "./pages/VendorsPage";
 import TransportReportsPage from "./pages/TransportReportsPage";
+import MasonLedgerPage from "./pages/MasonLedgerPage";
 
 const queryClient = new QueryClient();
 
@@ -245,6 +246,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <TransportReportsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mason-ledger"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <MasonLedgerPage />
                 </AppLayout>
               </ProtectedRoute>
             }

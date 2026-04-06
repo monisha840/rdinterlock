@@ -16,6 +16,8 @@ import {
   AlertCircle,
   Hammer,
   IndianRupee,
+  Banknote,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -49,7 +51,7 @@ interface WorkerWageRecord {
   advanceDetails?: { id: string; amount: number; date: string; paymentMode: string }[];
 }
 
-const TABS = ["Dashboard", "Operations", "Staff Salaries", "Worker Wages", "Logs"];
+const TABS = ["Dashboard", "Operations", "Staff Salaries", "Worker Wages", "Advance Ledger", "Logs"];
 
 const ReportsPage = () => {
   const queryClient = useQueryClient();
@@ -71,15 +73,61 @@ const ReportsPage = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const handleOpenPayment = (worker: any, netPayable: number, type: string) => {
-    setSelectedWorker({ 
-      id: worker.workerId || worker.id, 
-      name: worker.workerName || worker.name, 
-      role: worker.role, 
+    setSelectedWorker({
+      id: worker.workerId || worker.id,
+      name: worker.workerName || worker.name,
+      role: worker.role,
       netPayable,
       paymentType: type
     });
     setIsPaymentModalOpen(true);
   };
+
+  // ── Advance Modal state ──────────────────────────────────────────────────
+  const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+  const [advanceWorker, setAdvanceWorker] = useState<any>(null);
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceMethod, setAdvanceMethod] = useState("CASH");
+  const [advanceNote, setAdvanceNote] = useState("");
+  const [advanceDate, setAdvanceDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+
+  const handleOpenAdvance = (worker: any) => {
+    setAdvanceWorker({
+      id: worker.workerId || worker.id,
+      name: worker.workerName || worker.name,
+      role: worker.role,
+      advanceBalance: worker.advanceBalance || 0,
+    });
+    setAdvanceAmount("");
+    setAdvanceNote("");
+    setAdvanceMethod("CASH");
+    setAdvanceDate(format(new Date(), 'yyyy-MM-dd'));
+    setIsAdvanceModalOpen(true);
+  };
+
+  const advanceMutation = useMutation({
+    mutationFn: async () => {
+      if (!advanceWorker || !advanceAmount) throw new Error("Missing data");
+      await apiClient.post(`/wages/workers/${advanceWorker.id}/advance`, {
+        amount: parseFloat(advanceAmount),
+        note: advanceNote || undefined,
+        paymentMode: advanceMethod,
+      });
+    },
+    onSuccess: () => {
+      toast.success("✅ Advance paid successfully");
+      queryClient.invalidateQueries({ queryKey: ["salary-report"] });
+      queryClient.invalidateQueries({ queryKey: ["worker-wages"] });
+      queryClient.invalidateQueries({ queryKey: ["workers"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
+      setIsAdvanceModalOpen(false);
+      setAdvanceWorker(null);
+    },
+    onError: (err: any) => {
+      toast.error("❌ Failed to pay advance", { description: err?.response?.data?.message || err.message });
+    },
+  });
 
   // ── Operations tab state (now using global range) ─────────────────────────
   const { data: operationsSummary } = useQuery({
@@ -107,12 +155,23 @@ const ReportsPage = () => {
   const { data: workerWages, isLoading: isWageLoading, error: wageError, refetch: refetchWages } = useQuery<WorkerWageRecord[]>({
     queryKey: ["worker-wages", format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")],
     queryFn: async () => {
-      const res = await apiClient.get<any, ApiResponse<WorkerWageRecord[]>>(
+      const res = await apiClient.get(
         `/reports/workers?startDate=${format(dateRange.from, "yyyy-MM-dd")}&endDate=${format(dateRange.to, "yyyy-MM-dd")}`
       );
-      return res.data.data;
+      return (res as any).data;
     },
     enabled: activeTab === "Worker Wages",
+  });
+
+  // ── Advance Ledger tab state ────────────────────────────────────────────
+  const [advRoleFilter, setAdvRoleFilter] = useState("ALL");
+  const { data: advanceLedgerData = [], isLoading: isAdvLedgerLoading } = useQuery<any[]>({
+    queryKey: ["advance-ledger", advRoleFilter],
+    queryFn: async () => {
+      const res = await apiClient.get(`/wages/advances/by-role?role=${advRoleFilter}`);
+      return (res as any).data;
+    },
+    enabled: activeTab === "Advance Ledger",
   });
 
   const roleColor: Record<string, string> = {
@@ -256,13 +315,21 @@ const ReportsPage = () => {
                     </div>
 
                     <div className="flex gap-2">
-                      <ActionButton 
-                        label="Pay Salary" 
-                        icon={IndianRupee} 
-                        variant="primary" 
-                        size="sm" 
+                      <ActionButton
+                        label="Pay Salary"
+                        icon={IndianRupee}
+                        variant="primary"
+                        size="sm"
                         className="flex-1 h-10 shadow-sm"
                         onClick={() => handleOpenPayment(s, s.pendingAmount, 'SALARY')}
+                      />
+                      <ActionButton
+                        label="Pay Advance"
+                        icon={Banknote}
+                        variant="accent"
+                        size="sm"
+                        className="flex-1 h-10 shadow-sm"
+                        onClick={() => handleOpenAdvance(s)}
                       />
                     </div>
 
@@ -343,14 +410,14 @@ const ReportsPage = () => {
               <AlertCircle className="h-8 w-8" />
               <p className="text-sm font-medium">Failed to load worker wages</p>
             </div>
-          ) : workerWages && workerWages.length > 0 ? (
+          ) : workerWages && Array.isArray(workerWages) && workerWages.length > 0 ? (
             <>
               {/* Summary strip */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: "Total Gross", value: `₹${workerWages.reduce((s, w) => s + w.grossWage, 0).toLocaleString()}` },
-                  { label: "Advance Due", value: `₹${workerWages.reduce((s, w) => s + w.advanceBalance, 0).toLocaleString()}` },
-                  { label: "Net Payable", value: `₹${workerWages.reduce((s, w) => s + Math.max(0, w.grossWage - w.advanceBalance), 0).toLocaleString()}` },
+                  { label: "Total Gross", value: `₹${(workerWages || []).reduce((s, w) => s + (w.grossWage || 0), 0).toLocaleString()}` },
+                  { label: "Advance Due", value: `₹${(workerWages || []).reduce((s, w) => s + (w.advanceBalance || 0), 0).toLocaleString()}` },
+                  { label: "Net Payable", value: `₹${(workerWages || []).reduce((s, w) => s + Math.max(0, (w.grossWage || 0) - (w.advanceBalance || 0)), 0).toLocaleString()}` },
                 ].map(k => (
                   <div key={k.label} className="p-3 rounded-xl bg-secondary/50 text-center">
                     <p className="text-[10px] text-muted-foreground">{k.label}</p>
@@ -360,9 +427,9 @@ const ReportsPage = () => {
               </div>
 
               <div className="space-y-3">
-                {workerWages.map(w => {
+                {(workerWages || []).filter(w => w && w.workerName).map(w => {
                   const isMason = w.role === "MASON";
-                  const netPayable = Math.max(0, w.grossWage - w.advanceBalance);
+                  const netPayable = Math.max(0, (w.grossWage || 0) - (w.advanceBalance || 0));
                   return (
                     <div key={w.workerId} className="card-modern p-4">
                       <div className="flex justify-between items-start mb-3">
@@ -399,13 +466,21 @@ const ReportsPage = () => {
                       </div>
 
                       <div className="flex gap-2">
-                        <ActionButton 
-                          label="Pay Wage" 
-                          icon={IndianRupee} 
-                          variant="primary" 
-                          size="sm" 
+                        <ActionButton
+                          label="Pay Wage"
+                          icon={IndianRupee}
+                          variant="primary"
+                          size="sm"
                           className="flex-1 h-10 shadow-sm"
                           onClick={() => handleOpenPayment(w, w.pendingAmount, 'WAGE')}
+                        />
+                        <ActionButton
+                          label="Pay Advance"
+                          icon={Banknote}
+                          variant="accent"
+                          size="sm"
+                          className="flex-1 h-10 shadow-sm"
+                          onClick={() => handleOpenAdvance(w)}
                         />
                       </div>
                       
@@ -478,6 +553,115 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* ══════════════════ ADVANCE LEDGER TAB ══════════════════ */}
+      {activeTab === "Advance Ledger" && (
+        <div className="space-y-4">
+          {/* Role Filter Pills */}
+          <div className="flex flex-wrap gap-2">
+            {["ALL", "OPERATOR", "MASON", "HELPER", "LOADER", "DRIVER", "MANAGER"].map(role => (
+              <button
+                key={role}
+                onClick={() => setAdvRoleFilter(role)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                  advRoleFilter === role
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-secondary/70 text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                {role}
+              </button>
+            ))}
+          </div>
+
+          {/* KPI Summary */}
+          {advanceLedgerData.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+                <p className="text-[10px] text-amber-700 font-bold uppercase">Total Outstanding</p>
+                <p className="text-xl font-black text-amber-800">₹{advanceLedgerData.reduce((s: number, w: any) => s + (w.advanceBalance || 0), 0).toLocaleString()}</p>
+              </div>
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center">
+                <p className="text-[10px] text-blue-700 font-bold uppercase">Workers with Advance</p>
+                <p className="text-xl font-black text-blue-800">{advanceLedgerData.filter((w: any) => w.advanceBalance > 0).length}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Worker List */}
+          {isAdvLedgerLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 card-modern">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading advance data...</p>
+            </div>
+          ) : advanceLedgerData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 card-modern text-muted-foreground italic">
+              <Wallet className="h-8 w-8 opacity-20" />
+              <p className="text-sm">No advance records found for this filter.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {advanceLedgerData.map((w: any) => (
+                <div key={w.workerId} className="card-modern p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center font-bold text-white text-sm">
+                        {w.workerName?.[0] || "?"}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">{w.workerName}</p>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{w.role}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground uppercase font-black">Balance</p>
+                      <p className={`text-lg font-black ${w.advanceBalance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                        ₹{(w.advanceBalance || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Advance Timeline */}
+                  {w.advances && w.advances.length > 0 && (
+                    <div className="border-t border-border/50 pt-3 mt-2 space-y-1.5">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">Recent Transactions</p>
+                      {w.advances.map((a: any) => (
+                        <div key={a.id} className="flex justify-between items-center text-xs bg-secondary/30 p-2.5 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2 w-2 rounded-full ${a.type === "ADVANCE" ? "bg-amber-500" : "bg-green-500"}`} />
+                            <div>
+                              <span className="font-bold text-foreground">{a.type}</span>
+                              <span className="text-muted-foreground ml-2">{format(new Date(a.date), "dd MMM yyyy")}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">{a.paymentMode || ""}</span>
+                            <span className={`font-black ${a.type === "ADVANCE" ? "text-amber-600" : "text-green-600"}`}>
+                              {a.type === "ADVANCE" ? "+" : ""}₹{Math.abs(a.amount).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Pay Advance Button */}
+                  <div className="mt-3">
+                    <ActionButton
+                      label="Pay Advance"
+                      icon={Banknote}
+                      variant="accent"
+                      size="sm"
+                      className="w-full h-10"
+                      onClick={() => handleOpenAdvance(w)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ══════════════════════ LOGS TAB ══════════════════════ */}
       {activeTab === "Logs" && <LogsTabContent globalDateRange={dateRange} />}
 
@@ -501,7 +685,7 @@ const ReportsPage = () => {
         />
       </div>
       {selectedWorker && (
-        <SalaryPaymentModal 
+        <SalaryPaymentModal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
           worker={selectedWorker}
@@ -510,6 +694,119 @@ const ReportsPage = () => {
             if (activeTab === "Worker Wages") refetchWages();
           }}
         />
+      )}
+
+      {/* ── Advance Payment Modal ── */}
+      {isAdvanceModalOpen && advanceWorker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white relative">
+              <button
+                onClick={() => setIsAdvanceModalOpen(false)}
+                className="absolute right-6 top-6 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="flex items-center gap-4 mb-2">
+                <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center font-black text-xl">
+                  {advanceWorker.name[0]}
+                </div>
+                <div>
+                  <h2 className="text-xl font-black">{advanceWorker.name}</h2>
+                  <p className="text-sm opacity-80 font-bold uppercase tracking-widest">{advanceWorker.role} • ADVANCE</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5">
+              {/* Current Balance */}
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-black text-amber-700 tracking-wider mb-1">Current Advance Balance</p>
+                  <p className="text-2xl font-black text-amber-800">₹{(advanceWorker.advanceBalance || 0).toLocaleString()}</p>
+                </div>
+                <Banknote className="h-8 w-8 text-amber-400" />
+              </div>
+
+              {/* Amount */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-2">
+                  <IndianRupee className="h-3 w-3" /> Advance Amount
+                </label>
+                <input
+                  type="number"
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="w-full h-14 bg-secondary/50 border-none rounded-2xl px-5 text-xl font-black focus:ring-4 ring-amber-500/20 transition-all outline-none text-foreground"
+                />
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-muted-foreground uppercase">Payment Mode</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {["CASH", "UPI", "BANK", "CHEQUE"].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setAdvanceMethod(m)}
+                      className={`h-10 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 ${
+                        advanceMethod === m
+                          ? "bg-amber-500 border-amber-500 text-white shadow-lg"
+                          : "bg-secondary/30 border-transparent text-muted-foreground hover:bg-secondary/50"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date & Note */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase mb-1.5 block">Date</label>
+                  <input
+                    type="date"
+                    value={advanceDate}
+                    onChange={(e) => setAdvanceDate(e.target.value)}
+                    className="w-full h-12 bg-secondary/50 border-none rounded-xl px-4 text-xs font-bold outline-none ring-amber-500/20 focus:ring-2"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase mb-1.5 block">Note (Optional)</label>
+                  <input
+                    type="text"
+                    value={advanceNote}
+                    onChange={(e) => setAdvanceNote(e.target.value)}
+                    placeholder="Reason..."
+                    className="w-full h-12 bg-secondary/50 border-none rounded-xl px-4 text-xs font-bold outline-none ring-amber-500/20 focus:ring-2"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsAdvanceModalOpen(false)}
+                  className="flex-1 h-14 rounded-2xl border border-border text-sm font-bold hover:bg-secondary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => advanceMutation.mutate()}
+                  disabled={!advanceAmount || parseFloat(advanceAmount) <= 0 || advanceMutation.isPending}
+                  className="flex-[2] h-14 rounded-2xl bg-amber-500 text-white text-sm font-black shadow-xl hover:bg-amber-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  {advanceMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Banknote className="h-5 w-5" />}
+                  Pay ₹{parseFloat(advanceAmount || "0").toLocaleString()} Advance
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </MobileFormLayout>
   );

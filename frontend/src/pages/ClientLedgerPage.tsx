@@ -225,8 +225,8 @@ const ClientLedgerPage = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50">
+                    <div className="bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto pb-8">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">
                                 {editing ? (formType === 'ADVANCE' ? "Edit Advance" : formType === 'RETURN' ? "Edit Return" : "Edit Payment") : (formType === 'ADVANCE' ? "Add Advance" : formType === 'RETURN' ? "Add Return" : "Add Payment")}

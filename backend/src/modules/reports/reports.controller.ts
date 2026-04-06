@@ -100,4 +100,10 @@ export class ReportsController {
     const report = await reportsService.getSummary(startDate as string, endDate as string);
     sendSuccess(res, report, 'BI Summary report retrieved successfully');
   });
+
+  getMasonLedger = asyncHandler(async (req: Request, res: Response) => {
+    const { startDate, endDate } = req.query;
+    const data = await reportsService.getMasonLedger(startDate as string, endDate as string);
+    sendSuccess(res, data, 'Mason ledger retrieved');
+  });
 }

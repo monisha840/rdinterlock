@@ -34,6 +34,9 @@ export const createTransportEntrySchema = z.object({
   notes: z.string().optional().nullable(),
   material: z.string().optional().nullable(),
   dispatchId: z.string().uuid().optional().nullable(),
+  brickTypeId: z.string().uuid().optional().nullable(),
+  quantity: z.number().int().nonnegative().optional().nullable(),
+  location: z.string().optional().nullable(),
   syncToCashBook: z.boolean().optional(),
 });
 

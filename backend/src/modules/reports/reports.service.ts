@@ -402,56 +402,138 @@ export class ReportsService {
    * Worker performance report
    */
   async getWorkerReport(startDate: string, endDate: string) {
+    const dateRange = getDateRange(new Date(startDate), new Date(endDate));
+
+    // Get workers (exclude staff — only production workers & masons)
     const workers = await prisma.worker.findMany({
-      where: { isActive: true },
+      where: { isActive: true, employeeType: 'Worker' },
       include: {
         productionWorkers: {
           where: {
-            production: {
-              date: getDateRange(new Date(startDate), new Date(endDate)),
-            },
+            production: { date: dateRange },
           },
           include: {
             production: {
-              select: {
-                date: true,
-                shift: true,
-                brickType: true,
-              },
+              select: { date: true, shift: true, brickType: true },
             },
           },
+        },
+        advances: {
+          where: { type: 'ADVANCE', date: dateRange },
+          orderBy: { date: 'desc' },
+        },
+        attendance: {
+          where: { date: dateRange, present: true },
+        },
+        staffPayments: {
+          where: { date: dateRange },
         },
       },
     });
 
     const workerStats = workers.map((worker: any) => {
-      const totalQuantity = worker.productionWorkers.reduce((sum: number, pw: any) => sum + pw.quantity, 0);
-      const totalDays = worker.productionWorkers.length;
+      // Split bricks by shift
+      let dayBricks = 0;
+      let nightBricks = 0;
+      worker.productionWorkers.forEach((pw: any) => {
+        const shift = (pw.production?.shift || '').toLowerCase();
+        if (shift === 'night') nightBricks += pw.quantity;
+        else dayBricks += pw.quantity;
+      });
+      const totalBricks = dayBricks + nightBricks;
 
-      let earnings = 0;
-      const workerRate = worker.rate > 0 ? worker.rate : null;
-
+      // Calculate gross wage
+      let grossWage = 0;
+      const isMason = worker.role?.toUpperCase() === 'MASON';
       if (worker.paymentType === 'PER_BRICK') {
-         earnings = totalQuantity * (workerRate || (worker.role.toUpperCase() === 'MASON' ? 9.00 : 2.50));
-      } else {
-        earnings = totalDays * (workerRate || 0);
+        if (isMason) {
+          grossWage = totalBricks * (worker.rate6Inch || worker.rate || 9);
+        } else {
+          // Day shift: 2.50, Night shift: 3.00 (or use worker rate)
+          const dayRate = worker.perBrickRate || 2.50;
+          const nightRate = (worker.perBrickRate || 2.50) * 1.2;
+          grossWage = (dayBricks * dayRate) + (nightBricks * nightRate);
+        }
+      } else if (worker.paymentType === 'DAILY') {
+        grossWage = (worker.attendance?.length || 0) * (worker.weeklyWage || worker.rate || 0);
+      } else if (worker.paymentType === 'WEEKLY') {
+        grossWage = (worker.attendance?.length || 0) * ((worker.weeklyWage || 0) / 7);
       }
 
+      const advanceBalance = worker.advanceBalance || 0;
+      const totalPaid = worker.staffPayments?.reduce((s: number, p: any) => s + p.amount, 0) || 0;
+      const pendingAmount = Math.max(0, grossWage - advanceBalance - totalPaid);
+      const daysPresent = worker.attendance?.length || 0;
+
+      const advanceDetails = (worker.advances || []).map((a: any) => ({
+        id: a.id,
+        amount: a.amount,
+        date: a.date,
+        paymentMode: a.paymentMode || 'CASH',
+      }));
+
       return {
-        worker: {
-          id: worker.id,
-          name: worker.name,
-          role: worker.role,
-          paymentType: worker.paymentType,
-          rate: worker.rate,
-        },
-        totalProductions: totalDays,
-        totalQuantity,
-        earnings,
+        workerId: worker.id,
+        workerName: worker.name,
+        role: worker.role,
+        paymentType: worker.paymentType,
+        rate: worker.rate || 0,
+        dayBricks,
+        nightBricks,
+        totalBricks,
+        grossWage: Math.round(grossWage * 100) / 100,
+        advanceBalance,
+        totalPaid,
+        pendingAmount: Math.round(pendingAmount * 100) / 100,
+        daysPresent,
+        advanceDetails,
       };
     });
 
-    return workerStats;
+    // Only return workers who have production or attendance data
+    return workerStats.filter((w: any) => w.totalBricks > 0 || w.daysPresent > 0 || w.advanceBalance > 0);
+  }
+
+  /**
+   * Mason Ledger — site-wise mason work entries
+   */
+  async getMasonLedger(startDate?: string, endDate?: string) {
+    const where: any = {
+      worker: { role: 'MASON' },
+    };
+    if (startDate && endDate) {
+      where.production = { date: getDateRange(new Date(startDate), new Date(endDate)) };
+    }
+
+    const productionWorkers = await prisma.productionWorker.findMany({
+      where,
+      include: {
+        worker: { select: { id: true, name: true, role: true, rate6Inch: true, rate8Inch: true, rate: true, advanceBalance: true } },
+        production: { select: { id: true, date: true, shift: true, siteName: true, brickType: { select: { id: true, size: true } }, machine: { select: { name: true } } } },
+      },
+      orderBy: { production: { date: 'desc' } },
+    });
+
+    return productionWorkers.map((pw: any) => {
+      const brickSize = pw.production?.brickType?.size || '';
+      const is6Inch = brickSize.includes('6');
+      const rate = is6Inch ? (pw.worker?.rate6Inch || pw.worker?.rate || 9) : (pw.worker?.rate8Inch || pw.worker?.rate || 10);
+
+      return {
+        id: pw.id,
+        date: pw.production?.date,
+        masonId: pw.worker?.id,
+        masonName: pw.worker?.name,
+        siteName: pw.production?.siteName || '-',
+        machine: pw.production?.machine?.name || '-',
+        brickType: brickSize,
+        bricks: pw.quantity,
+        ratePerBrick: rate,
+        totalAmount: Math.round(pw.quantity * rate * 100) / 100,
+        shift: pw.production?.shift,
+        advanceBalance: pw.worker?.advanceBalance || 0,
+      };
+    });
   }
 
   /**

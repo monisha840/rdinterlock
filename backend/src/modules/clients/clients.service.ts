@@ -133,9 +133,11 @@ export class ClientsService {
 
     async createOrder(data: any) {
         return await prisma.$transaction(async (tx: any) => {
-            const extraItems = data.extraItems || [];
+            const extraItems = Array.isArray(data.extraItems) ? data.extraItems : [];
             const extraTotal = extraItems.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
-            const totalAmount = data.totalAmount || (data.quantity * (data.rate || 0)) + extraTotal;
+            // Always recalculate to include extras (parentheses to avoid || precedence bug)
+            const calculatedTotal = (data.quantity * (data.rate || 0)) + extraTotal;
+            const totalAmount = calculatedTotal > 0 ? calculatedTotal : (data.totalAmount || 0);
             const requestedStatus = data.status || 'PENDING';
 
             // If creating an order directly as DISPATCHED, validate stock
@@ -242,24 +244,31 @@ export class ClientsService {
 
     async updateOrder(id: string, data: any) {
         return await prisma.$transaction(async (tx: any) => {
-            const order = await tx.clientOrder.findUnique({ 
+            const order = await tx.clientOrder.findUnique({
                 where: { id },
                 include: { brickType: true, dispatches: true }
             });
             if (!order) throw new AppError('Order not found', 404);
 
-            const updateData: any = { ...data };
+            // Only pick fields that belong to the ClientOrder model
+            const updateData: any = {};
+            if (data.brickTypeId !== undefined) updateData.brickTypeId = data.brickTypeId;
+            if (data.quantity !== undefined) updateData.quantity = data.quantity;
+            if (data.rate !== undefined) updateData.rate = data.rate;
+            if (data.status !== undefined) updateData.status = data.status;
+            if (data.notes !== undefined) updateData.notes = data.notes;
+            if (data.driverId !== undefined) updateData.driverId = data.driverId || null;
             if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
             if (data.expectedDispatchDate) updateData.expectedDispatchDate = new Date(data.expectedDispatchDate);
-            
-            if (data.quantity !== undefined || data.rate !== undefined || data.extraItems !== undefined) {
-                const qty = data.quantity !== undefined ? data.quantity : order.quantity;
-                const rate = data.rate !== undefined ? data.rate : order.rate;
-                const extraItems = data.extraItems !== undefined ? data.extraItems : (order.extraItems || []);
-                const extraTotal = extraItems.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
-                updateData.totalAmount = (qty * rate) + extraTotal;
-                updateData.extraItems = extraItems;
-            }
+
+            // Always recalculate totalAmount to include extra items
+            const qty = data.quantity !== undefined ? data.quantity : order.quantity;
+            const rate = data.rate !== undefined ? data.rate : order.rate;
+            const extraItems = data.extraItems !== undefined ? data.extraItems : (order.extraItems || []);
+            const extraItemsArr = Array.isArray(extraItems) ? extraItems : [];
+            const extraTotal = extraItemsArr.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
+            updateData.totalAmount = (qty * rate) + extraTotal;
+            updateData.extraItems = extraItemsArr;
 
             // Handling Status Change to DISPATCHED
             if (data.status === 'DISPATCHED' && order.status !== 'DISPATCHED') {

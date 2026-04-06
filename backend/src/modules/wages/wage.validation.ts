@@ -17,6 +17,7 @@ export const getAttendanceSchema = z.object({
 export const giveAdvanceSchema = z.object({
   amount: z.number().positive({ message: 'Amount must be positive' }),
   note: z.string().optional(),
+  paymentMode: z.string().optional().default('CASH'),
 });
 
 export const calculateWagesSchema = z.object({

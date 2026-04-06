@@ -492,7 +492,7 @@ export class WageService {
         const givenAdvances = await prisma.workerAdvance.findMany({
           where: {
             workerId: worker.id,
-            type: 'GIVEN',
+            type: 'ADVANCE',
             date: { gte: startOfDay, lte: endOfDay },
           },
         });

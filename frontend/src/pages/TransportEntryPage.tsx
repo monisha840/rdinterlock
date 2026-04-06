@@ -18,6 +18,7 @@ import {
   Navigation
 } from "lucide-react";
 import { transportApi } from "@/api/transport.api";
+import { settingsApi } from "@/api/settings.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -72,6 +73,9 @@ const TransportEntryPage = () => {
   const [notes, setNotes] = useState("");
   const [material, setMaterial] = useState("");
   const [syncToCashBook, setSyncToCashBook] = useState(false);
+  const [brickTypeId, setBrickTypeId] = useState("");
+  const [quantity, setQuantity] = useState<number>(0);
+  const [location, setLocation] = useState("");
   
   // Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -87,6 +91,11 @@ const TransportEntryPage = () => {
   const { data: vendors = [] } = useQuery({
     queryKey: ["transport-vendors"],
     queryFn: () => transportApi.getVendors(),
+  });
+
+  const { data: brickTypes = [] } = useQuery({
+    queryKey: ["brick-types"],
+    queryFn: () => settingsApi.getBrickTypes(),
   });
 
   const { data: entries = [], isLoading: entriesLoading } = useQuery({
@@ -136,6 +145,9 @@ const TransportEntryPage = () => {
     setNotes("");
     setMaterial("");
     setSyncToCashBook(false);
+    setBrickTypeId("");
+    setQuantity(0);
+    setLocation("");
   };
   // Reset fields when switching transport type
   useEffect(() => {
@@ -162,7 +174,10 @@ const TransportEntryPage = () => {
       loads,
       material: material || undefined,
       notes: notes || undefined,
-      syncToCashBook
+      syncToCashBook,
+      brickTypeId: brickTypeId || undefined,
+      quantity: quantity || undefined,
+      location: location || undefined,
     };
 
     if (transportType === "RD_VEHICLE") {
@@ -361,10 +376,46 @@ const TransportEntryPage = () => {
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Load Material</label>
-                <Input 
+                <Input
                   placeholder="e.g. Bricks, Sand, Cement..."
                   value={material}
                   onChange={(e) => setMaterial(e.target.value)}
+                  className="h-12 rounded-xl bg-background/50 border-primary/10 transition-all focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Brick Type</label>
+                  <select
+                    value={brickTypeId}
+                    onChange={(e) => setBrickTypeId(e.target.value)}
+                    className="w-full h-12 px-3 bg-background/50 border border-primary/10 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none"
+                  >
+                    <option value="">None</option>
+                    {(brickTypes as any[]).map((bt: any) => (
+                      <option key={bt.id} value={bt.id}>{bt.size}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Quantity</label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={quantity || ""}
+                    onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                    className="h-12 rounded-xl bg-background/50 border-primary/10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Location / Destination</label>
+                <Input
+                  placeholder="e.g. Salem, Erode..."
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   className="h-12 rounded-xl bg-background/50 border-primary/10 transition-all focus:ring-2 focus:ring-primary/10"
                 />
               </div>
@@ -525,7 +576,7 @@ const TransportEntryPage = () => {
                     <div>
                       <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Financials</p>
                       <p className={`text-sm font-black ${item.transportType === "RD_VEHICLE" ? "text-rose-500" : "text-emerald-500"}`}>
-                        {item.transportType === "RD_VEHICLE" 
+                        {item.transportType === "RD_VEHICLE"
                           ? `Exp: ₹${item.expenseAmount?.toLocaleString()}`
                           : `Inc: ₹${item.incomeAmount?.toLocaleString()}`
                         }
@@ -536,6 +587,28 @@ const TransportEntryPage = () => {
                       <p className="text-sm font-semibold text-foreground italic truncate">{item.material || "General"}</p>
                     </div>
                   </div>
+                  {(item.brickType || item.quantity || item.location) && (
+                    <div className="grid grid-cols-3 gap-3 py-2 border-b border-border/20">
+                      {item.brickType && (
+                        <div>
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Brick Type</p>
+                          <p className="text-xs font-bold text-foreground">{item.brickType.size}</p>
+                        </div>
+                      )}
+                      {item.quantity > 0 && (
+                        <div>
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Qty</p>
+                          <p className="text-xs font-bold text-foreground">{item.quantity?.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {item.location && (
+                        <div>
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Location</p>
+                          <p className="text-xs font-bold text-foreground truncate">{item.location}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center pt-1">
                     <p className="text-[10px] text-muted-foreground italic truncate max-w-[70%]">{item.notes || "No notes"}</p>

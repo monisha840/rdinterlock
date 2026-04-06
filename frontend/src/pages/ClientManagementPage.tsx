@@ -276,36 +276,38 @@ const ClientManagementPage = () => {
     const handleOrderCalcChange = (field: "quantity" | "rate", value: string) => {
         setOrderForm(prev => {
             const updated = { ...prev, [field]: value };
-            if (autoCalc) {
-                const q = parseInt(field === "quantity" ? value : prev.quantity) || 0;
-                const r = parseFloat(field === "rate" ? value : prev.rate) || 0;
-                const extraCosts = (prev.extraItems || []).reduce((s, i) => s + (i.price || 0), 0);
-                updated.totalAmount = (q > 0 || extraCosts > 0) ? String((q * r) + extraCosts) : "";
-            }
+            // Always recalculate total when quantity or rate changes
+            const q = parseInt(field === "quantity" ? value : prev.quantity) || 0;
+            const r = parseFloat(field === "rate" ? value : prev.rate) || 0;
+            const extraCosts = (prev.extraItems || []).reduce((s, i) => s + (i.price || 0), 0);
+            const total = (q * r) + extraCosts;
+            updated.totalAmount = total > 0 ? String(total) : "";
             return updated;
         });
+        setAutoCalc(true);
     };
 
+    // Extra item inline form state
+    const [extraItemName, setExtraItemName] = useState("");
+    const [extraItemPrice, setExtraItemPrice] = useState("");
+
     const addExtraItem = () => {
-        const name = prompt("Item name (e.g. Cement, Loading, Lintel)");
-        if (!name?.trim()) return;
-        const priceStr = prompt("Price (₹)");
-        const price = parseFloat(priceStr || "0") || 0;
+        if (!extraItemName.trim() || !extraItemPrice) {
+            toast.error("Enter both item name and price");
+            return;
+        }
+        const price = parseFloat(extraItemPrice) || 0;
+        if (price <= 0) {
+            toast.error("Price must be greater than 0");
+            return;
+        }
 
         setOrderForm(prev => {
-            const newItems = [...(prev.extraItems || []), { name: name.trim(), price }];
+            const newItems = [...(prev.extraItems || []), { name: extraItemName.trim(), price }];
             const extraTotal = newItems.reduce((s, i) => s + (i.price || 0), 0);
             const q = parseInt(prev.quantity) || 0;
             const r = parseFloat(prev.rate) || 0;
-
-            let newTotal = prev.totalAmount;
-            if (autoCalc) {
-                newTotal = String((q * r) + extraTotal);
-            } else {
-                // In manual mode, add the new item price to the currently set total
-                const current = parseFloat(prev.totalAmount) || 0;
-                newTotal = String(current + price);
-            }
+            const newTotal = String((q * r) + extraTotal);
 
             return {
                 ...prev,
@@ -313,6 +315,9 @@ const ClientManagementPage = () => {
                 totalAmount: newTotal,
             };
         });
+        setAutoCalc(true);
+        setExtraItemName("");
+        setExtraItemPrice("");
     };
 
     const removeExtraItem = (idx: number) => {
@@ -324,15 +329,8 @@ const ClientManagementPage = () => {
             const extraTotal = newItems.reduce((s, i) => s + (i.price || 0), 0);
             const q = parseInt(prev.quantity) || 0;
             const r = parseFloat(prev.rate) || 0;
-
-            let newTotal = prev.totalAmount;
-            if (autoCalc) {
-                newTotal = String((q * r) + extraTotal);
-            } else {
-                // In manual mode, subtract the item price from the currently set total
-                const current = parseFloat(prev.totalAmount) || 0;
-                newTotal = String(Math.max(0, current - itemToRemove.price));
-            }
+            // Always recalculate
+            const newTotal = String((q * r) + extraTotal);
 
             return {
                 ...prev,
@@ -340,6 +338,7 @@ const ClientManagementPage = () => {
                 totalAmount: newTotal,
             };
         });
+        setAutoCalc(true);
     };
 
     const handleOrderSubmit = async () => {
@@ -558,6 +557,11 @@ const ClientManagementPage = () => {
                                                             {(order.quantity || 0).toLocaleString()} pcs
                                                             <span className="mx-1">•</span>
                                                             <span className="font-medium text-foreground">₹{(order.totalAmount || 0).toLocaleString()}</span>
+                                                            {order.extraItems && Array.isArray(order.extraItems) && order.extraItems.length > 0 && (
+                                                                <span className="ml-1 text-[9px] text-primary font-bold">
+                                                                    (+{order.extraItems.length} extras: ₹{order.extraItems.reduce((s: number, i: any) => s + (i.price || 0), 0).toLocaleString()})
+                                                                </span>
+                                                            )}
                                                         </p>
                                                         <p className="text-[10px] text-muted-foreground mt-0.5">
                                                             Ordered: {format(new Date(order.orderDate), "dd MMM yyyy")}
@@ -657,10 +661,10 @@ const ClientManagementPage = () => {
 
             {/* ─── Order Modal ───────────────────────────────────────────────── */}
             {showOrderModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-md max-h-[95vh] rounded-3xl border border-primary/10 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-card w-full max-w-md rounded-3xl border border-primary/10 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" style={{ maxHeight: 'calc(100vh - 120px)' }}>
                         {/* Header */}
-                        <div className="p-6 border-b border-border/50 flex justify-between items-center bg-secondary/20">
+                        <div className="p-4 sm:p-6 border-b border-border/50 flex justify-between items-center bg-secondary/20 shrink-0">
                             <div>
                                 <h2 className="text-xl font-black text-primary tracking-tight">
                                     {editingOrder ? "Edit Client Order" : "Record New Order"}
@@ -745,14 +749,34 @@ const ClientManagementPage = () => {
 
                             {/* Extra Items List */}
                             <div className="space-y-3">
-                                <div className="flex justify-between items-center px-1">
-                                    <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest">Bill Extras</label>
+                                <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest px-1">Bill Extras</label>
+                                {/* Inline Add Extra Form */}
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-[9px] font-bold text-muted-foreground uppercase px-1">Item Name</label>
+                                        <Input
+                                            value={extraItemName}
+                                            onChange={(e) => setExtraItemName(e.target.value)}
+                                            placeholder="e.g. Cement, Loading"
+                                            className="h-10 rounded-xl bg-background border-primary/10 text-sm"
+                                        />
+                                    </div>
+                                    <div className="w-24 space-y-1">
+                                        <label className="text-[9px] font-bold text-muted-foreground uppercase px-1">Price (₹)</label>
+                                        <Input
+                                            value={extraItemPrice}
+                                            onChange={(e) => setExtraItemPrice(e.target.value)}
+                                            type="number"
+                                            placeholder="0"
+                                            className="h-10 rounded-xl bg-background border-primary/10 text-sm font-bold"
+                                        />
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={addExtraItem}
-                                        className="text-[10px] font-black text-primary hover:text-primary-foreground hover:bg-primary px-2 py-1 rounded-lg transition-all"
+                                        className="h-10 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold shrink-0 hover:bg-primary/90 transition-all"
                                     >
-                                        + ADD EXTRA
+                                        <Plus className="h-4 w-4" />
                                     </button>
                                 </div>
                                 <div className="space-y-2">
@@ -948,7 +972,7 @@ const ClientManagementPage = () => {
                         </div>
 
                         {/* Footer */}
-                        <div className="p-6 border-t border-border/50 bg-secondary/20 flex gap-4">
+                        <div className="p-4 sm:p-6 border-t border-border/50 bg-secondary/20 flex gap-4 shrink-0">
                             <button
                                 onClick={() => { setShowOrderModal(false); setEditingOrder(null); setOrderForm(emptyOrderForm()); }}
                                 className="flex-1 h-12 rounded-2xl border border-border bg-background text-sm font-bold active:scale-[0.98] transition-all hover:bg-secondary/80"

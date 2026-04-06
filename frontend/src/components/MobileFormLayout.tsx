@@ -8,7 +8,7 @@ interface MobileFormLayoutProps {
 
 export function MobileFormLayout({ children, title, subtitle }: MobileFormLayoutProps) {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-5 sm:py-8 space-y-5 pb-safe">
+    <div className="max-w-2xl mx-auto px-4 py-5 sm:py-8 space-y-5 pb-32 sm:pb-safe">
       {title && (
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h1>

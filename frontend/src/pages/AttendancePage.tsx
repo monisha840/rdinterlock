@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
-import { Save, Loader2, Banknote, Users, Hammer, FileText, ChevronDown } from "lucide-react";
+import { Save, Loader2, Users, Hammer, FileText, ChevronDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workersApi } from "@/api/workers.api";
 import { format } from "date-fns";
@@ -26,6 +26,7 @@ const AttendancePage = () => {
     const [workerAttendance, setWorkerAttendance] = useState<AttendanceState>({});
     const [notes, setNotes] = useState("");
     const [historyPage, setHistoryPage] = useState(1);
+
 
     // ─── Queries ──────────────────────────────────────────────────────────────
     const { data: allWorkers = [], isLoading } = useQuery({
@@ -427,6 +428,7 @@ const AttendancePage = () => {
                     />
                 </div>
             </div>
+
         </MobileFormLayout>
     );
 };

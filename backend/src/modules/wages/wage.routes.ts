@@ -45,5 +45,9 @@ router.post(
   '/advances/bulk',
   wageController.bulkGiveAdvance.bind(wageController)
 );
+router.get(
+  '/advances/by-role',
+  wageController.getAdvancesByRole.bind(wageController)
+);
 
 export default router;

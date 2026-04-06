@@ -28,6 +28,10 @@ export const createOrderSchema = z.object({
     status: z.string().optional(),
     notes: z.string().optional(),
     driverId: z.string().uuid().optional().nullable(),
+    extraItems: z.array(z.object({
+        name: z.string(),
+        price: z.number(),
+    })).optional().default([]),
 });
 
 export const updateOrderSchema = z.object({
@@ -41,6 +45,14 @@ export const updateOrderSchema = z.object({
     status: z.string().optional(),
     notes: z.string().optional(),
     driverId: z.string().uuid().optional().nullable(),
+    extraItems: z.array(z.object({
+        name: z.string(),
+        price: z.number(),
+    })).optional(),
+    location: z.string().optional(),
+    paidAmount: z.number().optional(),
+    paymentStatus: z.string().optional(),
+    dispatchDate: z.string().optional(),
 });
 
 // --- Client Payments ---

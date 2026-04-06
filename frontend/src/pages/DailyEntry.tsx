@@ -199,6 +199,26 @@ const DailyEntry = () => {
 
   const totalToday = todayProductions.reduce((sum, p) => sum + p.availableBricks, 0);
 
+  // Build labour summary from today's productions
+  const labourSummary = (() => {
+    const workerMap: Record<string, { name: string; role: string; machine: string; brickType: string; bricks: number; rate: number; total: number; advanceBalance: number }> = {};
+    todayProductions.forEach((p: any) => {
+      (p.workers || []).forEach((pw: any) => {
+        const w = pw.worker;
+        if (!w) return;
+        const key = `${w.id}-${p.machine?.name}-${p.brickType?.size}`;
+        const isMason = w.role?.toUpperCase() === 'MASON';
+        const rate = isMason ? (w.rate6Inch || w.rate || 9) : (w.perBrickRate || w.rate || 2.5);
+        if (!workerMap[key]) {
+          workerMap[key] = { name: w.name, role: w.role, machine: p.machine?.name || '-', brickType: p.brickType?.size || '-', bricks: 0, rate, total: 0, advanceBalance: w.advanceBalance || 0 };
+        }
+        workerMap[key].bricks += pw.quantity;
+        workerMap[key].total = workerMap[key].bricks * workerMap[key].rate;
+      });
+    });
+    return Object.values(workerMap);
+  })();
+
   const machineOptions = machines.map(m => ({ label: m.name, value: m.id }));
   const brickTypeOptions = brickTypes.map(bt => ({ label: bt.size, value: bt.id }));
 
@@ -424,6 +444,51 @@ const DailyEntry = () => {
         </div>
       </EntryCard>
 
+      {/* Labour Summary */}
+      {labourSummary.length > 0 && (
+        <EntryCard title="👷 Labour Summary">
+          <div className="space-y-2">
+            {labourSummary.map((l, i) => (
+              <div key={i} className="p-3 bg-secondary/30 rounded-xl border border-border/50">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ${l.role === 'MASON' ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                      {l.name[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{l.name}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">{l.role} • {l.machine} • {l.brickType}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-black text-primary">₹{l.total.toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-[10px] font-bold text-muted-foreground mt-2 pt-2 border-t border-border/30">
+                  <div className="text-center">
+                    <p className="uppercase text-[8px]">Bricks</p>
+                    <p className="text-foreground">{l.bricks.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="uppercase text-[8px]">Rate</p>
+                    <p className="text-foreground">₹{l.rate}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="uppercase text-[8px]">Earned</p>
+                    <p className="text-foreground">₹{l.total.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="uppercase text-[8px]">Advance</p>
+                    <p className={l.advanceBalance > 0 ? "text-amber-600" : "text-foreground"}>₹{l.advanceBalance.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div className="flex justify-between items-center pt-3 border-t-2 border-primary/20">
+              <span className="text-sm font-bold text-foreground">Total Labour Cost</span>
+              <span className="text-lg font-bold text-primary">₹{labourSummary.reduce((s, l) => s + l.total, 0).toLocaleString()}</span>
+            </div>
+          </div>
+        </EntryCard>
+      )}
 
     </MobileFormLayout >
   );

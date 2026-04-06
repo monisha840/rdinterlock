@@ -45,6 +45,7 @@ model BrickType {
   productions        Production[]
   materialConfig     MaterialConfig?
   returns            BrickReturn[]
+  transportEntries   TransportEntry[]
 
   @@map("brick_types")
 }
@@ -491,11 +492,15 @@ model TransportEntry {
   notes             String?
   material          String?
   dispatchId        String?          // Linked to specific dispatch if auto-generated
+  brickTypeId       String?
+  quantity          Int?             @default(0)
+  location          String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
-  
+
   vehicle           TransportVehicle @relation(fields: [vehicleId], references: [id])
   vendor            TransportVendor? @relation(fields: [vendorId], references: [id])
+  brickType         BrickType?       @relation(fields: [brickTypeId], references: [id])
   driverId          String?
   driver            Worker?          @relation("DriverTransport", fields: [driverId], references: [id])
 
