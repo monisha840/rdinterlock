@@ -15,6 +15,7 @@ import {
   LogOut,
   ClipboardList,
   RotateCcw,
+  Hammer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -44,6 +45,11 @@ const transportItems = [
   { title: "Transport Entry", url: "/transport", icon: ClipboardList },
   { title: "Vehicles", url: "/transport/vehicles", icon: Truck },
   { title: "Reports", url: "/transport/reports", icon: BarChart3 },
+];
+
+const ledgerItems = [
+  { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
+  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
 ];
 
 const moreNavItems = [
@@ -125,6 +131,7 @@ export function BottomNav() {
     ...clientLoungeItems,
     ...moreNavItems,
     ...transportItems,
+    ...ledgerItems,
   ].some((i) => isActive(i.url));
 
   return (
@@ -175,6 +182,17 @@ export function BottomNav() {
                 <SectionHeader icon={Users} label="Client Lounge" />
                 <NavGrid
                   items={clientLoungeItems}
+                  isActive={isActive}
+                  navigate={navigate}
+                  onClose={() => setMoreOpen(false)}
+                />
+              </div>
+
+              {/* Ledgers */}
+              <div className="px-2">
+                <SectionHeader icon={Hammer} label="Ledgers" />
+                <NavGrid
+                  items={ledgerItems}
                   isActive={isActive}
                   navigate={navigate}
                   onClose={() => setMoreOpen(false)}

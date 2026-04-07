@@ -28,6 +28,7 @@ import VehiclesPage from "./pages/VehiclesPage";
 import VendorsPage from "./pages/VendorsPage";
 import TransportReportsPage from "./pages/TransportReportsPage";
 import MasonLedgerPage from "./pages/MasonLedgerPage";
+import TipperLedgerPage from "./pages/TipperLedgerPage";
 
 const queryClient = new QueryClient();
 
@@ -256,6 +257,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <MasonLedgerPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tipper-ledger"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <TipperLedgerPage />
                 </AppLayout>
               </ProtectedRoute>
             }

@@ -30,12 +30,13 @@ const ClientOrdersPage = () => {
         orderDate: string;
         expectedDispatchDate: string;
         status: string;
+        constructionType: string;
         notes: string;
         extraItems: Array<{ name: string; price: number }>;
-    }>({ 
-        clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "", 
-        orderDate: new Date().toISOString().split("T")[0], 
-        expectedDispatchDate: "", status: "PENDING", notes: "",
+    }>({
+        clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "",
+        orderDate: new Date().toISOString().split("T")[0],
+        expectedDispatchDate: "", status: "PENDING", constructionType: "", notes: "",
         extraItems: []
     });
     const [autoDetect, setAutoDetect] = useState(true);
@@ -73,10 +74,10 @@ const ClientOrdersPage = () => {
     });
 
     const resetForm = () => {
-        setForm({ 
-            clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "", 
-            orderDate: new Date().toISOString().split("T")[0], expectedDispatchDate: "", 
-            status: "PENDING", notes: "", extraItems: [] 
+        setForm({
+            clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "",
+            orderDate: new Date().toISOString().split("T")[0], expectedDispatchDate: "",
+            status: "PENDING", constructionType: "", notes: "", extraItems: []
         });
         setAutoDetect(true);
     };
@@ -87,7 +88,7 @@ const ClientOrdersPage = () => {
             clientId: o.clientId, brickTypeId: o.brickTypeId, quantity: String(o.quantity), rate: String(o.rate), totalAmount: String(o.totalAmount || ""),
             orderDate: new Date(o.orderDate).toISOString().split("T")[0],
             expectedDispatchDate: o.expectedDispatchDate ? new Date(o.expectedDispatchDate).toISOString().split("T")[0] : "",
-            status: o.status, notes: o.notes || "",
+            status: o.status, constructionType: o.constructionType || "", notes: o.notes || "",
             extraItems: o.extraItems || []
         });
         setAutoDetect(false);
@@ -151,6 +152,7 @@ const ClientOrdersPage = () => {
             orderDate: form.orderDate,
             expectedDispatchDate: form.expectedDispatchDate || undefined,
             status: form.status,
+            constructionType: form.constructionType || undefined,
             notes: form.notes || undefined,
             extraItems: form.extraItems,
         };
@@ -187,7 +189,7 @@ const ClientOrdersPage = () => {
                             <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                     <h3 className="text-sm font-semibold">{o.client?.name}</h3>
-                                    <p className="text-xs text-muted-foreground mt-0.5">{o.brickType?.size} • {o.quantity} pcs • Est Amount: ₹{o.totalAmount?.toLocaleString()}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{o.brickType?.size} • {o.quantity} pcs{o.constructionType ? ` • ${o.constructionType}` : ''} • Est Amount: ₹{o.totalAmount?.toLocaleString()}</p>
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
                                         Ordered: {new Date(o.orderDate).toLocaleDateString()}
                                         {o.expectedDispatchDate && ` • Dispatch: ${new Date(o.expectedDispatchDate).toLocaleDateString()}`}
@@ -238,6 +240,17 @@ const ClientOrdersPage = () => {
                                 <option value="">Select Brick Type *</option>
                                 {brickTypes.map((b: any) => <option key={b.id} value={b.id}>{b.size}</option>)}
                             </select>
+                            <div>
+                                <label className="text-xs font-medium text-foreground ml-1">Construction Type</label>
+                                <div className="grid grid-cols-4 gap-1.5 mt-1">
+                                    {["Room", "Compound", "Godown", "Other"].map((ct) => (
+                                        <button key={ct} type="button" onClick={() => setForm({ ...form, constructionType: form.constructionType === ct ? "" : ct })}
+                                            className={`h-9 rounded-lg text-xs font-bold border transition-all ${form.constructionType === ct ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40"}`}>
+                                            {ct}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                              <div className="grid grid-cols-2 gap-2">
                                 <input value={form.quantity} onChange={(e) => handleCalcChange('quantity', e.target.value)} type="number" placeholder="Quantity *" className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
                                 <input value={form.rate} onChange={(e) => handleCalcChange('rate', e.target.value)} type="number" placeholder="Rate per brick" className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />

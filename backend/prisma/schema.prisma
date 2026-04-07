@@ -147,6 +147,7 @@ model ClientOrder {
   orderDate            DateTime
   expectedDispatchDate DateTime?
   status               String          @default("PENDING")
+  constructionType     String?
   notes                String?
   extraItems           Json?           @default("[]")
   createdAt            DateTime        @default(now())
@@ -203,23 +204,24 @@ model DispatchSchedule {
 }
 
 model Dispatch {
-  id            String       @id @default(uuid())
-  date          DateTime
-  customerId    String
-  brickTypeId   String
-  quantity      Int
-  distanceKm    Float?
-  vehicleType   String
-  transportCost Float        @default(0)
-  loadingCost   Float        @default(0)
-  paymentStatus String
-  totalAmount   Float        @default(0)
-  paidAmount    Float        @default(0)
-  status        String       @default("Completed")
-  location      String?
-  driverId      String?
-  vehicleNumber String?
-  notes         String?
+  id               String       @id @default(uuid())
+  date             DateTime
+  customerId       String
+  brickTypeId      String
+  quantity         Int
+  distanceKm       Float?
+  vehicleType      String
+  transportCost    Float        @default(0)
+  loadingCost      Float        @default(0)
+  paymentStatus    String
+  totalAmount      Float        @default(0)
+  paidAmount       Float        @default(0)
+  status           String       @default("Completed")
+  constructionType String?
+  location         String?
+  driverId         String?
+  vehicleNumber    String?
+  notes            String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   brickType     BrickType    @relation(fields: [brickTypeId], references: [id])
@@ -541,7 +543,7 @@ model StaffPayment {
   date         DateTime
   note         String?
   createdAt    DateTime @default(now())
-  
+
   worker       Worker   @relation(fields: [personId], references: [id])
 
   @@map("staff_payments")

@@ -180,6 +180,7 @@ export class ClientsService {
                     orderDate: new Date(data.orderDate),
                     expectedDispatchDate: data.expectedDispatchDate ? new Date(data.expectedDispatchDate) : null,
                     status: requestedStatus,
+                    constructionType: data.constructionType || null,
                     notes: data.notes,
                     extraItems: extraItems,
                     driverId: data.driverId || null,
@@ -197,8 +198,9 @@ export class ClientsService {
                         orderId: order.id,
                         quantity: order.quantity,
                         totalAmount,
-                        paidAmount: 0, // Add Payment is handled separately, or via payload if provided
+                        paidAmount: 0,
                         paymentStatus: 'PENDING',
+                        constructionType: order.constructionType,
                         driverId: order.driverId,
                         status: 'Completed',
                         vehicleType: 'OWN',
@@ -256,6 +258,7 @@ export class ClientsService {
             if (data.quantity !== undefined) updateData.quantity = data.quantity;
             if (data.rate !== undefined) updateData.rate = data.rate;
             if (data.status !== undefined) updateData.status = data.status;
+            if (data.constructionType !== undefined) updateData.constructionType = data.constructionType || null;
             if (data.notes !== undefined) updateData.notes = data.notes;
             if (data.driverId !== undefined) updateData.driverId = data.driverId || null;
             if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
@@ -314,6 +317,7 @@ export class ClientsService {
                         totalAmount: updateData.totalAmount || order.totalAmount,
                         paidAmount: data.paidAmount || 0,
                         paymentStatus: data.paymentStatus || 'PENDING',
+                        constructionType: data.constructionType || (order as any).constructionType || null,
                         driverId: data.driverId || order.driverId,
                         vehicleNumber: data.vehicleNumber,
                         location: data.location || order.notes,
@@ -540,7 +544,14 @@ export class ClientsService {
         // If status is being updated to COMPLETED, create a final Dispatch entry
         if (data.status === 'COMPLETED' || data.status === 'Completed') {
             return await prisma.$transaction(async (tx) => {
-                // 1. Create the final Dispatch record
+                // 1. Look up constructionType from linked order if available
+                let scheduleConstructionType: string | null = null;
+                if (schedule.orderId) {
+                    const linkedOrder = await tx.clientOrder.findUnique({ where: { id: schedule.orderId }, select: { constructionType: true } });
+                    scheduleConstructionType = linkedOrder?.constructionType || null;
+                }
+
+                // 2. Create the final Dispatch record
                 const dispatch = await tx.dispatch.create({
                     data: {
                         date: schedule.dispatchDate,
@@ -551,6 +562,7 @@ export class ClientsService {
                         driverId: schedule.driverId,
                         status: 'Completed',
                         paymentStatus: 'PENDING',
+                        constructionType: scheduleConstructionType,
                         totalAmount: 0,
                         paidAmount: 0,
                         vehicleType: 'OWN',
@@ -663,6 +675,12 @@ export class ClientsService {
             orderBy: { orderDate: 'desc' },
         });
 
+        const dispatches = await prisma.dispatch.findMany({
+            where: { customerId: clientId },
+            include: { brickType: true },
+            orderBy: { date: 'desc' },
+        });
+
         const totalOrderAmount = orders.reduce((s: number, o: any) => s + o.totalAmount, 0);
         const totalPaid = orders.reduce((s: number, o: any) => s + o.payments.reduce((ps: number, p: any) => ps + p.amount, 0), 0);
 
@@ -677,10 +695,37 @@ export class ClientsService {
         });
 
         const totalReturnAmount = returns.reduce((s, r) => s + r.totalAmount, 0);
-        
-        const advanceBalance = totalAdvance - advanceUsed;
-        const pendingAmount = totalOrderAmount - (totalPaid + advanceBalance + totalReturnAmount); 
 
-        return { orders, returns, totalOrderAmount, totalPaid, pendingAmount, totalAdvance, advanceUsed, advanceBalance, totalReturnAmount };
+        const advanceBalance = totalAdvance - advanceUsed;
+        const pendingAmount = totalOrderAmount - (totalPaid + advanceBalance + totalReturnAmount);
+
+        // Build delivery ledger with running balance
+        const sortedDispatches = [...dispatches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        let runningPaid = totalAdvance; // Start with advance as initial credit
+        const deliveryLedger = sortedDispatches.map((d: any) => {
+            const dispatchAmount = d.quantity * (orders.find((o: any) => o.id === d.orderId)?.rate || 0) || d.totalAmount;
+            runningPaid += d.paidAmount || 0;
+            const cumulativeOrderAmount = sortedDispatches
+                .filter((sd: any) => new Date(sd.date).getTime() <= new Date(d.date).getTime())
+                .reduce((s: number, sd: any) => {
+                    const orderRate = orders.find((o: any) => o.id === sd.orderId)?.rate || 0;
+                    return s + (sd.quantity * orderRate || sd.totalAmount);
+                }, 0);
+            const balancePending = cumulativeOrderAmount - runningPaid;
+
+            return {
+                id: d.id,
+                date: d.date,
+                brickType: d.brickType?.size || '-',
+                constructionType: d.constructionType || '-',
+                quantity: d.quantity,
+                rate: orders.find((o: any) => o.id === d.orderId)?.rate || 0,
+                amount: dispatchAmount,
+                paidAmount: d.paidAmount || 0,
+                balancePending: Math.max(0, balancePending),
+            };
+        });
+
+        return { orders, dispatches, deliveryLedger, returns, totalOrderAmount, totalPaid, pendingAmount, totalAdvance, advanceUsed, advanceBalance, totalReturnAmount };
     }
 }

@@ -26,6 +26,7 @@ export const createOrderSchema = z.object({
     orderDate: z.string(),
     expectedDispatchDate: z.string().optional(),
     status: z.string().optional(),
+    constructionType: z.string().optional().nullable(),
     notes: z.string().optional(),
     driverId: z.string().uuid().optional().nullable(),
     extraItems: z.array(z.object({
@@ -43,6 +44,7 @@ export const updateOrderSchema = z.object({
     orderDate: z.string().optional(),
     expectedDispatchDate: z.string().optional(),
     status: z.string().optional(),
+    constructionType: z.string().optional().nullable(),
     notes: z.string().optional(),
     driverId: z.string().uuid().optional().nullable(),
     extraItems: z.array(z.object({

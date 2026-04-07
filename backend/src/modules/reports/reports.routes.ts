@@ -14,6 +14,7 @@ router.get('/financial', reportsController.getFinancialReport);
 router.get('/workers', reportsController.getWorkerReport);
 router.get('/logs/:id', reportsController.getPersonLogs);
 router.get('/summary', reportsController.getSummary);
+router.get('/tipper-ledger', reportsController.getTipperLedger);
 router.get('/mason-ledger', reportsController.getMasonLedger);
 
 export default router;

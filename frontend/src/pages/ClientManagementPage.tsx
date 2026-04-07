@@ -438,8 +438,9 @@ const ClientManagementPage = () => {
                 <div className="space-y-3">
                     {(clients as any[]).map((client: any) => {
                         const clientOrders: any[] = ordersByClient[client.id] || [];
+                        const allClientOrders: any[] = (allOrders as any[]).filter((o: any) => o.clientId === client.id);
                         const isExpanded = expandedIds.has(client.id);
-                        const totalBricks = clientOrders.reduce((s, o) => s + (o.quantity || 0), 0);
+                        const totalBricks = allClientOrders.reduce((s: number, o: any) => s + (o.quantity || 0), 0);
 
                         return (
                             <div key={client.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm transition-all hover:border-primary/20">
@@ -506,7 +507,7 @@ const ClientManagementPage = () => {
                                     <div className="grid grid-cols-4 gap-2 mt-3 text-center">
                                         <div className="py-1 px-2 bg-secondary/40 rounded-lg">
                                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Orders</p>
-                                            <p className="text-xs font-bold text-foreground">{clientOrders.length}</p>
+                                            <p className="text-xs font-bold text-foreground">{allClientOrders.length}</p>
                                         </div>
                                         <div className="py-1 px-2 bg-secondary/40 rounded-lg">
                                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Bricks</p>
@@ -530,12 +531,14 @@ const ClientManagementPage = () => {
                                     <div className="border-t border-border bg-secondary/10 px-4 pb-4 pt-3 space-y-2">
                                         {clientOrders.length === 0 ? (
                                             <div className="text-center py-4">
-                                                <p className="text-xs text-muted-foreground">No orders yet</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {allClientOrders.length > 0 ? "All orders dispatched/completed" : "No orders yet"}
+                                                </p>
                                                 <button
                                                     onClick={() => openAddOrder(client.id)}
                                                     className="mt-2 text-xs font-semibold text-primary hover:underline"
                                                 >
-                                                    + Add first order
+                                                    + Add {allClientOrders.length > 0 ? "new" : "first"} order
                                                 </button>
                                             </div>
                                         ) : (

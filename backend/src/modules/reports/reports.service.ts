@@ -509,7 +509,14 @@ export class ReportsService {
       where,
       include: {
         worker: { select: { id: true, name: true, role: true, rate6Inch: true, rate8Inch: true, rate: true, advanceBalance: true } },
-        production: { select: { id: true, date: true, shift: true, siteName: true, brickType: { select: { id: true, size: true } }, machine: { select: { name: true } } } },
+        production: {
+          select: {
+            id: true, date: true, shift: true, siteName: true,
+            brickType: { select: { id: true, size: true } },
+            machine: { select: { name: true } },
+            consumptionLogs: { select: { materialType: true, quantityUsed: true } },
+          },
+        },
       },
       orderBy: { production: { date: 'desc' } },
     });
@@ -518,6 +525,12 @@ export class ReportsService {
       const brickSize = pw.production?.brickType?.size || '';
       const is6Inch = brickSize.includes('6');
       const rate = is6Inch ? (pw.worker?.rate6Inch || pw.worker?.rate || 9) : (pw.worker?.rate8Inch || pw.worker?.rate || 10);
+
+      // Material consumption for this production
+      const consumptionLogs = pw.production?.consumptionLogs || [];
+      const powder = consumptionLogs.find((l: any) => l.materialType === 'powder')?.quantityUsed || 0;
+      const cement = consumptionLogs.find((l: any) => l.materialType === 'cement')?.quantityUsed || 0;
+      const flyAsh = consumptionLogs.find((l: any) => l.materialType === 'flyash')?.quantityUsed || 0;
 
       return {
         id: pw.id,
@@ -532,6 +545,9 @@ export class ReportsService {
         totalAmount: Math.round(pw.quantity * rate * 100) / 100,
         shift: pw.production?.shift,
         advanceBalance: pw.worker?.advanceBalance || 0,
+        powder,
+        cement,
+        flyAsh,
       };
     });
   }
@@ -739,6 +755,41 @@ export class ReportsService {
         totalLoads
       }
     };
+  }
+
+  /**
+   * Tipper Ledger — transport entries formatted as tipper loads
+   */
+  async getTipperLedger(startDate?: string, endDate?: string) {
+    const where: any = {};
+    if (startDate && endDate) {
+      where.date = getDateRange(new Date(startDate), new Date(endDate));
+    }
+
+    const entries = await prisma.transportEntry.findMany({
+      where,
+      include: {
+        vehicle: { select: { vehicleNumber: true, ownerName: true } },
+        vendor: { select: { id: true, name: true } },
+        brickType: { select: { id: true, size: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    return entries.map((e: any) => ({
+      id: e.id,
+      date: e.date,
+      companyVendor: e.vendor?.name || e.vehicle?.ownerName || '-',
+      vehicleNumber: e.vehicle?.vehicleNumber || '-',
+      tippedLoad: e.loads,
+      brickType: e.brickType?.size || '-',
+      quantity: e.quantity || 0,
+      location: e.location || '-',
+      rate: e.rentPerLoad || 0,
+      totalAmount: e.incomeAmount || e.expenseAmount || 0,
+      transportType: e.transportType,
+      notes: e.notes,
+    }));
   }
 
   /**

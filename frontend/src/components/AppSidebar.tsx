@@ -53,6 +53,7 @@ const navItemsAfter = [
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Cash Book", url: "/cash-book", icon: BookText },
   { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
+  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

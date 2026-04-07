@@ -101,6 +101,12 @@ export class ReportsController {
     sendSuccess(res, report, 'BI Summary report retrieved successfully');
   });
 
+  getTipperLedger = asyncHandler(async (req: Request, res: Response) => {
+    const { startDate, endDate } = req.query;
+    const data = await reportsService.getTipperLedger(startDate as string, endDate as string);
+    sendSuccess(res, data, 'Tipper ledger retrieved');
+  });
+
   getMasonLedger = asyncHandler(async (req: Request, res: Response) => {
     const { startDate, endDate } = req.query;
     const data = await reportsService.getMasonLedger(startDate as string, endDate as string);

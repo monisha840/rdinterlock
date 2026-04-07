@@ -1,13 +1,71 @@
 import { useState, useMemo } from "react";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 const PAYMENT_METHODS = ["CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "OTHER"];
+
+const DeliveryLedger = ({ clientId }: { clientId: string }) => {
+    const { data: ledger, isLoading } = useQuery({
+        queryKey: ["client-ledger-detail", clientId],
+        queryFn: () => clientsApi.getLedger(clientId),
+        enabled: !!clientId,
+    });
+
+    if (isLoading) return <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-primary/40" /></div>;
+
+    const deliveryLedger = ledger?.deliveryLedger || [];
+    const pendingAmount = ledger?.pendingAmount || 0;
+
+    if (deliveryLedger.length === 0) {
+        return (
+            <div className="mt-3 p-3 bg-secondary/20 rounded-xl text-center">
+                <p className="text-xs text-muted-foreground italic">No deliveries yet</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-3 space-y-1.5">
+            {/* Header */}
+            <div className="grid grid-cols-6 gap-1 px-2 py-1.5 text-[8px] font-black text-muted-foreground uppercase">
+                <span>Date</span>
+                <span>Type</span>
+                <span>C.Type</span>
+                <span className="text-right">Qty</span>
+                <span className="text-right">Amount</span>
+                <span className="text-right">Pending</span>
+            </div>
+
+            {/* Rows */}
+            {deliveryLedger.map((d: any) => (
+                <div key={d.id} className="grid grid-cols-6 gap-1 px-2 py-2 bg-secondary/30 rounded-lg text-[10px] font-medium border border-border/30">
+                    <span className="text-foreground">{format(new Date(d.date), "dd/MM/yy")}</span>
+                    <span className="text-foreground">{d.brickType}</span>
+                    <span className="text-foreground truncate">{d.constructionType}</span>
+                    <span className="text-right text-foreground">{d.quantity.toLocaleString()}</span>
+                    <span className="text-right text-foreground">₹{(d.amount || 0).toLocaleString()}</span>
+                    <span className={cn("text-right font-bold", d.balancePending > 0 ? "text-red-600" : "text-green-600")}>
+                        ₹{(d.balancePending || 0).toLocaleString()}
+                    </span>
+                </div>
+            ))}
+
+            {/* Footer */}
+            <div className="flex justify-between items-center px-2 pt-2 border-t border-border/50">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Balance Pending Payment</span>
+                <span className={cn("text-sm font-black", pendingAmount > 0 ? "text-red-600" : "text-green-600")}>
+                    ₹{Math.max(0, pendingAmount).toLocaleString()}
+                </span>
+            </div>
+        </div>
+    );
+};
 
 const ClientLedgerPage = () => {
     const queryClient = useQueryClient();
@@ -16,6 +74,7 @@ const ClientLedgerPage = () => {
     const [search, setSearch] = useState("");
     const [filterType, setFilterType] = useState("ALL");
     const [formType, setFormType] = useState<"PAYMENT" | "ADVANCE" | "RETURN">("PAYMENT");
+    const [expandedClient, setExpandedClient] = useState<string | null>(null);
     const [form, setForm] = useState({ 
         clientId: "", orderId: "", amount: "", 
         paymentDate: new Date().toISOString().split("T")[0], 
@@ -218,6 +277,19 @@ const ClientLedgerPage = () => {
                                     <span className="flex items-center gap-1">Date: <span className="text-foreground font-medium">{c.latestPaymentDate ? new Date(c.latestPaymentDate).toLocaleDateString() : 'N/A'}</span></span>
                                 </div>
                             </div>
+
+                            {/* Delivery Ledger Toggle */}
+                            <button
+                                onClick={() => setExpandedClient(expandedClient === c.id ? null : c.id)}
+                                className="w-full mt-3 h-9 flex items-center justify-center gap-1.5 rounded-xl bg-secondary/50 border border-border/50 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
+                            >
+                                <Truck className="h-3.5 w-3.5" />
+                                Delivery Ledger
+                                {expandedClient === c.id ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                            </button>
+
+                            {/* Expanded Delivery Ledger */}
+                            {expandedClient === c.id && <DeliveryLedger clientId={c.id} />}
                         </div>
                     ))}
                 </div>
