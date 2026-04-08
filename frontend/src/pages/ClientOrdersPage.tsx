@@ -30,13 +30,13 @@ const ClientOrdersPage = () => {
         orderDate: string;
         expectedDispatchDate: string;
         status: string;
-        constructionType: string;
+        constructionTypes: string[];
         notes: string;
         extraItems: Array<{ name: string; price: number }>;
     }>({
         clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "",
         orderDate: new Date().toISOString().split("T")[0],
-        expectedDispatchDate: "", status: "PENDING", constructionType: "", notes: "",
+        expectedDispatchDate: "", status: "PENDING", constructionTypes: [], notes: "",
         extraItems: []
     });
     const [autoDetect, setAutoDetect] = useState(true);
@@ -77,7 +77,7 @@ const ClientOrdersPage = () => {
         setForm({
             clientId: "", brickTypeId: "", quantity: "", rate: "", totalAmount: "",
             orderDate: new Date().toISOString().split("T")[0], expectedDispatchDate: "",
-            status: "PENDING", constructionType: "", notes: "", extraItems: []
+            status: "PENDING", constructionTypes: [], notes: "", extraItems: []
         });
         setAutoDetect(true);
     };
@@ -88,7 +88,7 @@ const ClientOrdersPage = () => {
             clientId: o.clientId, brickTypeId: o.brickTypeId, quantity: String(o.quantity), rate: String(o.rate), totalAmount: String(o.totalAmount || ""),
             orderDate: new Date(o.orderDate).toISOString().split("T")[0],
             expectedDispatchDate: o.expectedDispatchDate ? new Date(o.expectedDispatchDate).toISOString().split("T")[0] : "",
-            status: o.status, constructionType: o.constructionType || "", notes: o.notes || "",
+            status: o.status, constructionTypes: o.constructionType ? o.constructionType.split(", ") : [], notes: o.notes || "",
             extraItems: o.extraItems || []
         });
         setAutoDetect(false);
@@ -152,7 +152,7 @@ const ClientOrdersPage = () => {
             orderDate: form.orderDate,
             expectedDispatchDate: form.expectedDispatchDate || undefined,
             status: form.status,
-            constructionType: form.constructionType || undefined,
+            constructionType: form.constructionTypes.length > 0 ? form.constructionTypes.join(", ") : undefined,
             notes: form.notes || undefined,
             extraItems: form.extraItems,
         };
@@ -241,11 +241,16 @@ const ClientOrdersPage = () => {
                                 {brickTypes.map((b: any) => <option key={b.id} value={b.id}>{b.size}</option>)}
                             </select>
                             <div>
-                                <label className="text-xs font-medium text-foreground ml-1">Construction Type</label>
+                                <label className="text-xs font-medium text-foreground ml-1">Construction Type (select multiple)</label>
                                 <div className="grid grid-cols-4 gap-1.5 mt-1">
                                     {["Room", "Compound", "Godown", "Other"].map((ct) => (
-                                        <button key={ct} type="button" onClick={() => setForm({ ...form, constructionType: form.constructionType === ct ? "" : ct })}
-                                            className={`h-9 rounded-lg text-xs font-bold border transition-all ${form.constructionType === ct ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40"}`}>
+                                        <button key={ct} type="button" onClick={() => {
+                                            const types = form.constructionTypes.includes(ct)
+                                                ? form.constructionTypes.filter(t => t !== ct)
+                                                : [...form.constructionTypes, ct];
+                                            setForm({ ...form, constructionTypes: types });
+                                        }}
+                                            className={`h-9 rounded-lg text-xs font-bold border transition-all ${form.constructionTypes.includes(ct) ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40"}`}>
                                             {ct}
                                         </button>
                                     ))}

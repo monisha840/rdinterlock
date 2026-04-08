@@ -36,6 +36,7 @@ const emptyOrderForm = (clientId = "") => ({
     orderDate: new Date().toISOString().split("T")[0],
     expectedDispatchDate: "",
     status: "PENDING",
+    constructionTypes: [] as string[],
     notes: "",
     location: "",
     paidAmount: "0",
@@ -96,11 +97,6 @@ const ClientManagementPage = () => {
     const ordersByClient = useMemo(() => {
         const map: Record<string, any[]> = {};
         (allOrders as any[]).forEach((o: any) => {
-            // Only show active orders in management (pending, production, ready)
-            // Dispatched/Completed orders move to History
-            const status = (o.status || "").toUpperCase();
-            if (status === "DISPATCHED" || status === "COMPLETED") return;
-
             if (!map[o.clientId]) map[o.clientId] = [];
             map[o.clientId].push(o);
         });
@@ -262,6 +258,7 @@ const ClientManagementPage = () => {
             orderDate: new Date(o.orderDate).toISOString().split("T")[0],
             expectedDispatchDate: o.expectedDispatchDate ? new Date(o.expectedDispatchDate).toISOString().split("T")[0] : "",
             status: o.status,
+            constructionTypes: o.constructionType ? o.constructionType.split(", ") : [],
             notes: o.notes || "",
             location: o.location || "",
             paidAmount: String(o.paidAmount || "0"),
@@ -359,6 +356,7 @@ const ClientManagementPage = () => {
             orderDate: orderForm.orderDate,
             expectedDispatchDate: orderForm.expectedDispatchDate || undefined,
             status: orderForm.status,
+            constructionType: orderForm.constructionTypes.length > 0 ? orderForm.constructionTypes.join(", ") : undefined,
             notes: orderForm.notes || undefined,
             extraItems: orderForm.extraItems || [],
         };
@@ -558,6 +556,7 @@ const ClientManagementPage = () => {
                                                         </div>
                                                         <p className="text-xs text-muted-foreground mt-0.5">
                                                             {(order.quantity || 0).toLocaleString()} pcs
+                                                            {order.constructionType && <><span className="mx-1">•</span><span className="font-medium">{order.constructionType}</span></>}
                                                             <span className="mx-1">•</span>
                                                             <span className="font-medium text-foreground">₹{(order.totalAmount || 0).toLocaleString()}</span>
                                                             {order.extraItems && Array.isArray(order.extraItems) && order.extraItems.length > 0 && (
@@ -700,6 +699,24 @@ const ClientManagementPage = () => {
                                         ))}
                                     </select>
                                     <ChevronDown className="absolute right-3.5 top-4 h-3 w-3 text-muted-foreground pointer-events-none" />
+                                </div>
+                            </div>
+
+                            {/* Construction Type */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Construction Type (select multiple)</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {["Room", "Compound", "Godown", "Other"].map((ct) => (
+                                        <button key={ct} type="button" onClick={() => {
+                                            const types = orderForm.constructionTypes.includes(ct)
+                                                ? orderForm.constructionTypes.filter(t => t !== ct)
+                                                : [...orderForm.constructionTypes, ct];
+                                            setOrderForm({ ...orderForm, constructionTypes: types });
+                                        }}
+                                            className={`h-10 rounded-xl text-xs font-bold border transition-all ${orderForm.constructionTypes.includes(ct) ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-muted-foreground border-primary/10 hover:border-primary/40"}`}>
+                                            {ct}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 

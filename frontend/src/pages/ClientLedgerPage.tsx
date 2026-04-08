@@ -33,23 +33,25 @@ const DeliveryLedger = ({ clientId }: { clientId: string }) => {
     return (
         <div className="mt-3 space-y-1.5">
             {/* Header */}
-            <div className="grid grid-cols-6 gap-1 px-2 py-1.5 text-[8px] font-black text-muted-foreground uppercase">
+            <div className="grid grid-cols-7 gap-1 px-2 py-1.5 text-[8px] font-black text-muted-foreground uppercase">
                 <span>Date</span>
                 <span>Type</span>
                 <span>C.Type</span>
                 <span className="text-right">Qty</span>
                 <span className="text-right">Amount</span>
+                <span className="text-right">Recd</span>
                 <span className="text-right">Pending</span>
             </div>
 
             {/* Rows */}
             {deliveryLedger.map((d: any) => (
-                <div key={d.id} className="grid grid-cols-6 gap-1 px-2 py-2 bg-secondary/30 rounded-lg text-[10px] font-medium border border-border/30">
+                <div key={d.id} className="grid grid-cols-7 gap-1 px-2 py-2 bg-secondary/30 rounded-lg text-[10px] font-medium border border-border/30">
                     <span className="text-foreground">{format(new Date(d.date), "dd/MM/yy")}</span>
                     <span className="text-foreground">{d.brickType}</span>
                     <span className="text-foreground truncate">{d.constructionType}</span>
                     <span className="text-right text-foreground">{d.quantity.toLocaleString()}</span>
                     <span className="text-right text-foreground">₹{(d.amount || 0).toLocaleString()}</span>
+                    <span className="text-right text-green-600 font-semibold">₹{(d.paidAmount || 0).toLocaleString()}</span>
                     <span className={cn("text-right font-bold", d.balancePending > 0 ? "text-red-600" : "text-green-600")}>
                         ₹{(d.balancePending || 0).toLocaleString()}
                     </span>

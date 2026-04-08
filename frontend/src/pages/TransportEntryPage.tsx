@@ -230,15 +230,16 @@ const TransportEntryPage = () => {
               New Transport Entry
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl rounded-[2rem] border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-2 border-b border-border/50 bg-secondary/10">
+          <DialogContent className="max-w-2xl rounded-[2rem] border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <DialogHeader className="p-6 pb-2 border-b border-border/50 bg-secondary/10 shrink-0">
               <DialogTitle className="text-2xl font-black text-primary flex items-center gap-2">
                 <Truck className="h-6 w-6" /> Create Transport Entry
               </DialogTitle>
               <DialogDescription>Record a new transport activity. Fill in the details below.</DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-8 p-6">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+            <div className="space-y-8 p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Date</label>
@@ -421,24 +422,25 @@ const TransportEntryPage = () => {
               </div>
 
               <div className="flex items-center space-x-2 bg-primary/5 p-4 rounded-xl border border-primary/10">
-                <Checkbox 
-                  id="sync" 
-                  checked={syncToCashBook} 
-                  onCheckedChange={(v: any) => setSyncToCashBook(v)} 
+                <Checkbox
+                  id="sync"
+                  checked={syncToCashBook}
+                  onCheckedChange={(v: any) => setSyncToCashBook(v)}
                 />
                 <label htmlFor="sync" className="text-sm font-medium leading-none cursor-pointer">
                   Automatically sync to Cash Book
                 </label>
               </div>
+            </div>
 
-              <DialogFooter className="gap-2 sm:gap-0 mt-6">
+              <DialogFooter className="gap-2 sm:gap-0 p-6 pt-4 border-t border-border/50 shrink-0">
                 <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-12">Cancel</Button>
-                <Button 
-                  type="submit" 
-                  disabled={createEntryMutation.isPending} 
+                <Button
+                  type="submit"
+                  disabled={createEntryMutation.isPending}
                   className="rounded-xl h-12 px-8 min-w-[120px] shadow-lg shadow-primary/20 font-black"
                 >
-                  {createEntryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Entry"}
+                  {createEntryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Entry"}
                 </Button>
               </DialogFooter>
             </form>
