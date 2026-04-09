@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck, Check } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
@@ -31,40 +31,109 @@ const DeliveryLedger = ({ clientId }: { clientId: string }) => {
     }
 
     return (
-        <div className="mt-3 space-y-1.5">
-            {/* Header */}
-            <div className="grid grid-cols-7 gap-1 px-2 py-1.5 text-[8px] font-black text-muted-foreground uppercase">
-                <span>Date</span>
-                <span>Type</span>
-                <span>C.Type</span>
-                <span className="text-right">Qty</span>
-                <span className="text-right">Amount</span>
-                <span className="text-right">Recd</span>
-                <span className="text-right">Pending</span>
-            </div>
-
-            {/* Rows */}
+        <div className="mt-3 space-y-2">
+            {/* Rows — Card layout for mobile, table-like for larger */}
             {deliveryLedger.map((d: any) => (
-                <div key={d.id} className="grid grid-cols-7 gap-1 px-2 py-2 bg-secondary/30 rounded-lg text-[10px] font-medium border border-border/30">
-                    <span className="text-foreground">{format(new Date(d.date), "dd/MM/yy")}</span>
-                    <span className="text-foreground">{d.brickType}</span>
-                    <span className="text-foreground truncate">{d.constructionType}</span>
-                    <span className="text-right text-foreground">{d.quantity.toLocaleString()}</span>
-                    <span className="text-right text-foreground">₹{(d.amount || 0).toLocaleString()}</span>
-                    <span className="text-right text-green-600 font-semibold">₹{(d.paidAmount || 0).toLocaleString()}</span>
-                    <span className={cn("text-right font-bold", d.balancePending > 0 ? "text-red-600" : "text-green-600")}>
-                        ₹{(d.balancePending || 0).toLocaleString()}
-                    </span>
+                <div key={d.id} className="p-3 bg-secondary/20 rounded-xl border border-border/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[11px] font-bold text-foreground">{format(new Date(d.date), "dd/MM/yy")}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-md font-bold">{d.brickType}</span>
+                            {d.constructionType && <span className="text-[10px] text-muted-foreground truncate">{d.constructionType}</span>}
+                        </div>
+                        <span className={cn("text-[11px] font-black shrink-0", d.balancePending > 0 ? "text-red-600" : "text-green-600")}>
+                            ₹{(d.balancePending || 0).toLocaleString()}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] font-medium text-muted-foreground">
+                        <span>Qty: <span className="text-foreground font-bold">{d.quantity.toLocaleString()}</span></span>
+                        <span>Amount: <span className="text-foreground font-bold">₹{(d.amount || 0).toLocaleString()}</span></span>
+                        <span>Recd: <span className="text-green-600 font-bold">₹{(d.paidAmount || 0).toLocaleString()}</span></span>
+                    </div>
                 </div>
             ))}
 
             {/* Footer */}
-            <div className="flex justify-between items-center px-2 pt-2 border-t border-border/50">
+            <div className="flex justify-between items-center px-2 pt-3 border-t-2 border-primary/20">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">Balance Pending Payment</span>
                 <span className={cn("text-sm font-black", pendingAmount > 0 ? "text-red-600" : "text-green-600")}>
                     ₹{Math.max(0, pendingAmount).toLocaleString()}
                 </span>
             </div>
+        </div>
+    );
+};
+
+const ClientSearchSelect = ({ clients, value, onChange }: { clients: any[]; value: string; onChange: (id: string) => void }) => {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const inputRef = useRef<HTMLInputElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const selected = clients.find((c: any) => c.id === value);
+    const filtered = clients.filter((c: any) => {
+        if (!query) return true;
+        const q = query.toLowerCase();
+        return c.name?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q);
+    });
+
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
+
+    return (
+        <div ref={containerRef} className="relative">
+            {value && selected ? (
+                <div className="flex items-center justify-between h-11 px-3 bg-secondary/50 border border-primary/30 rounded-xl">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="text-sm font-semibold text-foreground truncate">{selected.name}</span>
+                        {selected.address && <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">({selected.address})</span>}
+                    </div>
+                    <button onClick={() => { onChange(""); setQuery(""); }} className="p-1 hover:bg-secondary rounded-lg shrink-0">
+                        <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                </div>
+            ) : (
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                        ref={inputRef}
+                        value={query}
+                        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+                        onFocus={() => setOpen(true)}
+                        placeholder="Search client by name or location *"
+                        className="w-full h-11 pl-9 pr-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none"
+                    />
+                </div>
+            )}
+            {open && !value && (
+                <div className="absolute z-50 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                        <p className="p-3 text-xs text-muted-foreground text-center">No clients found</p>
+                    ) : (
+                        filtered.map((c: any) => (
+                            <button
+                                key={c.id}
+                                onClick={() => { onChange(c.id); setOpen(false); setQuery(""); }}
+                                className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-secondary/50 transition-colors border-b border-border/30 last:border-0"
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
+                                    {c.address && <p className="text-[10px] text-muted-foreground truncate flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5 shrink-0" />{c.address}</p>}
+                                </div>
+                                {(c.pendingAmount || 0) > 0 && (
+                                    <span className="text-[10px] font-bold text-red-600 shrink-0">₹{c.pendingAmount.toLocaleString()}</span>
+                                )}
+                            </button>
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -300,7 +369,7 @@ const ClientLedgerPage = () => {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50">
-                    <div className="bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto pb-8">
+                    <div className="bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[85vh] overflow-y-auto pb-safe sm:pb-6">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">
                                 {editing ? (formType === 'ADVANCE' ? "Edit Advance" : formType === 'RETURN' ? "Edit Return" : "Edit Payment") : (formType === 'ADVANCE' ? "Add Advance" : formType === 'RETURN' ? "Add Return" : "Add Payment")}
@@ -309,17 +378,18 @@ const ClientLedgerPage = () => {
                         </div>
                         <div className="space-y-3">
                             <div className="space-y-2">
-                                <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value, orderId: "" })} className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
-                                    <option value="">Select Client *</option>
-                                    {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <ClientSearchSelect
+                                    clients={clients}
+                                    value={form.clientId}
+                                    onChange={(id) => setForm({ ...form, clientId: id, orderId: "" })}
+                                />
                                 {form.clientId && (
                                     <div className="text-xs text-muted-foreground bg-secondary/30 p-2 rounded-lg border border-border/50">
                                         {(() => {
                                             const c: any = clients.find((x: any) => x.id === form.clientId);
                                             if (!c) return null;
                                             return (
-                                                <div className="flex justify-between font-medium">
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 font-medium">
                                                     <span>Order Total: <span className="text-foreground">₹{c.totalOrderAmount?.toLocaleString() || 0}</span></span>
                                                     <span>Advance: <span className="text-foreground">₹{c.advanceBalance?.toLocaleString() || 0}</span></span>
                                                     <span>Pending: <span className="text-destructive font-bold">₹{c.pendingAmount?.toLocaleString() || 0}</span></span>
@@ -365,7 +435,7 @@ const ClientLedgerPage = () => {
 
                             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notes" rows={3} className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm resize-none" />
                         </div>
-                        <div className="flex gap-2 mt-5">
+                        <div className="flex gap-2 mt-5 sticky bottom-0 pt-3 pb-1 bg-card">
                             <button onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors">Cancel</button>
                             <button onClick={handleSubmit} disabled={createMut.isPending || returnMut.isPending} className={cn("flex-1 h-11 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50", formType === 'ADVANCE' ? 'bg-blue-600 hover:bg-blue-700' : formType === 'RETURN' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-primary hover:bg-primary/90')}>
                                 {(createMut.isPending || returnMut.isPending) ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Save"}

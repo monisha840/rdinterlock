@@ -30,5 +30,13 @@ export const getProductionQuerySchema = z.object({
   limit: z.string().optional(),
 });
 
+export const updateProductionSchema = z.object({
+  quantity: z.number().int().positive('Total quantity must be a positive integer').optional(),
+  damagedBricks: z.number().int().min(0, 'Damaged bricks cannot be negative').optional(),
+  workers: z.array(workerProductionSchema).optional(),
+  notes: z.string().optional(),
+});
+
 export type CreateProductionInput = z.infer<typeof createProductionSchema>;
+export type UpdateProductionInput = z.infer<typeof updateProductionSchema>;
 export type GetProductionQuery = z.infer<typeof getProductionQuerySchema>;

@@ -202,6 +202,7 @@ export class ClientsService {
                         paymentStatus: 'PENDING',
                         constructionType: order.constructionType,
                         driverId: order.driverId,
+                        vehicleNumber: data.vehicleNumber || null,
                         status: 'Completed',
                         vehicleType: 'OWN',
                         notes: order.notes,
@@ -220,7 +221,7 @@ export class ClientsService {
 
         return prisma.clientOrder.findMany({
             where,
-            include: { client: true, brickType: true, payments: true, driver: true },
+            include: { client: true, brickType: true, payments: true, driver: true, dispatches: { include: { driver: true } } },
             orderBy: { orderDate: 'desc' },
         });
     }

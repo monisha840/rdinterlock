@@ -14,6 +14,7 @@ import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
 import { stockApi } from "@/api/stock.api";
+import { transportApi } from "@/api/transport.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ const emptyOrderForm = (clientId = "") => ({
     paymentStatus: "PENDING" as any,
     dispatchDate: new Date().toISOString().split("T")[0],
     extraItems: [] as Array<{ name: string; price: number }>,
+    driverId: "",
+    vehicleNumber: "",
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -90,6 +93,20 @@ const ClientManagementPage = () => {
         queryKey: ["brick-types"],
         queryFn: () => settingsApi.getBrickTypes(),
     });
+
+    const { data: vehicles = [] } = useQuery({
+        queryKey: ["transport-vehicles"],
+        queryFn: () => transportApi.getVehicles(),
+    });
+
+    const { data: allWorkers = [] } = useQuery({
+        queryKey: ["workers-all"],
+        queryFn: () => workersApi.getAll(true),
+    });
+
+    const drivers = (allWorkers as any[]).filter((w: any) =>
+        w.role?.toUpperCase() === 'DRIVER' || w.employeeType?.toUpperCase() === 'DRIVER'
+    );
 
     const isLoading = isLoadingClients || isLoadingOrders;
 
@@ -265,6 +282,8 @@ const ClientManagementPage = () => {
             paymentStatus: o.paymentStatus || "PENDING",
             dispatchDate: o.dispatchDate ? new Date(o.dispatchDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
             extraItems: o.extraItems || [],
+            driverId: o.driverId || "",
+            vehicleNumber: o.vehicleNumber || "",
         });
         setAutoCalc(false);
         setShowOrderModal(true);
@@ -359,6 +378,8 @@ const ClientManagementPage = () => {
             constructionType: orderForm.constructionTypes.length > 0 ? orderForm.constructionTypes.join(", ") : undefined,
             notes: orderForm.notes || undefined,
             extraItems: orderForm.extraItems || [],
+            driverId: orderForm.driverId || undefined,
+            vehicleNumber: orderForm.vehicleNumber || undefined,
         };
 
         try {
@@ -705,7 +726,7 @@ const ClientManagementPage = () => {
                             {/* Construction Type */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest ml-1">Construction Type (select multiple)</label>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     {["Room", "Compound", "Godown", "Other"].map((ct) => (
                                         <button key={ct} type="button" onClick={() => {
                                             const types = orderForm.constructionTypes.includes(ct)
@@ -713,7 +734,7 @@ const ClientManagementPage = () => {
                                                 : [...orderForm.constructionTypes, ct];
                                             setOrderForm({ ...orderForm, constructionTypes: types });
                                         }}
-                                            className={`h-10 rounded-xl text-xs font-bold border transition-all ${orderForm.constructionTypes.includes(ct) ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-muted-foreground border-primary/10 hover:border-primary/40"}`}>
+                                            className={`h-10 px-2 rounded-xl text-[11px] sm:text-xs font-bold border transition-all truncate ${orderForm.constructionTypes.includes(ct) ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-background text-muted-foreground border-primary/10 hover:border-primary/40"}`}>
                                             {ct}
                                         </button>
                                     ))}
@@ -958,6 +979,35 @@ const ClientManagementPage = () => {
                                                     <option value="PENDING">Pending</option>
                                                     <option value="PARTIAL">Partial Payment</option>
                                                     <option value="PAID">Fully Paid</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase opacity-70 ml-1">Driver</label>
+                                                <select
+                                                    value={orderForm.driverId}
+                                                    onChange={(e) => setOrderForm({ ...orderForm, driverId: e.target.value })}
+                                                    className="w-full h-10 px-3 bg-background border border-primary/20 rounded-xl text-xs font-bold"
+                                                >
+                                                    <option value="">Select Driver</option>
+                                                    {drivers.length > 0 ? (
+                                                        drivers.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)
+                                                    ) : (
+                                                        (allWorkers as any[]).slice(0, 20).map((w: any) => <option key={w.id} value={w.id}>{w.name} ({w.role})</option>)
+                                                    )}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase opacity-70 ml-1">Vehicle</label>
+                                                <select
+                                                    value={orderForm.vehicleNumber}
+                                                    onChange={(e) => setOrderForm({ ...orderForm, vehicleNumber: e.target.value })}
+                                                    className="w-full h-10 px-3 bg-background border border-primary/20 rounded-xl text-xs font-bold"
+                                                >
+                                                    <option value="">Select Vehicle</option>
+                                                    {(vehicles as any[]).map((v: any) => <option key={v.id} value={v.vehicleNumber}>{v.vehicleNumber} — {v.ownerName || v.driverName || 'N/A'}</option>)}
                                                 </select>
                                             </div>
                                         </div>

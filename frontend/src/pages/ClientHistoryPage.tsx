@@ -93,6 +93,7 @@ const ClientHistoryPage = () => {
                 location,
                 date: s.dispatchDate,
                 driver: s.driver?.name ?? '—',
+                vehicleNumber: s.vehicleNumber || null,
                 status: isFullyPaid ? 'Fully Paid' : status, // OVERRIDE IF PAID
                 source: 'schedule',
                 clientId: s.clientId,
@@ -131,6 +132,7 @@ const ClientHistoryPage = () => {
                 location,
                 date: d.date,
                 driver: d.driver?.name ?? '—',
+                vehicleNumber: d.vehicleNumber || null,
                 status: isFullyPaid ? 'Fully Paid' : 'COMPLETED',
                 source: 'dispatch',
                 clientId: d.customerId,
@@ -174,14 +176,17 @@ const ClientHistoryPage = () => {
                 return;
             }
 
+            // Get driver/vehicle from the linked dispatch record if available
+            const linkedDispatch = (o.dispatches || [])[0];
             dispatches.push({
                 id: o.id,
                 clientName,
                 brickSize: o.brickType?.size ?? '—',
                 quantity: o.quantity,
-                location,
+                location: linkedDispatch?.location || location,
                 date: o.expectedDispatchDate || o.orderDate,
-                driver: o.driver?.name || '—',
+                driver: linkedDispatch?.driver?.name || o.driver?.name || '—',
+                vehicleNumber: linkedDispatch?.vehicleNumber || null,
                 status: isFullyPaid ? 'Fully Paid' : (status === 'DISPATCHED' ? 'DISPATCHED' : status === 'COMPLETED' ? 'COMPLETED' : status),
                 source: 'order',
                 clientId: o.clientId,
@@ -396,58 +401,47 @@ const ClientHistoryPage = () => {
 
                                     {isExpanded && (
                                         <tr>
-                                            <td colSpan={7} className="bg-secondary/10 px-6 py-6 border-b border-border shadow-inner">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                                                    
-                                                    {/* 🚚 Transport Info */}
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-                                                            <Truck className="h-4 w-4 text-blue-600" />
-                                                            <h4 className="text-[11px] font-black uppercase text-secondary-foreground tracking-widest">Transport Details</h4>
+                                            <td colSpan={7} className="bg-secondary/10 px-3 sm:px-5 py-3 border-b border-border shadow-inner">
+                                                <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+
+                                                    {/* 🚚 Transport Details — inline */}
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <Truck className="h-3 w-3 text-blue-600" />
+                                                            <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Transport</span>
                                                         </div>
-                                                        <div className="space-y-2">
-                                                            <div className="flex justify-between items-center bg-card p-2 rounded-xl border border-border/40">
-                                                                <span className="text-[10px] font-bold text-muted-foreground uppercase px-1">Driver Name</span>
-                                                                <span className="text-xs font-bold text-foreground">{group.records[0]?.driver || 'Not assigned'}</span>
-                                                            </div>
-                                                            <div className="flex justify-between items-center bg-card p-2 rounded-xl border border-border/40">
-                                                                <span className="text-[10px] font-bold text-muted-foreground uppercase px-1">Vehicle No.</span>
-                                                                <span className="text-xs font-bold text-foreground">{group.records[0]?.raw?.vehicleNumber || '—'}</span>
-                                                            </div>
-                                                            <div className="flex justify-between items-center bg-card p-2 rounded-xl border border-border/40">
-                                                                <span className="text-[10px] font-bold text-muted-foreground uppercase px-1">Location</span>
-                                                                <span className="text-xs font-bold text-foreground truncate max-w-[150px]" title={group.records[0]?.location}>
-                                                                    {group.records[0]?.location || '—'}
-                                                                </span>
-                                                            </div>
+                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                                                            <span className="text-muted-foreground">Driver: <span className="font-bold text-foreground">{group.records[0]?.driver || '—'}</span></span>
+                                                            <span className="text-muted-foreground">Vehicle: <span className="font-bold text-foreground">{group.records[0]?.vehicleNumber || group.records[0]?.raw?.vehicleNumber || '—'}</span></span>
+                                                            <span className="text-muted-foreground">Location: <span className="font-bold text-foreground">{group.records[0]?.location || '—'}</span></span>
                                                         </div>
                                                     </div>
 
-                                                    {/* 🧱 Order Info */}
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-                                                            <Factory className="h-4 w-4 text-orange-600" />
-                                                            <h4 className="text-[11px] font-black uppercase text-secondary-foreground tracking-widest">Order Details</h4>
+                                                    {/* 🧱 Order Details — inline table */}
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <Factory className="h-3 w-3 text-orange-600" />
+                                                            <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Orders</span>
                                                         </div>
-                                                        <div className="bg-card rounded-xl border border-border/40 overflow-hidden">
+                                                        <div className="bg-card rounded-lg border border-border/40 overflow-hidden">
                                                             <table className="w-full text-[11px]">
-                                                                <thead className="bg-secondary/30 text-muted-foreground font-bold uppercase tracking-tighter">
+                                                                <thead className="bg-secondary/30">
                                                                     <tr>
-                                                                        <th className="py-2 px-3 text-left">Brick Type</th>
-                                                                        <th className="py-2 px-3 text-right">Qty</th>
+                                                                        <th className="py-1.5 px-2.5 text-left text-[9px] font-bold text-muted-foreground uppercase">Brick Type</th>
+                                                                        <th className="py-1.5 px-2.5 text-right text-[9px] font-bold text-muted-foreground uppercase">Qty</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody className="divide-y divide-border/30">
                                                                     {group.records.slice(0, 3).map((r: any, idx: number) => (
                                                                         <tr key={idx}>
-                                                                            <td className="py-2 px-3 font-medium text-foreground">{r.brickSize}</td>
-                                                                            <td className="py-2 px-3 text-right font-black">{(r.quantity || 0).toLocaleString()}</td>
+                                                                            <td className="py-1.5 px-2.5 font-medium text-foreground">{r.brickSize}</td>
+                                                                            <td className="py-1.5 px-2.5 text-right font-black">{(r.quantity || 0).toLocaleString()}</td>
                                                                         </tr>
                                                                     ))}
                                                                     {group.records.length > 3 && (
                                                                         <tr>
-                                                                            <td colSpan={2} className="py-1 px-3 text-center text-[9px] text-muted-foreground italic">
-                                                                                + {group.records.length - 3} more records
+                                                                            <td colSpan={2} className="py-1 px-2.5 text-center text-[9px] text-muted-foreground italic">
+                                                                                + {group.records.length - 3} more
                                                                             </td>
                                                                         </tr>
                                                                     )}
@@ -456,63 +450,44 @@ const ClientHistoryPage = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* 💰 Financial Info */}
-                                                    <div className="space-y-3 lg:col-span-1 md:col-span-2">
-                                                        <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-                                                            <IndianRupee className="h-4 w-4 text-emerald-600" />
-                                                            <h4 className="text-[11px] font-black uppercase text-secondary-foreground tracking-widest">Payment Info</h4>
+                                                    {/* 💰 Payment Info — compact inline */}
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <IndianRupee className="h-3 w-3 text-emerald-600" />
+                                                            <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Payment</span>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div className="bg-card p-3 rounded-xl border border-border/40 flex flex-col justify-center">
-                                                                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Total Bill</p>
-                                                                <p className="text-sm font-black text-foreground">₹{(clientsMap.get(group.clientId)?.totalOrderAmount || 0).toLocaleString()}</p>
-                                                            </div>
-                                                            <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 flex flex-col justify-center">
-                                                                <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1">Paid</p>
-                                                                <p className="text-sm font-black text-emerald-700">₹{(clientsMap.get(group.clientId)?.totalPaid || 0).toLocaleString()}</p>
-                                                            </div>
-                                                            
-                                                            <div className="bg-card p-3 rounded-xl border border-border/40 col-span-2">
-                                                                <div className="flex justify-between items-center mb-1">
-                                                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">Advance Details</p>
-                                                                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                                                                        ₹{(clientsMap.get(group.clientId)?.totalAdvance || 0).toLocaleString()}
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-[10px] text-muted-foreground">
-                                                                    {(() => {
-                                                                        const adv = clientsMap.get(group.clientId)?.payments?.find((p: any) => p.type === 'ADVANCE');
-                                                                        return adv ? `Received on ${format(new Date(adv.paymentDate), 'dd MMM yyyy')}` : 'No advance recorded';
-                                                                    })()}
-                                                                </p>
-                                                            </div>
+                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] mb-2">
+                                                            <span className="text-muted-foreground">Total: <span className="font-black text-foreground">₹{(clientsMap.get(group.clientId)?.totalOrderAmount || 0).toLocaleString()}</span></span>
+                                                            <span className="text-muted-foreground">Paid: <span className="font-black text-emerald-600">₹{(clientsMap.get(group.clientId)?.totalPaid || 0).toLocaleString()}</span></span>
+                                                            <span className="text-muted-foreground">Advance: <span className="font-black text-blue-600">₹{(clientsMap.get(group.clientId)?.totalAdvance || 0).toLocaleString()}</span></span>
                                                         </div>
 
-                                                        <div className="bg-card rounded-xl border border-border/40 overflow-hidden mt-3">
-                                                            <div className="bg-secondary/30 px-3 py-1.5 border-b border-border text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                                                        {/* Recent Payments */}
+                                                        <div className="bg-card rounded-lg border border-border/40 overflow-hidden">
+                                                            <div className="bg-secondary/30 px-2.5 py-1 border-b border-border text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
                                                                 Recent Payments
                                                             </div>
-                                                            <div className="max-h-[120px] overflow-y-auto">
+                                                            <div className="max-h-[100px] overflow-y-auto">
                                                                 {(() => {
                                                                     const client = clientsMap.get(group.clientId);
                                                                     const payments = (client?.payments || [])
                                                                         .filter((p: any) => p.type === 'PAYMENT' || p.type === 'ADVANCE')
                                                                         .sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-                                                                    
+
                                                                     if (payments.length === 0) {
-                                                                        return <div className="p-4 text-center text-[10px] text-muted-foreground italic">No payment records found</div>;
+                                                                        return <div className="px-2.5 py-2 text-center text-[10px] text-muted-foreground italic">No payments</div>;
                                                                     }
 
                                                                     return (
                                                                         <table className="w-full text-[10px]">
                                                                             <tbody className="divide-y divide-border/20">
                                                                                 {payments.slice(0, 5).map((p: any, idx: number) => (
-                                                                                    <tr key={idx} className="hover:bg-secondary/20 transition-colors">
-                                                                                        <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{format(new Date(p.paymentDate), 'dd MMM')}</td>
-                                                                                        <td className="py-2.5 px-3 font-semibold text-foreground truncate max-w-[100px]">
+                                                                                    <tr key={idx}>
+                                                                                        <td className="py-1.5 px-2.5 text-muted-foreground whitespace-nowrap">{format(new Date(p.paymentDate), 'dd MMM')}</td>
+                                                                                        <td className="py-1.5 px-2.5 font-semibold text-foreground truncate max-w-[80px]">
                                                                                             {p.type === 'ADVANCE' ? 'Advance' : (p.paymentMethod || 'Payment')}
                                                                                         </td>
-                                                                                        <td className="py-2.5 px-3 text-right font-black text-emerald-600">₹{p.amount.toLocaleString()}</td>
+                                                                                        <td className="py-1.5 px-2.5 text-right font-black text-emerald-600">₹{p.amount.toLocaleString()}</td>
                                                                                     </tr>
                                                                                 ))}
                                                                             </tbody>

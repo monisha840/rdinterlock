@@ -11,6 +11,7 @@ router.post('/', productionController.createProduction);
 router.get('/', productionController.getProductions);
 router.get('/history', productionController.getProductionHistory);
 router.get('/:id', productionController.getProductionById);
+router.patch('/:id', productionController.updateProduction);
 router.delete('/:id', productionController.deleteProduction);
 
 export default router;

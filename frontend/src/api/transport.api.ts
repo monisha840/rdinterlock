@@ -49,6 +49,10 @@ export const transportApi = {
     const response = await apiClient.post<any, ApiResponse<TransportEntry>>('/transport/entries', data);
     return response.data;
   },
+  updateEntry: async (id: string, data: any): Promise<TransportEntry> => {
+    const response = await apiClient.patch<any, ApiResponse<TransportEntry>>(`/transport/entries/${id}`, data);
+    return response.data;
+  },
   deleteEntry: async (id: string): Promise<void> => {
     await apiClient.delete(`/transport/entries/${id}`);
   },

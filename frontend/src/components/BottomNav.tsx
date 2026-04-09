@@ -43,13 +43,13 @@ const clientLoungeItems = [
 
 const transportItems = [
   { title: "Transport Entry", url: "/transport", icon: ClipboardList },
+  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
   { title: "Vehicles", url: "/transport/vehicles", icon: Truck },
   { title: "Reports", url: "/transport/reports", icon: BarChart3 },
 ];
 
 const ledgerItems = [
   { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
-  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
 ];
 
 const moreNavItems = [

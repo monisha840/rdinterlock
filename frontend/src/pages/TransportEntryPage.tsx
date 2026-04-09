@@ -15,7 +15,8 @@ import {
   Loader2,
   Trash2,
   Save,
-  Navigation
+  Navigation,
+  Edit2
 } from "lucide-react";
 import { transportApi } from "@/api/transport.api";
 import { settingsApi } from "@/api/settings.api";
@@ -123,6 +124,23 @@ const TransportEntryPage = () => {
     }
   });
 
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+
+  const updateEntryMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => transportApi.updateEntry(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transport-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["transport-summary"] });
+      toast.success("Transport entry updated");
+      setIsDialogOpen(false);
+      setEditingEntry(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to update entry");
+    }
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => transportApi.deleteEntry(id),
     onSuccess: () => {
@@ -131,6 +149,29 @@ const TransportEntryPage = () => {
       toast.success("Entry deleted");
     }
   });
+
+  const handleEditEntry = (item: any) => {
+    setEditingEntry(item);
+    setDate(format(new Date(item.date), "yyyy-MM-dd"));
+    setTransportType(item.transportType);
+    setVehicleId(item.vehicleId);
+    setVendorId(item.vendorId || "");
+    setDriverName(item.driverName || "");
+    setLoads(item.loads);
+    setTransactionType(item.transactionType);
+    setDieselCost(item.dieselCost || 0);
+    setOtherExpense(item.otherExpense || 0);
+    setRentPerLoad(item.rentPerLoad || 0);
+    setExpenseAmount(item.expenseAmount || 0);
+    setIncomeAmount(item.incomeAmount || 0);
+    setNotes(item.notes || "");
+    setMaterial(item.material || "");
+    setSyncToCashBook(false);
+    setBrickTypeId(item.brickTypeId || "");
+    setQuantity(item.quantity || 0);
+    setLocation(item.location || "");
+    setIsDialogOpen(true);
+  };
 
   const resetForm = () => {
     setVehicleId("");
@@ -193,7 +234,11 @@ const TransportEntryPage = () => {
       payload.incomeAmount = (loads || 0) * (rentPerLoad || 0);
     }
 
-    createEntryMutation.mutate(payload);
+    if (editingEntry) {
+      updateEntryMutation.mutate({ id: editingEntry.id, data: payload });
+    } else {
+      createEntryMutation.mutate(payload);
+    }
   };
 
   const filteredVehicles = vehicles.filter((v: any) => 
@@ -223,9 +268,9 @@ const TransportEntryPage = () => {
           <p className="text-muted-foreground mt-1">Unified tracking for RD and Vendor vehicles</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingEntry(null); }}>
           <DialogTrigger asChild>
-            <Button className="h-11 px-6 rounded-xl shadow-lg shadow-primary/20 gap-2 hover:scale-[1.02] transition-transform">
+            <Button onClick={() => { setEditingEntry(null); resetForm(); }} className="h-11 px-6 rounded-xl shadow-lg shadow-primary/20 gap-2 hover:scale-[1.02] transition-transform">
               <Plus className="h-5 w-5" />
               New Transport Entry
             </Button>
@@ -233,9 +278,9 @@ const TransportEntryPage = () => {
           <DialogContent className="max-w-2xl rounded-[2rem] border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 p-0 overflow-hidden flex flex-col max-h-[90vh]">
             <DialogHeader className="p-6 pb-2 border-b border-border/50 bg-secondary/10 shrink-0">
               <DialogTitle className="text-2xl font-black text-primary flex items-center gap-2">
-                <Truck className="h-6 w-6" /> Create Transport Entry
+                <Truck className="h-6 w-6" /> {editingEntry ? "Edit Transport Entry" : "Create Transport Entry"}
               </DialogTitle>
-              <DialogDescription>Record a new transport activity. Fill in the details below.</DialogDescription>
+              <DialogDescription>{editingEntry ? "Update the transport entry details below." : "Record a new transport activity. Fill in the details below."}</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
@@ -434,13 +479,13 @@ const TransportEntryPage = () => {
             </div>
 
               <DialogFooter className="gap-2 sm:gap-0 p-6 pt-4 border-t border-border/50 shrink-0">
-                <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-12">Cancel</Button>
+                <Button type="button" variant="ghost" onClick={() => { setIsDialogOpen(false); setEditingEntry(null); }} className="rounded-xl h-12">Cancel</Button>
                 <Button
                   type="submit"
-                  disabled={createEntryMutation.isPending}
+                  disabled={createEntryMutation.isPending || updateEntryMutation.isPending}
                   className="rounded-xl h-12 px-8 min-w-[120px] shadow-lg shadow-primary/20 font-black"
                 >
-                  {createEntryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Entry"}
+                  {(createEntryMutation.isPending || updateEntryMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : editingEntry ? "Save Changes" : "Confirm Entry"}
                 </Button>
               </DialogFooter>
             </form>
@@ -613,17 +658,27 @@ const TransportEntryPage = () => {
                   )}
 
                   <div className="flex justify-between items-center pt-1">
-                    <p className="text-[10px] text-muted-foreground italic truncate max-w-[70%]">{item.notes || "No notes"}</p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive/50 hover:text-destructive hover:bg-destructive/5 rounded-xl"
-                      onClick={() => {
-                        if (window.confirm("Delete this entry?")) deleteMutation.mutate(item.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <p className="text-[10px] text-muted-foreground italic truncate max-w-[60%]">{item.notes || "No notes"}</p>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-amber-600/60 hover:text-amber-600 hover:bg-amber-500/5 rounded-xl"
+                        onClick={() => handleEditEntry(item)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive/50 hover:text-destructive hover:bg-destructive/5 rounded-xl"
+                        onClick={() => {
+                          if (window.confirm("Delete this entry?")) deleteMutation.mutate(item.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -701,18 +756,28 @@ const TransportEntryPage = () => {
                           {item.incomeAmount > 0 ? `₹ ${item.incomeAmount.toLocaleString()}` : "-"}
                         </TableCell>
                         <TableCell className="text-right px-6">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all md:opacity-0 group-hover:opacity-100"
-                            onClick={() => {
-                              if (window.confirm("Are you sure you want to delete this entry?")) {
-                                deleteMutation.mutate(item.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-xl hover:bg-background shadow-sm border border-transparent hover:border-border"
+                              onClick={() => handleEditEntry(item)}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10"
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this entry?")) {
+                                  deleteMutation.mutate(item.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

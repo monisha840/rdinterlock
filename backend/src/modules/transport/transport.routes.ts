@@ -19,6 +19,7 @@ router.get('/vendors', transportController.getVendors);
 // Entries
 router.post('/entries', transportController.createEntry);
 router.get('/entries', transportController.getEntries);
+router.patch('/entries/:id', transportController.updateEntry);
 router.delete('/entries/:id', transportController.deleteEntry);
 router.get('/summary', transportController.getSummary);
 

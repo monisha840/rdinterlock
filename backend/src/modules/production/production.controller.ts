@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { ProductionService } from './production.service';
-import { createProductionSchema, getProductionQuerySchema } from './production.validation';
+import { createProductionSchema, updateProductionSchema, getProductionQuerySchema } from './production.validation';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
 
@@ -34,6 +34,13 @@ export class ProductionController {
       brickTypeId as string
     );
     sendSuccess(res, result, 'Production history retrieved successfully');
+  });
+
+  updateProduction = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const validatedData = updateProductionSchema.parse(req.body);
+    const production = await productionService.updateProduction(id, validatedData);
+    sendSuccess(res, production, 'Production updated successfully');
   });
 
   deleteProduction = asyncHandler(async (req: Request, res: Response) => {

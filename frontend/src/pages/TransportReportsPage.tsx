@@ -60,7 +60,7 @@ const TransportReportsPage = () => {
   });
 
   return (
-    <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500 pb-32 sm:pb-8 overflow-y-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-primary flex items-center gap-3">
@@ -131,41 +131,41 @@ const TransportReportsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Metrics Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Loads</span>
-            <Truck className="h-4 w-4 text-primary opacity-40" />
+      {/* Metrics Summary — 2x2 compact on mobile, 4-col on desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-3 sm:p-6 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Loads</span>
+            <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary opacity-40" />
           </div>
-          <div className="text-3xl font-black">{summary?.totalLoads || 0}</div>
+          <div className="text-xl sm:text-3xl font-black">{summary?.totalLoads || 0}</div>
         </div>
-        <div className="p-6 rounded-2xl bg-rose-500/5 border border-rose-500/10 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-rose-500">Total Expense</span>
-            <IndianRupee className="h-4 w-4 text-rose-500 opacity-40" />
+        <div className="p-3 sm:p-6 rounded-2xl bg-rose-500/5 border border-rose-500/10 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-rose-500">Expense</span>
+            <IndianRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500 opacity-40" />
           </div>
-          <div className="text-3xl font-black text-rose-600">₹ {(summary?.totalExpense || 0).toLocaleString()}</div>
+          <div className="text-lg sm:text-3xl font-black text-rose-600">₹{(summary?.totalExpense || 0) > 99999 ? ((summary?.totalExpense || 0) / 1000).toFixed(1) + 'k' : (summary?.totalExpense || 0).toLocaleString()}</div>
         </div>
-        <div className="p-6 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Total Income</span>
-            <IndianRupee className="h-4 w-4 text-emerald-500 opacity-40" />
+        <div className="p-3 sm:p-6 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-emerald-500">Income</span>
+            <IndianRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500 opacity-40" />
           </div>
-          <div className="text-3xl font-black text-emerald-600">₹ {(summary?.totalIncome || 0).toLocaleString()}</div>
+          <div className="text-lg sm:text-3xl font-black text-emerald-600">₹{(summary?.totalIncome || 0) > 99999 ? ((summary?.totalIncome || 0) / 1000).toFixed(1) + 'k' : (summary?.totalIncome || 0).toLocaleString()}</div>
         </div>
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Net Cost</span>
-            <BarChart3 className="h-4 w-4 text-slate-400 opacity-40" />
+        <div className="p-3 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Net Cost</span>
+            <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 opacity-40" />
           </div>
-          <div className="text-3xl font-black text-white">₹ {(summary?.netCost || 0).toLocaleString()}</div>
+          <div className="text-lg sm:text-3xl font-black text-white">₹{(summary?.netCost || 0) > 99999 ? ((summary?.netCost || 0) / 1000).toFixed(1) + 'k' : (summary?.netCost || 0).toLocaleString()}</div>
         </div>
       </div>
 
       <Card className="rounded-2xl border-border/50 shadow-xl overflow-hidden bg-background/50">
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[500px]">
             <TableHeader className="bg-muted/30">
               <TableRow className="border-border/50">
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Date</TableHead>

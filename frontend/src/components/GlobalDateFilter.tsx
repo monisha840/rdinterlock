@@ -40,12 +40,12 @@ export const GlobalDateFilter: React.FC<GlobalDateFilterProps> = ({ onRangeChang
   };
 
   return (
-    <DragScrollContainer className="mb-4 pb-2">
+    <DragScrollContainer className="mb-4 pb-2 flex gap-2">
       {options.map((opt) => (
         <button
           key={opt}
           onClick={() => handleSelect(opt)}
-          className={`h-10 px-5 rounded-full text-sm font-semibold transition-all active:scale-95 touch-target whitespace-nowrap ${
+          className={`h-10 px-5 rounded-full text-sm font-semibold transition-all active:scale-95 touch-target whitespace-nowrap shrink-0 ${
             currentLabel === opt
               ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"

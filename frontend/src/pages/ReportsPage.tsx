@@ -119,8 +119,10 @@ const ReportsPage = () => {
       queryClient.invalidateQueries({ queryKey: ["salary-report"] });
       queryClient.invalidateQueries({ queryKey: ["worker-wages"] });
       queryClient.invalidateQueries({ queryKey: ["workers"] });
+      queryClient.invalidateQueries({ queryKey: ["advance-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["cash-entries"] });
       queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       setIsAdvanceModalOpen(false);
       setAdvanceWorker(null);
     },
@@ -184,35 +186,35 @@ const ReportsPage = () => {
   return (
     <MobileFormLayout title="📈 Reports">
       {/* Tabs */}
-      <div className="flex p-1 bg-secondary/50 rounded-2xl mb-4 gap-1">
+      <DragScrollContainer className="mb-4 pb-1 flex gap-1.5">
         {TABS.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === tab
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
+            className={`whitespace-nowrap px-4 py-2.5 text-xs font-bold rounded-xl transition-all active:scale-95 shrink-0 ${activeTab === tab
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-secondary/70 text-muted-foreground hover:text-foreground"
               }`}
           >
             {tab}
           </button>
         ))}
-      </div>
+      </DragScrollContainer>
 
       {/* Global Date Filter */}
       <GlobalDateFilter onRangeChange={handleRangeChange} currentLabel={dateRange.label} />
 
       {dateRange.label === "Custom" && (
-        <div className="grid grid-cols-2 gap-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <DatePickerField 
-            date={dateRange.from} 
-            onDateChange={(d) => setDateRange(prev => ({ ...prev, from: d }))} 
-            label="From" 
+        <div className="relative z-30 grid grid-cols-2 gap-3 mb-4 p-3 bg-card border border-border/50 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+          <DatePickerField
+            date={dateRange.from}
+            onDateChange={(d) => setDateRange(prev => ({ ...prev, from: d }))}
+            label="From"
           />
-          <DatePickerField 
-            date={dateRange.to} 
-            onDateChange={(d) => setDateRange(prev => ({ ...prev, to: d }))} 
-            label="To" 
+          <DatePickerField
+            date={dateRange.to}
+            onDateChange={(d) => setDateRange(prev => ({ ...prev, to: d }))}
+            label="To"
           />
         </div>
       )}
@@ -256,7 +258,7 @@ const ReportsPage = () => {
 
       {/* ══════════════════ STAFF SALARIES TAB ══════════════════ */}
       {activeTab === "Staff Salaries" && (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-8">
           <div className="bg-secondary/50 rounded-2xl p-4 mb-4">
             <p className="text-xs text-muted-foreground font-medium text-center">
               Salary Month: <span className="font-bold text-foreground">{format(dateRange.from, "MMMM yyyy")}</span>
@@ -382,7 +384,7 @@ const ReportsPage = () => {
 
       {/* ══════════════════ WORKER WAGES TAB ══════════════════ */}
       {activeTab === "Worker Wages" && (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-8">
           <div className="bg-secondary/50 rounded-2xl p-4 mb-4">
             <p className="text-xs text-muted-foreground font-medium text-center">
               Wages for period: <span className="font-bold text-foreground">{format(dateRange.from, "dd MMM")}</span> to <span className="font-bold text-foreground">{format(dateRange.to, "dd MMM yyyy")}</span>
@@ -555,7 +557,7 @@ const ReportsPage = () => {
 
       {/* ══════════════════ ADVANCE LEDGER TAB ══════════════════ */}
       {activeTab === "Advance Ledger" && (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-8">
           {/* Role Filter Pills */}
           <div className="flex flex-wrap gap-2">
             {["ALL", "OPERATOR", "MASON", "HELPER", "LOADER", "DRIVER", "MANAGER"].map(role => (
@@ -698,29 +700,29 @@ const ReportsPage = () => {
 
       {/* ── Advance Payment Modal ── */}
       {isAdvanceModalOpen && advanceWorker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
             {/* Header */}
-            <div className="p-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white relative">
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white relative shrink-0">
               <button
                 onClick={() => setIsAdvanceModalOpen(false)}
-                className="absolute right-6 top-6 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="absolute right-5 top-5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
-              <div className="flex items-center gap-4 mb-2">
-                <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center font-black text-xl">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white/20 flex items-center justify-center font-black text-lg sm:text-xl shrink-0">
                   {advanceWorker.name[0]}
                 </div>
-                <div>
-                  <h2 className="text-xl font-black">{advanceWorker.name}</h2>
-                  <p className="text-sm opacity-80 font-bold uppercase tracking-widest">{advanceWorker.role} • ADVANCE</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-black truncate">{advanceWorker.name}</h2>
+                  <p className="text-xs sm:text-sm opacity-80 font-bold uppercase tracking-widest">{advanceWorker.role} • ADVANCE</p>
                 </div>
               </div>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-5">
+            <div className="p-5 sm:p-6 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
               {/* Current Balance */}
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex justify-between items-center">
                 <div>
@@ -787,23 +789,24 @@ const ReportsPage = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setIsAdvanceModalOpen(false)}
-                  className="flex-1 h-14 rounded-2xl border border-border text-sm font-bold hover:bg-secondary transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => advanceMutation.mutate()}
-                  disabled={!advanceAmount || parseFloat(advanceAmount) <= 0 || advanceMutation.isPending}
-                  className="flex-[2] h-14 rounded-2xl bg-amber-500 text-white text-sm font-black shadow-xl hover:bg-amber-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                >
-                  {advanceMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Banknote className="h-5 w-5" />}
-                  Pay ₹{parseFloat(advanceAmount || "0").toLocaleString()} Advance
-                </button>
-              </div>
+            </div>
+
+            {/* Sticky Action Footer */}
+            <div className="p-4 sm:p-6 pt-3 border-t border-border/50 bg-background shrink-0 flex gap-3">
+              <button
+                onClick={() => setIsAdvanceModalOpen(false)}
+                className="flex-1 h-12 sm:h-14 rounded-2xl border border-border text-sm font-bold hover:bg-secondary transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => advanceMutation.mutate()}
+                disabled={!advanceAmount || parseFloat(advanceAmount) <= 0 || advanceMutation.isPending}
+                className="flex-[2] h-12 sm:h-14 rounded-2xl bg-amber-500 text-white text-sm font-black shadow-xl hover:bg-amber-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              >
+                {advanceMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Banknote className="h-5 w-5" />}
+                Pay ₹{parseFloat(advanceAmount || "0").toLocaleString()}
+              </button>
             </div>
           </div>
         </div>
@@ -889,13 +892,13 @@ const LogsTabContent = ({ globalDateRange }: { globalDateRange: DateRange }) => 
             </div>
           </div>
 
-          <DragScrollContainer className="pb-2">
+          <DragScrollContainer className="pb-2 flex gap-1.5">
             {["All", "Attendance", "Production", "Payments", "Transport", "Sales", "Expenses"].map(t => (
               <button
                 key={t}
                 onClick={() => setLogType(t)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all active:scale-95 ${logType === t 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all active:scale-95 shrink-0 ${logType === t
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-secondary/70 text-muted-foreground hover:bg-secondary"
                 }`}
               >

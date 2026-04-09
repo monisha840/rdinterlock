@@ -29,6 +29,7 @@ export const createOrderSchema = z.object({
     constructionType: z.string().optional().nullable(),
     notes: z.string().optional(),
     driverId: z.string().uuid().optional().nullable(),
+    vehicleNumber: z.string().optional().nullable(),
     extraItems: z.array(z.object({
         name: z.string(),
         price: z.number(),
@@ -47,6 +48,7 @@ export const updateOrderSchema = z.object({
     constructionType: z.string().optional().nullable(),
     notes: z.string().optional(),
     driverId: z.string().uuid().optional().nullable(),
+    vehicleNumber: z.string().optional().nullable(),
     extraItems: z.array(z.object({
         name: z.string(),
         price: z.number(),

@@ -63,7 +63,7 @@ export function BigNumberInput({
       placeholder={placeholder}
       min={min}
       max={max}
-      className="w-full h-14 text-2xl font-bold text-center bg-secondary/50 border border-border rounded-xl focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+      className="w-full h-14 text-2xl font-bold text-center bg-secondary/50 border border-border rounded-xl focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono placeholder:text-sm placeholder:font-medium sm:placeholder:text-base"
     />
   );
 }

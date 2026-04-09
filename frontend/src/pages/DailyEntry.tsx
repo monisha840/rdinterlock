@@ -4,8 +4,9 @@ import { EntryCard } from "@/components/EntryCard";
 import { ActionButton } from "@/components/ActionButton";
 import { DatePickerField } from "@/components/DatePickerField";
 import { PillSelector } from "@/components/PillSelector";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
-import { Save, Plus, X, Fuel, UtensilsCrossed, PackageOpen, MoreHorizontal, Loader2, Receipt, Check } from "lucide-react";
+import { Save, Plus, X, Fuel, UtensilsCrossed, PackageOpen, MoreHorizontal, Loader2, Receipt, Check, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
@@ -98,6 +99,70 @@ const DailyEntry = () => {
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save expense", {
+        description: error.response?.data?.message || error.message,
+      });
+    },
+  });
+
+  // Labour edit/delete state
+  const [deleteLabourTarget, setDeleteLabourTarget] = useState<{ productionIds: string[] } | null>(null);
+  const [editLabour, setEditLabour] = useState<{ workerId: string; name: string; bricks: number; rate: number; productionWorkerEntries: { productionId: string; workerId: string; quantity: number }[] } | null>(null);
+  const [editBricks, setEditBricks] = useState("");
+  const [editRate, setEditRate] = useState("");
+
+  const deleteProductionMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) {
+        await productionApi.delete(id);
+      }
+    },
+    onSuccess: () => {
+      toast.success("✅ Labour entry deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ['productions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    },
+    onError: (error: any) => {
+      toast.error("❌ Failed to delete labour entry", {
+        description: error.response?.data?.message || error.message,
+      });
+    },
+  });
+
+  const updateProductionMutation = useMutation({
+    mutationFn: async ({ entries, newQuantity }: { entries: { productionId: string; workerId: string; quantity: number }[]; newQuantity: number }) => {
+      // Distribute the new total quantity proportionally across production records
+      const oldTotal = entries.reduce((s, e) => s + e.quantity, 0);
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const production = await productionApi.getById(entry.productionId);
+        const proportion = oldTotal > 0 ? entry.quantity / oldTotal : 1 / entries.length;
+        const newWorkerQty = i === entries.length - 1
+          ? newQuantity - entries.slice(0, -1).reduce((s, e, idx) => s + Math.round(newQuantity * (oldTotal > 0 ? e.quantity / oldTotal : 1 / entries.length)), 0)
+          : Math.round(newQuantity * proportion);
+
+        const updatedWorkers = (production.workers || []).map((pw: any) => ({
+          workerId: pw.workerId || pw.worker?.id,
+          quantity: pw.workerId === entry.workerId || pw.worker?.id === entry.workerId ? Math.max(1, newWorkerQty) : pw.quantity,
+        }));
+
+        // Recalculate total quantity for this production
+        const totalWorkerQty = updatedWorkers.reduce((s: number, w: any) => s + w.quantity, 0);
+
+        await productionApi.update(entry.productionId, {
+          quantity: totalWorkerQty + (production.damagedBricks || 0),
+          damagedBricks: production.damagedBricks || 0,
+          workers: updatedWorkers,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success("✅ Labour entry updated successfully");
+      queryClient.invalidateQueries({ queryKey: ['productions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setEditLabour(null);
+    },
+    onError: (error: any) => {
+      toast.error("❌ Failed to update labour entry", {
         description: error.response?.data?.message || error.message,
       });
     },
@@ -199,9 +264,9 @@ const DailyEntry = () => {
 
   const totalToday = todayProductions.reduce((sum, p) => sum + p.availableBricks, 0);
 
-  // Build labour summary from today's productions
+  // Build labour summary from today's productions (track production IDs for edit/delete)
   const labourSummary = (() => {
-    const workerMap: Record<string, { name: string; role: string; machine: string; brickType: string; bricks: number; rate: number; total: number; advanceBalance: number }> = {};
+    const workerMap: Record<string, { name: string; role: string; machine: string; brickType: string; bricks: number; rate: number; total: number; advanceBalance: number; workerId: string; productionIds: string[]; productionWorkerEntries: { productionId: string; workerId: string; quantity: number }[] }> = {};
     todayProductions.forEach((p: any) => {
       (p.workers || []).forEach((pw: any) => {
         const w = pw.worker;
@@ -210,10 +275,14 @@ const DailyEntry = () => {
         const isMason = w.role?.toUpperCase() === 'MASON';
         const rate = isMason ? (w.rate6Inch || w.rate || 9) : (w.perBrickRate || w.rate || 2.5);
         if (!workerMap[key]) {
-          workerMap[key] = { name: w.name, role: w.role, machine: p.machine?.name || '-', brickType: p.brickType?.size || '-', bricks: 0, rate, total: 0, advanceBalance: w.advanceBalance || 0 };
+          workerMap[key] = { name: w.name, role: w.role, machine: p.machine?.name || '-', brickType: p.brickType?.size || '-', bricks: 0, rate, total: 0, advanceBalance: w.advanceBalance || 0, workerId: w.id, productionIds: [], productionWorkerEntries: [] };
         }
         workerMap[key].bricks += pw.quantity;
         workerMap[key].total = workerMap[key].bricks * workerMap[key].rate;
+        if (!workerMap[key].productionIds.includes(p.id)) {
+          workerMap[key].productionIds.push(p.id);
+        }
+        workerMap[key].productionWorkerEntries.push({ productionId: p.id, workerId: w.id, quantity: pw.quantity });
       });
     });
     return Object.values(workerMap);
@@ -460,7 +529,27 @@ const DailyEntry = () => {
                       <p className="text-[10px] text-muted-foreground uppercase">{l.role} • {l.machine} • {l.brickType}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-primary">₹{l.total.toLocaleString()}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-black text-primary mr-1">₹{l.total.toLocaleString()}</span>
+                    <button
+                      onClick={() => {
+                        setEditLabour({ workerId: l.workerId, name: l.name, bricks: l.bricks, rate: l.rate, productionWorkerEntries: l.productionWorkerEntries });
+                        setEditBricks(l.bricks.toString());
+                        setEditRate(l.rate.toString());
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all active:scale-90"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteLabourTarget({ productionIds: l.productionIds })}
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all active:scale-90"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-[10px] font-bold text-muted-foreground mt-2 pt-2 border-t border-border/30">
                   <div className="text-center">
@@ -488,6 +577,97 @@ const DailyEntry = () => {
             </div>
           </div>
         </EntryCard>
+      )}
+
+      {/* Labour Delete Confirmation */}
+      <ConfirmModal
+        isOpen={!!deleteLabourTarget}
+        onClose={() => setDeleteLabourTarget(null)}
+        onConfirm={() => {
+          if (deleteLabourTarget) {
+            deleteProductionMutation.mutate(deleteLabourTarget.productionIds);
+            setDeleteLabourTarget(null);
+          }
+        }}
+        title="Delete Labour Entry?"
+        description="This will delete the production record(s) associated with this worker. This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+      />
+
+      {/* Labour Edit Modal */}
+      {editLabour && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setEditLabour(null)}>
+          <div className="bg-card rounded-3xl border border-border shadow-2xl w-full max-w-[400px] p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-2xl bg-primary/10">
+                <Pencil className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Edit Labour Entry</h3>
+                <p className="text-xs text-muted-foreground">{editLabour.name}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <FormField label="Bricks Produced" required>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={editBricks}
+                  onChange={(e) => setEditBricks(e.target.value)}
+                  className="w-full h-12 px-4 text-lg font-bold bg-secondary/50 border border-border rounded-xl focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+                />
+              </FormField>
+
+              <FormField label="Rate per Brick (₹)">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={editRate}
+                  onChange={(e) => setEditRate(e.target.value)}
+                  className="w-full h-12 px-4 text-lg font-bold bg-secondary/50 border border-border rounded-xl focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+                />
+              </FormField>
+
+              <div className="p-3 bg-primary/5 rounded-xl border border-primary/20">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-muted-foreground uppercase">Total Earning</span>
+                  <span className="text-lg font-black text-primary">
+                    ₹{((parseFloat(editBricks) || 0) * (parseFloat(editRate) || 0)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setEditLabour(null)}
+                className="flex-1 h-12 rounded-2xl bg-secondary/50 text-foreground font-bold hover:bg-secondary transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const newQty = parseInt(editBricks);
+                  if (!newQty || newQty <= 0) {
+                    toast.error("Please enter a valid quantity");
+                    return;
+                  }
+                  updateProductionMutation.mutate({
+                    entries: editLabour.productionWorkerEntries,
+                    newQuantity: newQty,
+                  });
+                }}
+                disabled={updateProductionMutation.isPending}
+                className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+              >
+                {updateProductionMutation.isPending ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </MobileFormLayout >

@@ -1,6 +1,6 @@
 import prisma from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
-import { CreateProductionInput, GetProductionQuery } from './production.validation';
+import { CreateProductionInput, UpdateProductionInput, GetProductionQuery } from './production.validation';
 
 export class ProductionService {
   async createProduction(data: CreateProductionInput) {
@@ -262,6 +262,77 @@ export class ProductionService {
         byBrickType,
       },
     };
+  }
+
+  async updateProduction(id: string, data: UpdateProductionInput) {
+    const production = await prisma.production.findUnique({
+      where: { id },
+      include: { workers: true },
+    });
+
+    if (!production) {
+      throw new AppError('Production not found', 404);
+    }
+
+    const quantity = data.quantity ?? production.quantity;
+    const damagedBricks = data.damagedBricks ?? production.damagedBricks;
+
+    if (damagedBricks > quantity) {
+      throw new AppError('Damaged bricks cannot be greater than produced bricks', 400);
+    }
+
+    const availableBricks = quantity - damagedBricks;
+    const wastagePercentage = quantity > 0 ? parseFloat(((damagedBricks / quantity) * 100).toFixed(2)) : 0;
+
+    // If workers are provided, validate them
+    if (data.workers && data.workers.length > 0) {
+      const workerIds = data.workers.map((w: any) => w.workerId);
+      const workers = await prisma.worker.findMany({
+        where: { id: { in: workerIds } },
+      });
+      if (workers.length !== workerIds.length) {
+        throw new AppError('One or more workers not found', 404);
+      }
+    }
+
+    // Update production and replace workers if provided
+    const updated = await prisma.$transaction(async (tx) => {
+      if (data.workers) {
+        // Delete existing workers and recreate
+        await tx.productionWorker.deleteMany({ where: { productionId: id } });
+        for (const w of data.workers) {
+          await tx.productionWorker.create({
+            data: { productionId: id, workerId: w.workerId, quantity: w.quantity },
+          });
+        }
+      }
+
+      return tx.production.update({
+        where: { id },
+        data: {
+          quantity,
+          damagedBricks,
+          availableBricks,
+          notes: data.notes !== undefined ? data.notes : undefined,
+        },
+        include: {
+          machine: true,
+          brickType: true,
+          workers: { include: { worker: true } },
+        },
+      });
+    });
+
+    // Recalculate wages
+    try {
+      const wageService = new (require('../wages/wage.service').WageService)();
+      const calculations = await wageService.calculateDailyWages(new Date(production.date));
+      await wageService.saveCalculatedWages(new Date(production.date), calculations);
+    } catch (error) {
+      console.error('Failed to auto-recalculate wages after update:', error);
+    }
+
+    return { ...updated, wastagePercentage };
   }
 
   async deleteProduction(id: string) {

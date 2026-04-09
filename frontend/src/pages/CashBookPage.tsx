@@ -189,6 +189,12 @@ const CashBookPage = () => {
     }
   };
 
+  // Strip internal IDs from description (TransportID, EMI ID, etc.)
+  const cleanDescription = (desc: string) => {
+    if (!desc) return desc;
+    return desc.replace(/\s*\((TransportID|EMI ID):\s*[^)]+\)/g, '').trim();
+  };
+
   const getRelativeDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const today = new Date();
@@ -749,23 +755,23 @@ const CashBookPage = () => {
                 const isFinancial = e.type === 'CREDIT' || e.type === 'DEBIT';
 
                 return (
-                  <div key={e.id || i} className="flex flex-col gap-2 p-4 bg-secondary/30 rounded-2xl group border border-transparent hover:border-primary/20 transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  <div key={e.id || i} className="flex flex-col gap-2 p-3.5 sm:p-4 bg-secondary/30 rounded-2xl group border border-border/40 hover:border-primary/20 transition-all">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                      <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 ${
                         e.type === 'WORK' ? "bg-primary/10" :
                         e.type === 'ATTENDANCE' ? "bg-info/10" :
                         isPositive ? "bg-success/10" : "bg-destructive/10"
                       }`}>
-                        {e.type === 'WORK' ? <Briefcase className="h-5 w-5 text-primary" /> :
-                         e.type === 'ATTENDANCE' ? <Calendar className="h-5 w-5 text-info" /> :
-                         isPositive ? <ArrowDownCircle className="h-5 w-5 text-success" /> : <ArrowUpCircle className="h-5 w-5 text-destructive" />
+                        {e.type === 'WORK' ? <Briefcase className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-primary" /> :
+                         e.type === 'ATTENDANCE' ? <Calendar className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-info" /> :
+                         isPositive ? <ArrowDownCircle className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-success" /> : <ArrowUpCircle className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-destructive" />
                         }
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex flex-col">
-                            <p className="font-bold text-sm text-foreground truncate">{e.category}</p>
-                            <p className="text-[10px] font-bold text-primary/80 uppercase">{e.description}</p>
+                          <div className="flex flex-col min-w-0">
+                            <p className="font-bold text-[13px] sm:text-sm text-foreground truncate">{e.category}</p>
+                            <p className="text-[10px] font-bold text-primary/80 uppercase truncate">{cleanDescription(e.description)}</p>
                           </div>
                           {e.amount > 0 && (
                             <span className={`text-sm font-black ${isPositive ? "text-success" : "text-destructive"}`}>
@@ -794,56 +800,57 @@ const CashBookPage = () => {
               }
 
               // Render Standard Cash Entry
+              const displayDesc = cleanDescription(e.description);
               return (
-                <div key={e.id || i} className="flex flex-col gap-2 p-4 bg-secondary/30 rounded-2xl group border border-transparent hover:border-primary/20 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${e.type === "CREDIT" ? "bg-success/10" : "bg-destructive/10"
+                <div key={e.id || i} className="flex flex-col gap-2 p-3.5 sm:p-4 bg-secondary/30 rounded-2xl group border border-border/40 hover:border-primary/20 transition-all">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 ${e.type === "CREDIT" ? "bg-success/10" : "bg-destructive/10"
                       }`}>
                       {e.type === "CREDIT" ? (
-                        <ArrowDownCircle className="h-5 w-5 text-success" />
+                        <ArrowDownCircle className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-success" />
                       ) : (
-                        <ArrowUpCircle className="h-5 w-5 text-destructive" />
+                        <ArrowUpCircle className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-destructive" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex flex-col">
-                          <p className="font-bold text-sm text-foreground truncate">{e.category}</p>
+                        <div className="flex flex-col min-w-0">
+                          <p className="font-bold text-[13px] sm:text-sm text-foreground truncate">{e.category}</p>
                           {e.vendorName && (
-                            <p className="text-[10px] font-bold text-primary/80 uppercase">🏭 {e.vendorName}</p>
+                            <p className="text-[10px] font-bold text-primary/80 uppercase truncate">🏭 {e.vendorName}</p>
                           )}
                         </div>
-                        <span className={`text-sm font-black ${e.type === "CREDIT" ? "text-success" : "text-destructive"}`}>
+                        <span className={`text-[13px] sm:text-sm font-black shrink-0 ${e.type === "CREDIT" ? "text-success" : "text-destructive"}`}>
                           {e.type === "CREDIT" ? "+" : "-"}₹{e.amount.toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <span className="font-medium">{getRelativeDate(e.date)}</span>
-                        <span>•</span>
-                        <span className="font-semibold text-primary/80">{e.paymentMode}</span>
-                      </p>
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">{getRelativeDate(e.date)}</span>
+                        <span className="text-muted-foreground/40">•</span>
+                        <span className="text-[11px] sm:text-xs font-semibold text-primary/80">{e.paymentMode}</span>
+                      </div>
                     </div>
                   </div>
 
-                  {(e.customer || e.worker || e.description) && (
-                    <div className="ml-13 border-t border-border/50 pt-2 flex flex-col gap-1">
+                  {(e.customer || e.worker || (displayDesc && displayDesc !== e.category)) && (
+                    <div className="ml-[46px] sm:ml-[52px] border-t border-border/40 pt-2 flex flex-col gap-1">
                       {(e.customer || e.worker) && (
-                        <p className="text-[11px] font-bold text-foreground/80 flex items-center gap-1">
+                        <p className="text-[11px] font-bold text-foreground/80 flex items-center gap-1 truncate">
                           👤 {e.customer?.name || e.worker?.name}
                         </p>
                       )}
-                      {e.description && e.description !== e.category && (
-                        <p className="text-[11px] text-muted-foreground italic">
-                          📝 {e.description}
+                      {displayDesc && displayDesc !== e.category && (
+                        <p className="text-[11px] text-muted-foreground italic break-words">
+                          📝 {displayDesc}
                         </p>
                       )}
                     </div>
                   )}
 
-                  <div className="flex items-center justify-end gap-2 mt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center justify-end gap-2 mt-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => startEditEntry(e)}
-                      className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all"
+                      className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all active:scale-90"
                       title="Edit Entry"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
@@ -854,7 +861,7 @@ const CashBookPage = () => {
                           deleteEntryMutation.mutate(e.id);
                         }
                       }}
-                      className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
+                      className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all active:scale-90"
                       title="Delete Entry"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

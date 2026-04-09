@@ -38,7 +38,7 @@ const MasonLedgerPage = () => {
   return (
     <MobileFormLayout title="Mason Ledger" subtitle="Site-wise mason work tracking">
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-3 mb-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-2">
         <KPICard title="Total Bricks" value={totalBricks.toLocaleString()} icon={Hammer} variant="primary" />
         <KPICard title="Total Earned" value={`₹${totalEarnings.toLocaleString()}`} icon={IndianRupee} variant="success" />
         <KPICard title="Sites" value={String(uniqueSites)} icon={MapPin} variant="accent" />
@@ -83,62 +83,62 @@ const MasonLedgerPage = () => {
             <p className="text-[11px] text-muted-foreground mt-1">Add production entries with mason workers to see data here</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filtered.map((e: any) => (
-              <div key={e.id} className="p-3 bg-secondary/30 rounded-xl border border-border/50 hover:border-primary/20 transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-9 w-9 rounded-lg bg-purple-500 flex items-center justify-center text-white text-xs font-bold">
+              <div key={e.id} className="p-4 bg-secondary/30 rounded-2xl border border-border/50 hover:border-primary/20 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-10 w-10 rounded-xl bg-purple-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
                       {e.masonName?.[0] || "M"}
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{e.masonName}</p>
-                      <p className="text-[10px] text-muted-foreground">
+                    <div className="min-w-0">
+                      <p className="text-[13px] sm:text-sm font-bold text-foreground truncate">{e.masonName}</p>
+                      <p className="text-[11px] text-muted-foreground">
                         {e.siteName && e.siteName !== '-' ? (
-                          <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{e.siteName}</span>
+                          <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{e.siteName}</span></span>
                         ) : (
                           <span>{e.machine}</span>
                         )}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-primary">₹{(e.totalAmount || 0).toLocaleString()}</p>
-                    <p className="text-[10px] text-muted-foreground">{format(new Date(e.date), "dd MMM yyyy")}</p>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="text-[13px] sm:text-sm font-black text-primary">₹{(e.totalAmount || 0).toLocaleString()}</p>
+                    <p className="text-[11px] text-muted-foreground">{format(new Date(e.date), "dd MMM yyyy")}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-[10px] font-bold text-muted-foreground pt-2 border-t border-border/30">
+                <div className="grid grid-cols-4 gap-3 text-[11px] font-bold text-muted-foreground pt-3 border-t border-border/30">
                   <div className="text-center">
-                    <p className="uppercase text-[8px]">Type</p>
-                    <p className="text-foreground">{e.brickType}</p>
+                    <p className="uppercase text-[9px] mb-0.5">Type</p>
+                    <p className="text-foreground text-[12px]">{e.brickType}</p>
                   </div>
                   <div className="text-center">
-                    <p className="uppercase text-[8px]">Bricks</p>
-                    <p className="text-foreground">{(e.bricks || 0).toLocaleString()}</p>
+                    <p className="uppercase text-[9px] mb-0.5">Bricks</p>
+                    <p className="text-foreground text-[12px]">{(e.bricks || 0).toLocaleString()}</p>
                   </div>
                   <div className="text-center">
-                    <p className="uppercase text-[8px]">Rate</p>
-                    <p className="text-foreground">₹{e.ratePerBrick}</p>
+                    <p className="uppercase text-[9px] mb-0.5">Rate</p>
+                    <p className="text-foreground text-[12px]">₹{e.ratePerBrick}</p>
                   </div>
                   <div className="text-center">
-                    <p className="uppercase text-[8px]">Advance</p>
-                    <p className={e.advanceBalance > 0 ? "text-amber-600" : "text-foreground"}>₹{(e.advanceBalance || 0).toLocaleString()}</p>
+                    <p className="uppercase text-[9px] mb-0.5">Advance</p>
+                    <p className={`text-[12px] ${e.advanceBalance > 0 ? "text-amber-600" : "text-foreground"}`}>₹{(e.advanceBalance || 0).toLocaleString()}</p>
                   </div>
                 </div>
                 {/* Material Consumption */}
                 {(e.powder > 0 || e.cement > 0 || e.flyAsh > 0) && (
-                  <div className="grid grid-cols-3 gap-2 text-[10px] font-bold text-muted-foreground pt-2 mt-1 border-t border-border/20">
+                  <div className="grid grid-cols-3 gap-3 text-[11px] font-bold text-muted-foreground pt-3 mt-2 border-t border-border/20">
                     <div className="text-center">
-                      <p className="uppercase text-[8px]">Powder</p>
-                      <p className="text-foreground">{e.powder > 0 ? `${e.powder} units` : '-'}</p>
+                      <p className="uppercase text-[9px] mb-0.5">Powder</p>
+                      <p className="text-foreground text-[12px]">{e.powder > 0 ? `${e.powder} units` : '-'}</p>
                     </div>
                     <div className="text-center">
-                      <p className="uppercase text-[8px]">Cement</p>
-                      <p className="text-foreground">{e.cement > 0 ? `${e.cement} units` : '-'}</p>
+                      <p className="uppercase text-[9px] mb-0.5">Cement</p>
+                      <p className="text-foreground text-[12px]">{e.cement > 0 ? `${e.cement} units` : '-'}</p>
                     </div>
                     <div className="text-center">
-                      <p className="uppercase text-[8px]">Fly Ash</p>
-                      <p className="text-foreground">{e.flyAsh > 0 ? `${e.flyAsh} units` : '-'}</p>
+                      <p className="uppercase text-[9px] mb-0.5">Fly Ash</p>
+                      <p className="text-foreground text-[12px]">{e.flyAsh > 0 ? `${e.flyAsh} units` : '-'}</p>
                     </div>
                   </div>
                 )}

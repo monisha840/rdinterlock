@@ -128,6 +128,35 @@ export class TransportService {
     });
   }
 
+  async updateEntry(id: string, data: any) {
+    const entry = await (prisma.transportEntry as any).findUnique({ where: { id } });
+    if (!entry) throw new Error('Transport entry not found');
+
+    return await (prisma.transportEntry as any).update({
+      where: { id },
+      data: {
+        ...(data.date && { date: new Date(data.date) }),
+        ...(data.transportType && { transportType: data.transportType }),
+        ...(data.vehicleId && { vehicleId: data.vehicleId }),
+        ...(data.vendorId !== undefined && { vendorId: data.vendorId || null }),
+        ...(data.driverName !== undefined && { driverName: data.driverName || null }),
+        ...(data.loads !== undefined && { loads: data.loads }),
+        ...(data.transactionType && { transactionType: data.transactionType }),
+        ...(data.expenseAmount !== undefined && { expenseAmount: data.expenseAmount }),
+        ...(data.dieselCost !== undefined && { dieselCost: data.dieselCost }),
+        ...(data.otherExpense !== undefined && { otherExpense: data.otherExpense }),
+        ...(data.rentPerLoad !== undefined && { rentPerLoad: data.rentPerLoad }),
+        ...(data.incomeAmount !== undefined && { incomeAmount: data.incomeAmount }),
+        ...(data.notes !== undefined && { notes: data.notes || null }),
+        ...(data.material !== undefined && { material: data.material || null }),
+        ...(data.brickTypeId !== undefined && { brickTypeId: data.brickTypeId || null }),
+        ...(data.quantity !== undefined && { quantity: data.quantity || null }),
+        ...(data.location !== undefined && { location: data.location || null }),
+      },
+      include: { vehicle: true, vendor: true, brickType: true },
+    });
+  }
+
   async deleteEntry(id: string) {
     return await prisma.$transaction(async (tx: any) => {
       // Remove related cash entry
@@ -216,6 +245,7 @@ export class TransportService {
         where: { id },
         data: {
           ...updateData,
+          ...(updateData.dueDate && { dueDate: new Date(updateData.dueDate) }),
           paidDate: updateData.paidDate ? new Date(updateData.paidDate) : undefined,
         },
         include: { vehicle: true }

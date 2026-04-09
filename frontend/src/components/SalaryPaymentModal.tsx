@@ -51,6 +51,9 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
       toast.success('Salary Paid Successfully');
       queryClient.invalidateQueries({ queryKey: ['salary-report'] });
       queryClient.invalidateQueries({ queryKey: ['worker-wages'] });
+      queryClient.invalidateQueries({ queryKey: ['advance-ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-balance'] });
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] });
       if (onSuccess) onSuccess();
       onClose();
@@ -70,31 +73,31 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
   const exceedsBalance = parseFloat(amount) > worker.netPayable;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground relative">
-          <button 
-            onClick={onClose} 
-            className="absolute right-6 top-6 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        <div className="p-4 sm:p-6 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground relative shrink-0">
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 sm:right-6 sm:top-6 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-4 mb-2">
-            <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center font-black text-xl">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="h-11 w-11 sm:h-14 sm:w-14 rounded-2xl bg-white/20 flex items-center justify-center font-black text-lg sm:text-xl shrink-0">
               {worker.name[0]}
             </div>
-            <div>
-              <h2 className="text-xl font-black">{worker.name}</h2>
-              <p className="text-sm opacity-80 font-bold uppercase tracking-widest">{worker.role}</p>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-black truncate">{worker.name}</h2>
+              <p className="text-xs sm:text-sm opacity-80 font-bold uppercase tracking-widest">{worker.role}</p>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
           {/* Summary */}
-          <div className="p-4 bg-secondary/30 rounded-2xl flex justify-between items-center">
+          <div className="p-3 sm:p-4 bg-secondary/30 rounded-2xl flex justify-between items-center">
             <div>
               <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider mb-1">Max Payable</p>
               <p className="text-2xl font-black text-foreground">₹{worker.netPayable.toLocaleString()}</p>
@@ -113,12 +116,12 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
               <label className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-2">
                 <IndianRupee className="h-3 w-3" /> Amount to Pay
               </label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full h-14 bg-secondary/50 border-none rounded-2xl px-5 text-xl font-black focus:ring-4 ring-primary/20 transition-all outline-none text-foreground"
+                className="w-full h-12 sm:h-14 bg-secondary/50 border-none rounded-2xl px-4 sm:px-5 text-lg sm:text-xl font-black focus:ring-4 ring-primary/20 transition-all outline-none text-foreground"
               />
               {exceedsBalance && (
                 <p className="text-[10px] text-amber-600 font-bold uppercase mt-1 animate-pulse">
@@ -139,14 +142,14 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
                     <button
                       key={m}
                       onClick={() => setMethod(m)}
-                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all active:scale-95 ${
-                        method === m 
-                          ? 'bg-primary border-primary text-primary-foreground shadow-lg' 
+                      className={`flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl sm:rounded-2xl border-2 transition-all active:scale-95 ${
+                        method === m
+                          ? 'bg-primary border-primary text-primary-foreground shadow-lg'
                           : 'bg-secondary/30 border-transparent text-muted-foreground hover:bg-secondary/50'
                       }`}
                     >
-                      <Icon className="h-5 w-5 mb-1" />
-                      <span className="text-[10px] font-bold">{m}</span>
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5" />
+                      <span className="text-[9px] sm:text-[10px] font-bold">{m}</span>
                     </button>
                   );
                 })}
@@ -177,13 +180,16 @@ export const SalaryPaymentModal: React.FC<SalaryPaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Action */}
-          <ActionButton 
+        </div>
+
+        {/* Sticky Action Footer */}
+        <div className="p-4 sm:p-6 pt-3 border-t border-border/50 bg-background shrink-0">
+          <ActionButton
             label={paymentMutation.isPending ? "Processing..." : `Confirm Payment of ₹${parseFloat(amount || '0').toLocaleString()}`}
             icon={paymentMutation.isPending ? Loader2 : IndianRupee}
             variant="success"
             size="lg"
-            className="w-full h-16 text-lg shadow-xl"
+            className="w-full h-14 sm:h-16 text-base sm:text-lg shadow-xl"
             disabled={isInvalid || paymentMutation.isPending}
             onClick={() => paymentMutation.mutate()}
           />

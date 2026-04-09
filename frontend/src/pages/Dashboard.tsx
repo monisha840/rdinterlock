@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { KPICard } from "@/components/KPICard";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import {
@@ -10,19 +11,50 @@ import {
   TrendingUp,
   AlertTriangle,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { dashboardApi } from "@/api/dashboard.api";
 import { clientsApi } from "@/api/clients.api";
 import { format, isToday, formatDistanceToNow } from "date-fns";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { RemindersPanel } from "@/components/RemindersPanel";
 import { TodaysTasksPanel } from "@/components/TodaysTasksPanel";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { toast } from "sonner";
+
+const CustomChartTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card border border-border rounded-xl px-3 py-2 shadow-lg text-center min-w-[80px]">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase">{label}</p>
+        <p className="text-sm font-black text-primary">{payload[0].value.toLocaleString()}</p>
+      </div>
+    );
+  }
+  return null;
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [deleteDispatchId, setDeleteDispatchId] = useState<string | null>(null);
+
+  const deleteDispatchMutation = useMutation({
+    mutationFn: (id: string) => clientsApi.deleteOrder(id),
+    onSuccess: () => {
+      toast.success("✅ Dispatch removed successfully");
+      queryClient.invalidateQueries({ queryKey: ['upcoming-dispatches'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    },
+    onError: (error: any) => {
+      toast.error("❌ Failed to delete dispatch", {
+        description: error.response?.data?.message || error.message,
+      });
+    },
+  });
 
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ['dashboard-summary'],
@@ -172,11 +204,23 @@ const Dashboard = () => {
                 >
                   <div className="w-full flex justify-between items-start mb-1">
                     <p className="font-bold text-foreground text-sm">{dispatch.client?.name}</p>
-                    {isDueToday && (
-                      <span className="text-[10px] bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full font-bold animate-pulse uppercase">
-                        Today Dispatch
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isDueToday && (
+                        <span className="text-[10px] bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full font-bold animate-pulse uppercase">
+                          Today Dispatch
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteDispatchId(dispatch.id);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all active:scale-90"
+                        title="Delete dispatch"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between w-full mt-1">
                     <p className="text-xs font-semibold text-muted-foreground">
@@ -205,12 +249,10 @@ const Dashboard = () => {
               <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }} axisLine={false} tickLine={false} />
               <YAxis hide />
               <Tooltip
-                contentStyle={{
-                  borderRadius: "12px",
-                  border: "none",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                  fontSize: "12px",
-                }}
+                content={<CustomChartTooltip />}
+                cursor={{ fill: 'hsl(221 83% 53% / 0.08)' }}
+                wrapperStyle={{ zIndex: 50, outline: 'none' }}
+                allowEscapeViewBox={{ x: false, y: false }}
               />
               <Bar dataKey="qty" fill="hsl(221, 83%, 53%)" radius={[8, 8, 0, 0]} />
             </BarChart>
@@ -242,6 +284,20 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={!!deleteDispatchId}
+        onClose={() => setDeleteDispatchId(null)}
+        onConfirm={() => {
+          if (deleteDispatchId) {
+            deleteDispatchMutation.mutate(deleteDispatchId);
+            setDeleteDispatchId(null);
+          }
+        }}
+        title="Delete Dispatch?"
+        description="Are you sure you want to delete this dispatch? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+      />
     </MobileFormLayout>
   );
 };

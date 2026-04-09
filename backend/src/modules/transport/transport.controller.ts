@@ -54,6 +54,12 @@ export const getEntries = asyncHandler(async (req: Request, res: Response) => {
   res.json({ success: true, data: entries });
 });
 
+export const updateEntry = asyncHandler(async (req: Request, res: Response) => {
+  const data = updateTransportEntrySchema.parse(req.body);
+  const entry = await transportService.updateEntry(req.params.id, data);
+  res.json({ success: true, data: entry });
+});
+
 export const deleteEntry = asyncHandler(async (req: Request, res: Response) => {
   await transportService.deleteEntry(req.params.id);
   res.json({ success: true, message: 'Entry deleted' });

@@ -53,13 +53,13 @@ const navItemsAfter = [
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Cash Book", url: "/cash-book", icon: BookText },
   { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
-  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 const transportItems = [
   { title: "Transport Entry", url: "/transport", icon: ClipboardList },
+  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
   { title: "Vehicles", url: "/transport/vehicles", icon: Truck },
   { title: "Vendors", url: "/transport/vendors", icon: Users },
   { title: "Reports", url: "/transport/reports", icon: BarChart3 },
@@ -74,7 +74,8 @@ export function AppSidebar() {
     clientLoungeItems.some((item) => location.pathname === item.url || location.pathname.startsWith("/client-management"))
   );
   const [transportOpen, setTransportOpen] = useState(
-    transportItems.some((item) => location.pathname.startsWith(item.url))
+    transportItems.some((item) => location.pathname === item.url || location.pathname.startsWith(item.url + "/")) ||
+    location.pathname === "/tipper-ledger"
   );
 
   const handleLogout = () => {

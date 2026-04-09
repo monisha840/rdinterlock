@@ -168,63 +168,63 @@ const AttendancePage = () => {
                         {selectedWorkerId && (
                             <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-5">
                                 {/* Summary Stats */}
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="bg-gradient-to-br from-secondary/50 to-background p-4 rounded-3xl border border-border/50 text-center shadow-sm">
-                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter mb-1 opacity-70">Total Days</p>
-                                        <p className="text-2xl font-black text-foreground">{historySummary.total}</p>
+                                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                    <div className="bg-gradient-to-br from-secondary/50 to-background p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-border/50 text-center shadow-sm">
+                                        <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-tighter mb-0.5 opacity-70">Total</p>
+                                        <p className="text-xl sm:text-2xl font-black text-foreground">{historySummary.total}</p>
                                     </div>
-                                    <div className="bg-gradient-to-br from-green-50 to-background p-4 rounded-3xl border border-green-100 text-center shadow-sm">
-                                        <p className="text-[10px] font-black text-green-600 uppercase tracking-tighter mb-1">Present</p>
-                                        <p className="text-2xl font-black text-green-700">{historySummary.present}</p>
+                                    <div className="bg-gradient-to-br from-green-50 to-background p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-green-100 text-center shadow-sm">
+                                        <p className="text-[9px] sm:text-[10px] font-black text-green-600 uppercase tracking-tighter mb-0.5">Present</p>
+                                        <p className="text-xl sm:text-2xl font-black text-green-700">{historySummary.present}</p>
                                     </div>
-                                    <div className="bg-gradient-to-br from-red-50 to-background p-4 rounded-3xl border border-red-100 text-center shadow-sm">
-                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter mb-1">Absent</p>
-                                        <p className="text-2xl font-black text-red-700">{historySummary.absent}</p>
+                                    <div className="bg-gradient-to-br from-red-50 to-background p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-red-100 text-center shadow-sm">
+                                        <p className="text-[9px] sm:text-[10px] font-black text-red-600 uppercase tracking-tighter mb-0.5">Absent</p>
+                                        <p className="text-xl sm:text-2xl font-black text-red-700">{historySummary.absent}</p>
                                     </div>
                                 </div>
 
                                 {/* History Table */}
-                                <div className="rounded-3xl border border-border/60 overflow-hidden bg-card/50 shadow-sm backdrop-blur-sm">
+                                <div className="rounded-2xl border border-border/60 overflow-hidden bg-card/50 shadow-sm backdrop-blur-sm">
                                     <DragScrollContainer showHint className="max-h-[300px] overflow-y-auto">
-                                        <table className="w-full text-xs text-left border-collapse">
+                                        <table className="w-full text-xs text-left border-collapse min-w-[400px]">
                                             <thead className="sticky top-0 z-10 bg-secondary/80 backdrop-blur-md text-muted-foreground font-black border-b border-border uppercase tracking-widest text-[9px]">
                                                 <tr>
-                                                    <th className="py-3.5 px-5">Date</th>
-                                                    <th className="py-3.5 px-5 text-center">Status</th>
-                                                    <th className="py-3.5 px-5">Notes</th>
+                                                    <th className="py-2.5 px-3 sm:px-5">Date</th>
+                                                    <th className="py-2.5 px-3 sm:px-5 text-center">Status</th>
+                                                    <th className="py-2.5 px-3 sm:px-5">Notes</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-border/30">
                                                 {isHistoryLoading ? (
                                                     <tr>
-                                                        <td colSpan={3} className="py-12 text-center text-primary/40">
+                                                        <td colSpan={3} className="py-10 text-center text-primary/40">
                                                             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                                             <p className="font-bold text-[10px] uppercase">Fetching logs...</p>
                                                         </td>
                                                     </tr>
                                                 ) : attendanceHistory.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={3} className="py-12 text-center text-muted-foreground italic">
+                                                        <td colSpan={3} className="py-10 text-center text-muted-foreground italic">
                                                             <FileText className="h-8 w-8 mx-auto mb-2 opacity-10" />
-                                                            No history found for this person
+                                                            No history found
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     attendanceHistory.map((h: any) => (
                                                         <tr key={h.id} className="hover:bg-secondary/30 transition-colors group">
-                                                            <td className="py-3.5 px-5 font-bold text-foreground/80">
-                                                                {format(new Date(h.date), "dd MMM, yyyy")}
+                                                            <td className="py-2.5 px-3 sm:px-5 font-bold text-foreground/80 whitespace-nowrap">
+                                                                {format(new Date(h.date), "dd MMM")}
                                                             </td>
-                                                            <td className="py-3.5 px-5 text-center">
-                                                                <span className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm ${
-                                                                    h.present 
-                                                                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200" 
+                                                            <td className="py-2.5 px-3 sm:px-5 text-center">
+                                                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                                                    h.present
+                                                                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
                                                                         : "bg-red-50 text-red-600 border border-red-100"
                                                                 }`}>
                                                                     {h.present ? "Present" : "Absent"}
                                                                 </span>
                                                             </td>
-                                                            <td className="py-3.5 px-5 text-muted-foreground font-medium italic max-w-[140px] truncate group-hover:whitespace-normal group-hover:bg-background/80 transition-all cursor-help" title={h.notes}>
+                                                            <td className="py-2.5 px-3 sm:px-5 text-muted-foreground font-medium italic max-w-[120px] truncate" title={h.notes}>
                                                                 {h.notes || "—"}
                                                             </td>
                                                         </tr>
@@ -267,23 +267,22 @@ const AttendancePage = () => {
                                 return (
                                     <div
                                         key={w.id}
-                                        className={`rounded-2xl border p-4 transition-all ${isPresent
+                                        className={`rounded-2xl border p-3 sm:p-4 transition-all ${isPresent
                                             ? "border-primary/30 bg-primary/5"
                                             : "border-border bg-secondary/20"
                                             }`}
                                     >
-                                        {/* Header row */}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                                                 <div
-                                                    className={`h-11 w-11 rounded-xl flex items-center justify-center text-white font-bold shadow-sm text-base transition-colors ${isPresent ? "bg-primary" : "bg-muted-foreground/30"
+                                                    className={`h-9 w-9 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-white font-bold shadow-sm text-sm sm:text-base shrink-0 transition-colors ${isPresent ? "bg-primary" : "bg-muted-foreground/30"
                                                         }`}
                                                 >
                                                     {w.name[0]}
                                                 </div>
-                                                <div>
-                                                    <p className="font-bold text-sm">{w.name}</p>
-                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-[13px] sm:text-sm truncate">{w.name}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
                                                         <StatusBadge label={w.role} variant={(roleColor[w.role] as any) || "default"} />
                                                         <span className="text-[10px] text-muted-foreground font-semibold">
                                                             ₹{w.rate}/day
@@ -292,19 +291,17 @@ const AttendancePage = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Present / Absent */}
-                                            <div className="flex items-center gap-3">
-
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <label className="text-[9px] text-green-600 font-bold uppercase">Present</label>
+                                            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <label className="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase">P</label>
                                                     <Checkbox
                                                         checked={isPresent}
                                                         onCheckedChange={() => toggleStaff(w.id)}
                                                         className="h-6 w-6 rounded-lg data-[state=checked]:bg-primary"
                                                     />
                                                 </div>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <label className="text-[9px] text-destructive font-bold uppercase">Absent</label>
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <label className="text-[8px] sm:text-[9px] text-destructive font-bold uppercase">A</label>
                                                     <Checkbox
                                                         checked={!isPresent}
                                                         onCheckedChange={() => toggleStaff(w.id)}
@@ -313,7 +310,6 @@ const AttendancePage = () => {
                                                 </div>
                                             </div>
                                         </div>
-
                                     </div>
                                 );
                             })
@@ -345,44 +341,41 @@ const AttendancePage = () => {
                                 return (
                                     <div
                                         key={w.id}
-                                        className={`rounded-2xl border p-4 transition-all ${isPresent ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-secondary/20"
+                                        className={`rounded-2xl border p-3 sm:p-4 transition-all ${isPresent ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-secondary/20"
                                             }`}
                                     >
-                                        {/* Header row */}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                                                 <div
-                                                    className={`h-11 w-11 rounded-xl flex items-center justify-center text-white font-bold shadow-sm text-base transition-colors ${isPresent ? "bg-amber-500" : "bg-muted-foreground/30"
+                                                    className={`h-9 w-9 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center text-white font-bold shadow-sm text-sm sm:text-base shrink-0 transition-colors ${isPresent ? "bg-amber-500" : "bg-muted-foreground/30"
                                                         }`}
                                                 >
                                                     {w.name[0]}
                                                 </div>
-                                                <div>
-                                                    <p className="font-bold text-sm">{w.name}</p>
-                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-[13px] sm:text-sm truncate">{w.name}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${isMason ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
                                                             {w.role}
                                                         </span>
-                                                        <span className="text-[10px] text-muted-foreground font-semibold">
-                                                            {isMason ? "₹9/brick" : "₹2.50 Day / ₹3 Night"}
+                                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground font-semibold">
+                                                            {isMason ? "₹9/brick" : "₹2.5/₹3"}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* Present / Absent */}
-                                            <div className="flex items-center gap-3">
-
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <label className="text-[9px] text-green-600 font-bold uppercase">Present</label>
+                                            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <label className="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase">P</label>
                                                     <Checkbox
                                                         checked={isPresent}
                                                         onCheckedChange={() => toggleWorker(w.id)}
                                                         className="h-6 w-6 rounded-lg data-[state=checked]:bg-amber-500"
                                                     />
                                                 </div>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <label className="text-[9px] text-destructive font-bold uppercase">Absent</label>
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <label className="text-[8px] sm:text-[9px] text-destructive font-bold uppercase">A</label>
                                                     <Checkbox
                                                         checked={!isPresent}
                                                         onCheckedChange={() => toggleWorker(w.id)}
@@ -391,7 +384,6 @@ const AttendancePage = () => {
                                                 </div>
                                             </div>
                                         </div>
-
                                     </div>
                                 );
                             })

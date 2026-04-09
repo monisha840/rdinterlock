@@ -50,6 +50,9 @@ export const createVehicleEmiSchema = z.object({
 });
 
 export const updateVehicleEmiSchema = z.object({
+  vehicleId: z.string().uuid().optional(),
+  amount: z.number().positive().optional(),
+  dueDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   paidDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().nullable(),
   status: z.enum(['PENDING', 'PAID']).optional(),
   paymentMode: z.string().optional().nullable(),

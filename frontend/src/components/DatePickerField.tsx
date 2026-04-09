@@ -24,19 +24,19 @@ export function DatePickerField({ date, onDateChange, label = "Entry Date" }: Da
             <Button
               variant="outline"
               className={cn(
-                "w-full h-12 justify-start text-left font-bold rounded-xl border-border bg-background shadow-sm hover:bg-secondary/50",
+                "w-full h-12 justify-start text-left font-bold rounded-xl border-border bg-background shadow-sm hover:bg-secondary/50 overflow-hidden",
                 !date && "text-muted-foreground"
               )}
             >
-              <CalendarIcon className="mr-2.5 h-4 w-4 text-primary/60" />
+              <CalendarIcon className="mr-2 h-4 w-4 text-primary/60 shrink-0" />
               {date ? (
-                <span className="text-sm font-black text-foreground">{format(date, "PPP")}</span>
+                <span className="text-[12px] sm:text-sm font-black text-foreground truncate">{format(date, "dd MMM yyyy")}</span>
               ) : (
                 <span className="text-sm text-muted-foreground">Pick a date</span>
               )}
             </Button>
           </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+        <PopoverContent className="w-auto p-0 rounded-xl z-50" align="start" sideOffset={4}>
           <Calendar
             mode="single"
             selected={date}

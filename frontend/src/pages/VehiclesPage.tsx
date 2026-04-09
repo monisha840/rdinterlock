@@ -121,6 +121,7 @@ const VehiclesPage = () => {
 
   // --- EMI Logic ---
   const [isEmiDialogOpen, setIsEmiDialogOpen] = useState(false);
+  const [editingEmi, setEditingEmi] = useState<any>(null);
   const [emiForm, setEmiForm] = useState({
     vehicleId: "",
     amount: "",
@@ -142,14 +143,28 @@ const VehiclesPage = () => {
   });
 
   const emiMutation = useMutation({
-    mutationFn: (data: any) => transportApi.createEmi(data),
+    mutationFn: (data: any) => editingEmi
+      ? transportApi.updateEmi(editingEmi.id, data)
+      : transportApi.createEmi(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vehicle-emis"] });
-      toast.success("EMI record created");
+      toast.success(editingEmi ? "EMI record updated" : "EMI record created");
       setIsEmiDialogOpen(false);
+      setEditingEmi(null);
       setEmiForm({ vehicleId: "", amount: "", dueDate: new Date().toISOString().split("T")[0], notes: "" });
     }
   });
+
+  const handleEditEmi = (emi: any) => {
+    setEditingEmi(emi);
+    setEmiForm({
+      vehicleId: emi.vehicleId,
+      amount: String(emi.amount),
+      dueDate: new Date(emi.dueDate).toISOString().split("T")[0],
+      notes: emi.notes || ""
+    });
+    setIsEmiDialogOpen(true);
+  };
 
   const payEmiMutation = useMutation({
     mutationFn: ({ id, data }: { id: string, data: any }) => transportApi.updateEmi(id, { ...data, status: 'PAID' }),
@@ -183,16 +198,16 @@ const VehiclesPage = () => {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          <Dialog open={isEmiDialogOpen} onOpenChange={setIsEmiDialogOpen}>
+          <Dialog open={isEmiDialogOpen} onOpenChange={(open) => { setIsEmiDialogOpen(open); if (!open) { setEditingEmi(null); setEmiForm({ vehicleId: "", amount: "", dueDate: new Date().toISOString().split("T")[0], notes: "" }); } }}>
             <DialogTrigger asChild>
-              <button className="h-10 px-4 rounded-xl border border-primary/20 bg-background hover:bg-muted transition-all flex items-center gap-2 text-sm font-bold shadow-sm active:scale-95">
+              <button onClick={() => { setEditingEmi(null); setEmiForm({ vehicleId: "", amount: "", dueDate: new Date().toISOString().split("T")[0], notes: "" }); }} className="h-10 px-4 rounded-xl border border-primary/20 bg-background hover:bg-muted transition-all flex items-center gap-2 text-sm font-bold shadow-sm active:scale-95">
                 <CreditCard className="h-4 w-4 text-primary" />
                 Schedule EMI
               </button>
             </DialogTrigger>
             <DialogContent className="rounded-2xl border-primary/10 shadow-2xl backdrop-blur-xl bg-background/95 max-w-[95vw] sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="text-xl md:text-2xl font-black text-primary">Schedule Vehicle EMI</DialogTitle>
+                <DialogTitle className="text-xl md:text-2xl font-black text-primary">{editingEmi ? "Edit EMI Record" : "Schedule Vehicle EMI"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -251,7 +266,7 @@ const VehiclesPage = () => {
                 </div>
                 <DialogFooter className="mt-6 flex-col sm:flex-row gap-2">
                   <Button type="submit" disabled={emiMutation.isPending} className="w-full rounded-xl h-12 text-base font-bold">
-                    {emiMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Schedule EMI"}
+                    {emiMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingEmi ? "Save Changes" : "Schedule EMI"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -511,13 +526,16 @@ const VehiclesPage = () => {
 
                     <div className="flex gap-2">
                       {emi.status === 'PENDING' && (
-                        <button 
+                        <button
                           onClick={() => { setPayEmiForm({ ...payEmiForm, id: emi.id }); setIsPayEmiDialogOpen(true); }}
                           className="flex-1 h-10 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
                         >
                           Pay EMI Now
                         </button>
                       )}
+                      <Button variant="ghost" size="icon" className="h-10 w-10 bg-secondary/50 rounded-xl" onClick={() => handleEditEmi(emi)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-10 w-10 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
                         if (confirm("Delete this EMI record?")) deleteEmiMutation.mutate(emi.id);
                       }}>
@@ -578,13 +596,16 @@ const VehiclesPage = () => {
                         <TableCell className="text-right px-6">
                           <div className="flex items-center justify-end gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
                             {emi.status === 'PENDING' && (
-                              <button 
+                              <button
                                 onClick={() => { setPayEmiForm({ ...payEmiForm, id: emi.id }); setIsPayEmiDialogOpen(true); }}
                                 className="h-8 px-3 rounded-xl text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 text-xs font-black"
                               >
                                 Pay Now
                               </button>
                             )}
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-background shadow-sm border border-transparent hover:border-border" onClick={() => handleEditEmi(emi)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
                               if (confirm("Delete this EMI record?")) deleteEmiMutation.mutate(emi.id);
                             }}>
