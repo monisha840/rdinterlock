@@ -88,8 +88,7 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center text-xs text-muted-foreground">
-            <p>Default credentials:</p>
-            <p className="font-mono">adminrd@interlock.com / rdadmin</p>
+            <p>Contact admin for login credentials</p>
           </div>
         </div>
       </div>

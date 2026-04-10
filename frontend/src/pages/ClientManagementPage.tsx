@@ -71,6 +71,7 @@ const ClientManagementPage = () => {
     // ── Delete Confirmation modal ──
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<any>(null);
+    const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
 
     // ─── Queries ───────────────────────────────────────────────────────────────
 
@@ -523,7 +524,7 @@ const ClientManagementPage = () => {
                                     </div>
 
                                     {/* Order Summary Row */}
-                                    <div className="grid grid-cols-4 gap-2 mt-3 text-center">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-center">
                                         <div className="py-1 px-2 bg-secondary/40 rounded-lg">
                                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Orders</p>
                                             <p className="text-xs font-bold text-foreground">{allClientOrders.length}</p>
@@ -597,9 +598,7 @@ const ClientManagementPage = () => {
                                                         <button onClick={() => openEditOrder(order)} className="p-1.5 rounded-lg hover:bg-secondary">
                                                             <Edit2 className="h-3.5 w-3.5 text-amber-500" />
                                                         </button>
-                                                        <button onClick={() => {
-                                                            if (confirm("Delete this order?")) deleteOrderMut.mutate(order.id);
-                                                        }} className="p-1.5 rounded-lg hover:bg-secondary">
+                                                        <button onClick={() => setDeleteOrderId(order.id)} className="p-1.5 rounded-lg hover:bg-secondary">
                                                             <Trash2 className="h-3.5 w-3.5 text-red-500" />
                                                         </button>
                                                     </div>
@@ -626,7 +625,7 @@ const ClientManagementPage = () => {
             {/* ─── Client Modal ──────────────────────────────────────────────── */}
             {showClientModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl">
+                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">{editingClient ? "Edit Client" : "Add Client"}</h2>
                             <button onClick={() => { setShowClientModal(false); setEditingClient(null); }}>
@@ -1093,6 +1092,22 @@ const ClientManagementPage = () => {
                             >
                                 {deleteClientMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Permanently"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Order Delete Confirmation */}
+            {deleteOrderId && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card w-full max-w-[400px] rounded-3xl p-6 shadow-2xl border border-border animate-in fade-in zoom-in duration-200">
+                        <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mb-4 text-red-600">
+                            <Trash2 className="h-6 w-6" />
+                        </div>
+                        <h2 className="text-xl font-bold text-foreground mb-2">Delete Order?</h2>
+                        <p className="text-sm text-muted-foreground mb-6">This will permanently remove this order. This action cannot be undone.</p>
+                        <div className="flex gap-2">
+                            <button onClick={() => setDeleteOrderId(null)} className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors">Cancel</button>
+                            <button onClick={() => { deleteOrderMut.mutate(deleteOrderId); setDeleteOrderId(null); }} className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors">Delete</button>
                         </div>
                     </div>
                 </div>

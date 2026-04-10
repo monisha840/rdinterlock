@@ -31,6 +31,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 const CashBookPage = () => {
   const queryClient = useQueryClient();
@@ -55,6 +56,7 @@ const CashBookPage = () => {
   const [importResults, setImportResults] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [deleteCashId, setDeleteCashId] = useState<string | null>(null);
 
   const categoriesIn = ["Client Payment", "Advance Return", "Other Income"];
   const groupedCategoriesOut = {
@@ -863,11 +865,7 @@ const CashBookPage = () => {
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this transaction?")) {
-                          deleteEntryMutation.mutate(e.id);
-                        }
-                      }}
+                      onClick={() => setDeleteCashId(e.id)}
                       className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all active:scale-90"
                       title="Delete Entry"
                     >
@@ -882,6 +880,15 @@ const CashBookPage = () => {
           )}
         </div>
       </EntryCard>
+      <ConfirmModal
+        isOpen={!!deleteCashId}
+        onClose={() => setDeleteCashId(null)}
+        onConfirm={() => { if (deleteCashId) { deleteEntryMutation.mutate(deleteCashId); setDeleteCashId(null); } }}
+        title="Delete Transaction?"
+        description="Are you sure you want to delete this transaction? This cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+      />
     </MobileFormLayout>
   );
 };

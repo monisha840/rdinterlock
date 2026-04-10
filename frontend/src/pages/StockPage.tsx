@@ -3,6 +3,7 @@ import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { Factory, Package, Loader2, AlertTriangle, Info, RefreshCw, Zap } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { stockApi } from "@/api/stock.api";
+import apiClient from "@/api/apiClient";
 import {
   Dialog,
   DialogContent,
@@ -23,12 +24,8 @@ const StockPage = () => {
   const { data: alertsData, isLoading: isAlertsLoading } = useQuery({
     queryKey: ['stock', 'alerts'],
     queryFn: async () => {
-        const response = await fetch('/api/stock/alerts', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch alerts');
-        const res = await response.json();
-        return res.data;
+        const res = await apiClient.get('/stock/alerts');
+        return (res as any).data;
     },
     refetchInterval: 30000, // Refresh every 30s
   });

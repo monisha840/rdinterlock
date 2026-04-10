@@ -4,72 +4,72 @@ import { CreateCashEntryInput, UpdateCashEntryInput } from './cashbook.validatio
 
 export class CashbookService {
   async createCashEntry(data: CreateCashEntryInput) {
-    const cashEntry = await (prisma.cashEntry as any).create({
-      data: {
-        date: new Date(data.date),
-        type: data.type,
-        amount: data.amount,
-        description: data.description,
-        category: data.category,
-        paymentMode: data.paymentMode || 'CASH',
-        vendorName: data.vendorName || null,
-        customerId: data.customerId || null,
-        workerId: data.workerId || null,
-        materialId: data.materialId || null,
-        isRecordOnly: data.isRecordOnly || false,
-      } as any,
-    });
-
-    // Sync Client Payment to Client Ledger when "Client Payment" is recorded in Cash Book
-    if (data.category === 'Client Payment' && data.customerId) {
-      await prisma.clientPayment.create({
+    return await prisma.$transaction(async (tx: any) => {
+      const cashEntry = await tx.cashEntry.create({
         data: {
-          clientId: data.customerId,
-          type: 'PAYMENT',
-          amount: data.amount,
-          paymentDate: new Date(data.date),
-          paymentMethod: data.paymentMode || 'CASH',
-          notes: data.description ? `${data.description} (via CashBook: ${cashEntry.id})` : `Payment via CashBook (ID: ${cashEntry.id})`,
-        }
-      });
-    }
-
-    // Sync Advance Received to Client Ledger
-    if (data.category === 'Advance Return' && data.customerId) {
-      await prisma.clientPayment.create({
-        data: {
-          clientId: data.customerId,
-          type: 'ADVANCE',
-          amount: data.amount,
-          paymentDate: new Date(data.date),
-          paymentMethod: data.paymentMode || 'CASH',
-          notes: data.description ? `${data.description} (via CashBook: ${cashEntry.id})` : `Advance via CashBook (ID: ${cashEntry.id})`,
-        }
-      });
-    }
-
-    // Create corresponding advance record if category applies
-    if ((data.category === 'Worker Advance' || data.category === 'Staff Advance') && data.workerId) {
-      // @ts-ignore
-      await prisma.workerAdvance.create({
-        data: {
-          workerId: data.workerId,
-          amount: data.amount,
-          type: 'ADVANCE',
           date: new Date(data.date),
-          // @ts-ignore
+          type: data.type,
+          amount: data.amount,
+          description: data.description,
+          category: data.category,
           paymentMode: data.paymentMode || 'CASH',
-          note: data.description ? `${data.description} (CashBook: ${cashEntry.id})` : `Advance via CashBook (ID: ${cashEntry.id})`,
-        }
+          vendorName: data.vendorName || null,
+          customerId: data.customerId || null,
+          workerId: data.workerId || null,
+          materialId: data.materialId || null,
+          isRecordOnly: data.isRecordOnly || false,
+        },
       });
 
-      await prisma.worker.update({
-        where: { id: data.workerId },
-        data: { advanceBalance: { increment: data.amount } }
-      });
-    }
+      // Sync Client Payment to Client Ledger
+      if (data.category === 'Client Payment' && data.customerId) {
+        await tx.clientPayment.create({
+          data: {
+            clientId: data.customerId,
+            type: 'PAYMENT',
+            amount: data.amount,
+            paymentDate: new Date(data.date),
+            paymentMethod: data.paymentMode || 'CASH',
+            notes: data.description ? `${data.description} (via CashBook: ${cashEntry.id})` : `Payment via CashBook (ID: ${cashEntry.id})`,
+          }
+        });
+      }
 
-    return cashEntry;
+      // Sync Advance Received to Client Ledger
+      if (data.category === 'Advance Return' && data.customerId) {
+        await tx.clientPayment.create({
+          data: {
+            clientId: data.customerId,
+            type: 'ADVANCE',
+            amount: data.amount,
+            paymentDate: new Date(data.date),
+            paymentMethod: data.paymentMode || 'CASH',
+            notes: data.description ? `${data.description} (via CashBook: ${cashEntry.id})` : `Advance via CashBook (ID: ${cashEntry.id})`,
+          }
+        });
+      }
+
+      // Create corresponding advance record if category applies
+      if ((data.category === 'Worker Advance' || data.category === 'Staff Advance') && data.workerId) {
+        await tx.workerAdvance.create({
+          data: {
+            workerId: data.workerId,
+            amount: data.amount,
+            type: 'ADVANCE',
+            date: new Date(data.date),
+            paymentMode: data.paymentMode || 'CASH',
+            note: data.description ? `${data.description} (CashBook: ${cashEntry.id})` : `Advance via CashBook (ID: ${cashEntry.id})`,
+          }
+        });
+
+        await tx.worker.update({
+          where: { id: data.workerId },
+          data: { advanceBalance: { increment: data.amount } }
+        });
+      }
+
+      return cashEntry;
+    });
   }
 
   async getCashEntries(

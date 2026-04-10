@@ -125,6 +125,7 @@ const TransportEntryPage = () => {
   });
 
   const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
 
   const updateEntryMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => transportApi.updateEntry(id, data),
@@ -673,7 +674,7 @@ const TransportEntryPage = () => {
                         size="icon"
                         className="h-8 w-8 text-destructive/50 hover:text-destructive hover:bg-destructive/5 rounded-xl"
                         onClick={() => {
-                          if (window.confirm("Delete this entry?")) deleteMutation.mutate(item.id);
+                          setDeleteEntryId(item.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -769,11 +770,7 @@ const TransportEntryPage = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10"
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this entry?")) {
-                                  deleteMutation.mutate(item.id);
-                                }
-                              }}
+                              onClick={() => setDeleteEntryId(item.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -788,6 +785,20 @@ const TransportEntryPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Entry Confirm */}
+      {deleteEntryId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-[380px] rounded-3xl p-6 shadow-2xl border border-border animate-in fade-in zoom-in duration-200">
+            <h2 className="text-lg font-bold mb-2">Delete Transport Entry?</h2>
+            <p className="text-sm text-muted-foreground mb-5">This will permanently remove this entry and any linked cash records.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteEntryId(null)} className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-secondary">Cancel</button>
+              <button onClick={() => { deleteMutation.mutate(deleteEntryId); setDeleteEntryId(null); }} className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

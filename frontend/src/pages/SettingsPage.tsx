@@ -882,9 +882,11 @@ const SettingsPage = () => {
                       {!s.isActive && (
                         <button
                           onClick={() => {
-                            if (confirm(`Permanently delete staff "${s.name}"? This cannot be undone.`)) {
-                              removeStaffMutation.mutate({ id: s.id, force: true });
-                            }
+                            triggerConfirm({
+                              title: `Delete ${s.name}?`,
+                              description: `Permanently delete staff "${s.name}"? This cannot be undone.`,
+                              onConfirm: () => removeStaffMutation.mutate({ id: s.id, force: true }),
+                            });
                           }}
                           className="text-muted-foreground hover:text-destructive px-1"
                           title="Delete Permanently"

@@ -50,6 +50,8 @@ const VehiclesPage = () => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<any>(null);
+  const [deleteVehicleId, setDeleteVehicleId] = useState<string | null>(null);
+  const [deleteEmiId, setDeleteEmiId] = useState<string | null>(null);
   
   // Form State
   const [vehicleNumber, setVehicleNumber] = useState("");
@@ -399,7 +401,7 @@ const VehiclesPage = () => {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-9 w-9 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
-                        if (confirm("Delete this vehicle?")) deleteMutation.mutate(v.id);
+                        setDeleteVehicleId(v.id);
                       }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -471,7 +473,7 @@ const VehiclesPage = () => {
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
-                              if (confirm("Delete this vehicle?")) deleteMutation.mutate(v.id);
+                              setDeleteVehicleId(v.id);
                             }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -537,7 +539,7 @@ const VehiclesPage = () => {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-10 w-10 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
-                        if (confirm("Delete this EMI record?")) deleteEmiMutation.mutate(emi.id);
+                        setDeleteEmiId(emi.id);
                       }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -607,7 +609,7 @@ const VehiclesPage = () => {
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-xl hover:bg-destructive/10" onClick={() => {
-                              if (confirm("Delete this EMI record?")) deleteEmiMutation.mutate(emi.id);
+                              setDeleteEmiId(emi.id);
                             }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -685,6 +687,34 @@ const VehiclesPage = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Vehicle Delete Confirm */}
+      {deleteVehicleId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-[380px] rounded-3xl p-6 shadow-2xl border border-border animate-in fade-in zoom-in duration-200">
+            <h2 className="text-lg font-bold mb-2">Delete Vehicle?</h2>
+            <p className="text-sm text-muted-foreground mb-5">This will permanently remove this vehicle and related data.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteVehicleId(null)} className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-secondary">Cancel</button>
+              <button onClick={() => { deleteMutation.mutate(deleteVehicleId); setDeleteVehicleId(null); }} className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMI Delete Confirm */}
+      {deleteEmiId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-[380px] rounded-3xl p-6 shadow-2xl border border-border animate-in fade-in zoom-in duration-200">
+            <h2 className="text-lg font-bold mb-2">Delete EMI Record?</h2>
+            <p className="text-sm text-muted-foreground mb-5">This will permanently remove this EMI record.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteEmiId(null)} className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-secondary">Cancel</button>
+              <button onClick={() => { deleteEmiMutation.mutate(deleteEmiId); setDeleteEmiId(null); }} className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

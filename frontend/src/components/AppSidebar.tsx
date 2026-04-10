@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ClipboardList,
   Hammer,
+  HelpCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +51,7 @@ const navItemsAfter = [
   { title: "Cash Book", url: "/cash-book", icon: BookText },
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
+  { title: "App Guide", url: "/app-guide", icon: HelpCircle },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

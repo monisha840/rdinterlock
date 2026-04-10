@@ -89,7 +89,7 @@ export class WeeklySettlementService {
       where: {
         weekStart: {
           gte: weekStart,
-          lte: weekStart,
+          lte: weekEnd,
         },
       } as any,
     });

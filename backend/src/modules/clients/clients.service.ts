@@ -110,19 +110,19 @@ export class ClientsService {
         if (!client) throw new AppError('Client not found', 404);
 
         await prisma.$transaction([
-            // Delete related cash entries first
-            prisma.cashEntry.deleteMany({ where: { customerId: id } }),
-            // Delete related dispatches
-            prisma.dispatch.deleteMany({ where: { customerId: id } }),
-            // Delete related schedules
-            prisma.dispatchSchedule.deleteMany({ where: { clientId: id } }),
-            // Delete related payments
-            prisma.clientPayment.deleteMany({ where: { clientId: id } }),
-            // Delete related orders
-            prisma.clientOrder.deleteMany({ where: { clientId: id } }),
-            // Delete related returns
+            // 1. Delete brick returns first (references dispatches)
             prisma.brickReturn.deleteMany({ where: { clientId: id } }),
-            // Finally delete the client
+            // 2. Delete cash entries
+            prisma.cashEntry.deleteMany({ where: { customerId: id } }),
+            // 3. Delete dispatches (referenced by brick returns - now safe)
+            prisma.dispatch.deleteMany({ where: { customerId: id } }),
+            // 4. Delete dispatch schedules (references orders)
+            prisma.dispatchSchedule.deleteMany({ where: { clientId: id } }),
+            // 5. Delete payments (references orders)
+            prisma.clientPayment.deleteMany({ where: { clientId: id } }),
+            // 6. Delete orders (referenced by schedules, payments - now safe)
+            prisma.clientOrder.deleteMany({ where: { clientId: id } }),
+            // 7. Finally delete the client
             prisma.customer.delete({ where: { id } }),
         ]);
 

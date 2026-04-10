@@ -29,6 +29,8 @@ import VendorsPage from "./pages/VendorsPage";
 import TransportReportsPage from "./pages/TransportReportsPage";
 import MasonLedgerPage from "./pages/MasonLedgerPage";
 import TipperLedgerPage from "./pages/TipperLedgerPage";
+import BrickReturnPage from "./pages/BrickReturnPage";
+import HelpGuidePage from "./pages/HelpGuidePage";
 
 const queryClient = new QueryClient();
 
@@ -267,6 +269,26 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <TipperLedgerPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/brick-returns"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <BrickReturnPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/app-guide"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <HelpGuidePage />
                 </AppLayout>
               </ProtectedRoute>
             }

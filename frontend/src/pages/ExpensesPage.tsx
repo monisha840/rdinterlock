@@ -4,6 +4,7 @@ import { EntryCard } from "@/components/EntryCard";
 import { ActionButton } from "@/components/ActionButton";
 import { KPICard } from "@/components/KPICard";
 import { DatePickerField } from "@/components/DatePickerField";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
 import { Save, Loader2, Wallet, X, Edit2, Trash2, Search, TrendingDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ const ExpensesPage = () => {
   const [amount, setAmount] = useState("");
   const [paymentMode, setPaymentMode] = useState("CASH");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -288,7 +290,7 @@ const ExpensesPage = () => {
                   <button onClick={() => startEdit(e)} className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all" title="Edit">
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => { if (confirm("Delete this expense?")) deleteMut.mutate(e.id); }} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all" title="Delete">
+                  <button onClick={() => setDeleteExpenseId(e.id)} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all" title="Delete">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -297,6 +299,15 @@ const ExpensesPage = () => {
           )}
         </div>
       </EntryCard>
+      <ConfirmModal
+        isOpen={!!deleteExpenseId}
+        onClose={() => setDeleteExpenseId(null)}
+        onConfirm={() => { if (deleteExpenseId) { deleteMut.mutate(deleteExpenseId); setDeleteExpenseId(null); } }}
+        title="Delete Expense?"
+        description="This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+      />
     </MobileFormLayout>
   );
 };

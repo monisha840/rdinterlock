@@ -1,5 +1,9 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import { 
   BarChart3, 
   Download, 
@@ -59,6 +63,53 @@ const TransportReportsPage = () => {
     queryFn: () => transportApi.getVehicles(),
   });
 
+  const handleExportPDF = () => {
+    try {
+      if (entries.length === 0) { toast.error("No data to export"); return; }
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16);
+      doc.text("Transport Report", 14, 15);
+      doc.setFontSize(10);
+      doc.text("Period: " + startDate + " to " + endDate, 14, 22);
+      autoTable(doc, {
+        head: [["Date", "Vehicle", "Type", "Loads", "Expense", "Income"]],
+        body: entries.map((item: any) => [
+          format(new Date(item.date), "dd-MM-yyyy"),
+          item.vehicle?.vehicleNumber || "-",
+          item.transportType === "RD_VEHICLE" ? "RD" : "Vendor",
+          item.loads,
+          item.expenseAmount > 0 ? "Rs." + item.expenseAmount.toLocaleString() : "-",
+          item.incomeAmount > 0 ? "Rs." + item.incomeAmount.toLocaleString() : "-",
+        ]),
+        startY: 28,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+      doc.save("transport-report-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+      toast.success("PDF exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      if (entries.length === 0) { toast.error("No data to export"); return; }
+      const cols = ["Date", "Vehicle", "Type", "Loads", "Expense", "Income"];
+      const rows = entries.map((item: any) => [
+        format(new Date(item.date), "dd-MM-yyyy"),
+        item.vehicle?.vehicleNumber || "-",
+        item.transportType === "RD_VEHICLE" ? "RD" : "Vendor",
+        item.loads,
+        item.expenseAmount || 0,
+        item.incomeAmount || 0,
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Transport");
+      XLSX.writeFile(wb, "transport-report-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+      toast.success("Excel exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500 pb-32 sm:pb-8 overflow-y-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -71,10 +122,10 @@ const TransportReportsPage = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="rounded-xl gap-2 font-bold text-xs uppercase tracking-tight h-11 border-primary/20">
+          <Button variant="outline" onClick={handleExportPDF} className="rounded-xl gap-2 font-bold text-xs uppercase tracking-tight h-11 border-primary/20">
             <FileText className="h-4 w-4" /> Export PDF
           </Button>
-          <Button variant="outline" className="rounded-xl gap-2 font-bold text-xs uppercase tracking-tight h-11 border-primary/20">
+          <Button variant="outline" onClick={handleExportExcel} className="rounded-xl gap-2 font-bold text-xs uppercase tracking-tight h-11 border-primary/20">
             <Download className="h-4 w-4" /> Export Excel
           </Button>
         </div>

@@ -254,7 +254,7 @@ const ClientLedgerPage = () => {
     return (
         <MobileFormLayout title="Client Ledger" subtitle="Payment & Advance tracking">
             {/* Summary */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                 <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-center">
                     <p className="text-[10px] sm:text-xs text-green-600 font-medium">Total Received</p>
                     <p className="text-base sm:text-lg font-bold text-green-700">₹{totalReceived.toLocaleString()}</p>
