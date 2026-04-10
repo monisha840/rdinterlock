@@ -5,8 +5,6 @@ import {
   LayoutDashboard,
   BookOpen,
   Truck,
-  Package,
-  Wallet,
   Users,
   BookText,
   BarChart3,
@@ -19,7 +17,6 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
-  RotateCcw,
   Hammer,
 } from "lucide-react";
 import {
@@ -40,6 +37,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Daily Entry", url: "/daily-entry", icon: BookOpen, highlight: true },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
 const clientLoungeItems = [
@@ -49,11 +47,9 @@ const clientLoungeItems = [
 ];
 
 const navItemsAfter = [
-  { title: "Stock", url: "/stock", icon: Package },
-  { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Cash Book", url: "/cash-book", icon: BookText },
+  { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

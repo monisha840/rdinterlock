@@ -134,7 +134,7 @@ export class MonthlySettlementService {
             year,
             salary: s.salary,
             advanceUsed: s.advanceUsed,
-            netPaid: s.netPaid,
+            netPaid: s.netPayable ?? s.netPaid ?? 0,
             isPaid: false,
           },
         })

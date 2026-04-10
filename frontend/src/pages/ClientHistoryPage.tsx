@@ -6,8 +6,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { dispatchApi } from "@/api/dispatch.api";
 import { clientsApi } from "@/api/clients.api";
-import { Search, Truck, Calendar, User, MapPin, CheckCircle2, IndianRupee, Loader2, X, CreditCard, ChevronDown, ChevronRight, Factory } from "lucide-react";
+import { Search, Truck, Calendar, User, MapPin, CheckCircle2, IndianRupee, Loader2, X, CreditCard, ChevronDown, ChevronRight, Factory, FileText, Download } from "lucide-react";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 /**
  * Client History Page
@@ -274,6 +278,95 @@ const ClientHistoryPage = () => {
         return groupedDispatches.sort((a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime());
     }, [dispatchedSchedules, completedDispatches, allOrders, allClients, searchTerm, statusFilter]);
 
+    // ─── Export Helpers ─────────────────────────────────────────────────────
+    const getExportRows = () => {
+        const rows: any[][] = [];
+        historyDispatches.forEach((group: any) => {
+            const client = clientsMap.get(group.clientId);
+            const totalBill = client?.totalOrderAmount || 0;
+            const totalPaid = client?.totalPaid || 0;
+            const pending = client?.pendingAmount || 0;
+
+            group.records.forEach((r: any) => {
+                rows.push([
+                    group.clientName,
+                    r.brickSize || "-",
+                    typeof r.quantity === "number" ? r.quantity : "-",
+                    group.location || "-",
+                    r.date ? format(new Date(r.date), "dd-MM-yyyy") : "-",
+                    r.driver || "-",
+                    r.vehicleNumber || r.raw?.vehicleNumber || "-",
+                    r.status || "-",
+                    "Rs." + totalBill.toLocaleString(),
+                    "Rs." + totalPaid.toLocaleString(),
+                    "Rs." + Math.max(0, pending).toLocaleString(),
+                ]);
+            });
+        });
+        return rows;
+    };
+
+    const exportColumns = [
+        "Client", "Brick Type", "Qty", "Location", "Date",
+        "Driver", "Vehicle", "Status", "Total Bill", "Paid", "Pending"
+    ];
+
+    const handleExportPDF = () => {
+        try {
+            const rows = getExportRows();
+            if (rows.length === 0) { toast.error("No data to export"); return; }
+
+            const doc = new jsPDF({ orientation: "landscape" });
+            doc.setFontSize(16);
+            doc.text("RD Interlock - Client History", 14, 15);
+            doc.setFontSize(10);
+            doc.text("Generated: " + format(new Date(), "dd-MM-yyyy HH:mm"), 14, 22);
+
+            autoTable(doc, {
+                head: [exportColumns],
+                body: rows,
+                startY: 28,
+                styles: { fontSize: 7 },
+                headStyles: { fillColor: [59, 130, 246] },
+            });
+
+            const finalY = (doc as any).lastAutoTable?.finalY || 200;
+            doc.setFontSize(9);
+            doc.text("Total Clients: " + historyDispatches.length + "  |  Total Records: " + rows.length, 14, finalY + 8);
+
+            doc.save("client-history-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+            toast.success("PDF exported successfully");
+        } catch (err: any) {
+            console.error("PDF export error:", err);
+            toast.error("PDF export failed", { description: err.message });
+        }
+    };
+
+    const handleExportExcel = () => {
+        try {
+            const rows = getExportRows();
+            if (rows.length === 0) { toast.error("No data to export"); return; }
+
+            const sheetData = [exportColumns, ...rows];
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+            // Auto-width columns
+            const colWidths = exportColumns.map((col, i) => {
+                const maxLen = Math.max(col.length, ...rows.map(r => String(r[i] || "").length));
+                return { wch: Math.min(maxLen + 2, 30) };
+            });
+            ws["!cols"] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Client History");
+            XLSX.writeFile(wb, "client-history-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+            toast.success("Excel exported successfully");
+        } catch (err: any) {
+            console.error("Excel export error:", err);
+            toast.error("Excel export failed", { description: err.message });
+        }
+    };
+
     const toggleExpand = (clientId: string) => {
         setExpandedClientIds(prev => {
             const next = new Set(prev);
@@ -284,6 +377,22 @@ const ClientHistoryPage = () => {
 
     return (
         <MobileFormLayout title="Client History" subtitle="Record of all completed and dispatched deliveries">
+            {/* Export Buttons */}
+            <div className="flex gap-2 mb-4">
+                <button
+                    onClick={handleExportPDF}
+                    className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all active:scale-[0.98] shadow-sm"
+                >
+                    <FileText className="h-3.5 w-3.5" /> Export PDF
+                </button>
+                <button
+                    onClick={handleExportExcel}
+                    className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all active:scale-[0.98] shadow-sm"
+                >
+                    <Download className="h-3.5 w-3.5" /> Export Excel
+                </button>
+            </div>
+
             {/* Search and Filter */}
             <div className="flex flex-col sm:flex-row gap-3 mb-5">
                 <div className="relative flex-1">

@@ -32,6 +32,10 @@ import { GlobalDateFilter, DateRange } from "@/components/GlobalDateFilter";
 import { BIReportsDashboard } from "@/components/BIReportsDashboard";
 import { SalaryPaymentModal } from "@/components/SalaryPaymentModal";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
+import { StockTabContent } from "@/components/StockTabContent";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // ─── Worker report type ───────────────────────────────────────────────────────
 interface WorkerWageRecord {
@@ -51,7 +55,7 @@ interface WorkerWageRecord {
   advanceDetails?: { id: string; amount: number; date: string; paymentMode: string }[];
 }
 
-const TABS = ["Dashboard", "Operations", "Staff Salaries", "Worker Wages", "Advance Ledger", "Logs"];
+const TABS = ["Dashboard", "Operations", "Staff Salaries", "Worker Wages", "Advance Ledger", "Logs", "Stocks"];
 
 const ReportsPage = () => {
   const queryClient = useQueryClient();
@@ -180,6 +184,98 @@ const ReportsPage = () => {
     DRIVER: "success",
     MANAGER: "destructive",
     TELECALLER: "primary",
+  };
+
+  // ─── Export Helpers ─────────────────────────────────────────────────────────
+
+  const getExportData = (): { title: string; columns: string[]; rows: any[][] } => {
+    const rangeStr = `${format(dateRange.from, 'dd-MM-yyyy')} to ${format(dateRange.to, 'dd-MM-yyyy')}`;
+
+    if (activeTab === "Staff Salaries" && salaryReport?.salaries?.length) {
+      return {
+        title: `Staff Salaries — ${format(dateRange.from, 'MMMM yyyy')}`,
+        columns: ["Name", "Role", "Days Worked", "Daily Rate", "Gross Salary", "Advance Used", "Total Paid", "Pending"],
+        rows: salaryReport.salaries.map((s: any) => [
+          s.workerName, s.role, s.presentDays, `Rs.${s.dailyRate}`,
+          `Rs.${s.salary.toLocaleString()}`, `Rs.${(s.advanceUsed || 0).toLocaleString()}`,
+          `Rs.${(s.totalPaid || 0).toLocaleString()}`, `Rs.${(s.pendingAmount || 0).toLocaleString()}`
+        ]),
+      };
+    }
+
+    if (activeTab === "Worker Wages" && workerWages?.length) {
+      return {
+        title: `Worker Wages — ${rangeStr}`,
+        columns: ["Name", "Role", "Day Bricks", "Night Bricks", "Total Bricks", "Gross Wage", "Advance Balance", "Total Paid", "Pending"],
+        rows: workerWages.map(w => [
+          w.workerName, w.role, w.dayBricks, w.nightBricks, w.totalBricks,
+          `Rs.${w.grossWage.toLocaleString()}`, `Rs.${(w.advanceBalance || 0).toLocaleString()}`,
+          `Rs.${(w.totalPaid || 0).toLocaleString()}`, `Rs.${(w.pendingAmount || 0).toLocaleString()}`
+        ]),
+      };
+    }
+
+    if (activeTab === "Advance Ledger" && advanceLedgerData.length) {
+      return {
+        title: `Advance Ledger — ${advRoleFilter}`,
+        columns: ["Name", "Role", "Advance Balance", "Transactions"],
+        rows: advanceLedgerData.map((w: any) => [
+          w.workerName, w.role, `Rs.${(w.advanceBalance || 0).toLocaleString()}`,
+          (w.advances || []).length
+        ]),
+      };
+    }
+
+    return { title: `Report — ${activeTab}`, columns: [], rows: [] };
+  };
+
+  const handleExportPDF = () => {
+    try {
+      const { title, columns, rows } = getExportData();
+      if (rows.length === 0) { toast.error("No data to export for the current tab"); return; }
+
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("RD Interlock - Report", 14, 15);
+      doc.setFontSize(11);
+      doc.text(title, 14, 23);
+      doc.text("Generated: " + format(new Date(), 'dd-MM-yyyy HH:mm'), 14, 30);
+
+      autoTable(doc, {
+        head: [columns],
+        body: rows,
+        startY: 36,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 200;
+      doc.setFontSize(10);
+      doc.text("Total Records: " + rows.length, 14, finalY + 8);
+
+      doc.save(activeTab.toLowerCase().replace(/\s+/g, '-') + "-report-" + format(new Date(), 'dd-MM-yyyy') + ".pdf");
+      toast.success("PDF exported successfully");
+    } catch (err: any) {
+      console.error("PDF export error:", err);
+      toast.error("PDF export failed", { description: err.message });
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      const { title, columns, rows } = getExportData();
+      if (rows.length === 0) { toast.error("No data to export for the current tab"); return; }
+
+      const sheetData = [columns, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, activeTab);
+      XLSX.writeFile(wb, activeTab.toLowerCase().replace(/\s+/g, '-') + "-report-" + format(new Date(), 'dd-MM-yyyy') + ".xlsx");
+      toast.success("Excel exported successfully");
+    } catch (err: any) {
+      console.error("Excel export error:", err);
+      toast.error("Excel export failed", { description: err.message });
+    }
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -667,25 +763,30 @@ const ReportsPage = () => {
       {/* ══════════════════════ LOGS TAB ══════════════════════ */}
       {activeTab === "Logs" && <LogsTabContent globalDateRange={dateRange} />}
 
-      {/* Export buttons */}
-      <div className="grid grid-cols-2 gap-3 mt-2">
-        <ActionButton
-          label="Export PDF"
-          icon={FileText}
-          variant="primary"
-          size="lg"
-          onClick={() => toast.info("PDF export coming soon")}
-          className="w-full"
-        />
-        <ActionButton
-          label="Export Excel"
-          icon={Download}
-          variant="accent"
-          size="lg"
-          onClick={() => toast.info("Excel export coming soon")}
-          className="w-full"
-        />
-      </div>
+      {/* ══════════════════════ STOCKS TAB ══════════════════════ */}
+      {activeTab === "Stocks" && <StockTabContent />}
+
+      {/* Export buttons — show on tabs that have exportable data */}
+      {["Staff Salaries", "Worker Wages", "Advance Ledger"].includes(activeTab) && (
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <ActionButton
+            label="Export PDF"
+            icon={FileText}
+            variant="primary"
+            size="lg"
+            onClick={handleExportPDF}
+            className="w-full"
+          />
+          <ActionButton
+            label="Export Excel"
+            icon={Download}
+            variant="accent"
+            size="lg"
+            onClick={handleExportExcel}
+            className="w-full"
+          />
+        </div>
+      )}
       {selectedWorker && (
         <SalaryPaymentModal
           isOpen={isPaymentModalOpen}

@@ -2,7 +2,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
-  Package,
   BookText,
   Menu,
   Users,
@@ -14,7 +13,6 @@ import {
   Settings,
   LogOut,
   ClipboardList,
-  RotateCcw,
   Hammer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,7 +29,7 @@ import { Button } from "@/components/ui/button";
 const bottomNavItems = [
   { title: "Home", url: "/", icon: LayoutDashboard },
   { title: "Entry", url: "/daily-entry", icon: BookOpen },
-  { title: "Stock", url: "/stock", icon: Package },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Cash", url: "/cash-book", icon: BookText },
 ];
 
@@ -54,7 +52,6 @@ const ledgerItems = [
 
 const moreNavItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

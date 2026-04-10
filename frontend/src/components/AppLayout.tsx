@@ -4,18 +4,12 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { LogOut, RefreshCw, ArrowLeft } from "lucide-react";
-import { authApi } from "@/api/auth.api";
+import { RefreshCw, ArrowLeft } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isDashboard = location.pathname === "/" || location.pathname === "/dashboard";
-
-  const handleLogout = () => {
-    authApi.logout();
-    navigate("/login");
-  };
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -64,15 +58,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
             </div>
           </header>
 
@@ -101,14 +86,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 title="Refresh Page"
               >
                 <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                className="text-muted-foreground hover:text-foreground h-8 w-8"
-              >
-                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </header>

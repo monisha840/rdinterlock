@@ -14,7 +14,7 @@ import apiClient from "@/api/apiClient";
 import { format } from "date-fns";
 import { workersApi } from "@/api/workers.api";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { Search, Download, FileSpreadsheet, FileJson, Upload } from "lucide-react";
 import {
@@ -207,45 +207,52 @@ const CashBookPage = () => {
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF() as any;
-    const tableColumn = ["Date", "Client", "Location", "Type", "Category", "Method", "Amount"];
-    const tableRows: any[] = [];
+    try {
+      const doc = new jsPDF();
+      const tableColumn = ["Date", "Client", "Location", "Type", "Category", "Method", "Amount"];
+      const tableRows: any[] = [];
 
-    let totalIn = 0;
-    let totalOut = 0;
+      let totalIn = 0;
+      let totalOut = 0;
 
-    entries.forEach((e: any) => {
-      const rowData = [
-        format(new Date(e.date), 'dd-MM-yyyy'),
-        e.customer?.name || e.worker?.name || "-",
-        e.customer?.address || "-",
-        e.type === 'CREDIT' ? 'Money IN' : 'Money OUT',
-        e.category,
-        e.paymentMode,
-        e.amount
-      ];
-      tableRows.push(rowData);
-      if (e.type === 'CREDIT') totalIn += e.amount;
-      else totalOut += e.amount;
-    });
+      entries.forEach((e: any) => {
+        const rowData = [
+          format(new Date(e.date), 'dd-MM-yyyy'),
+          e.customer?.name || e.worker?.name || "-",
+          e.customer?.address || "-",
+          e.type === 'CREDIT' ? 'Money IN' : 'Money OUT',
+          e.category,
+          e.paymentMode,
+          e.amount
+        ];
+        tableRows.push(rowData);
+        if (e.type === 'CREDIT') totalIn += e.amount;
+        else totalOut += e.amount;
+      });
 
-    doc.setFontSize(18);
-    doc.text("Cash Book Report", 14, 15);
-    doc.setFontSize(11);
-    doc.text(`Generated on: ${format(new Date(), 'dd-MM-yyyy HH:mm')}`, 14, 22);
+      doc.setFontSize(18);
+      doc.text("Cash Book Report", 14, 15);
+      doc.setFontSize(11);
+      doc.text("Generated on: " + format(new Date(), 'dd-MM-yyyy HH:mm'), 14, 22);
 
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 28,
-    });
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 28,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.text(`Total Money IN: Rs.${totalIn.toLocaleString()}`, 14, finalY);
-    doc.text(`Total Money OUT: Rs.${totalOut.toLocaleString()}`, 14, finalY + 7);
-    doc.text(`Net Balance: Rs.${(totalIn - totalOut).toLocaleString()}`, 14, finalY + 14);
+      const finalY = ((doc as any).lastAutoTable?.finalY || 200) + 10;
+      doc.text("Total Money IN: Rs." + totalIn.toLocaleString(), 14, finalY);
+      doc.text("Total Money OUT: Rs." + totalOut.toLocaleString(), 14, finalY + 7);
+      doc.text("Net Balance: Rs." + (totalIn - totalOut).toLocaleString(), 14, finalY + 14);
 
-    doc.save(`cashbook-report-${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+      doc.save("cashbook-report-" + format(new Date(), 'dd-MM-yyyy') + ".pdf");
+    } catch (err: any) {
+      console.error("PDF export error:", err);
+      toast.error("PDF export failed", { description: err.message });
+    }
   };
 
   const handleExportExcel = () => {
@@ -533,57 +540,24 @@ const CashBookPage = () => {
       </EntryCard>
 
       <EntryCard title="Transaction History">
-        {/* Search and Export Actions */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <input
-              type="text"
-              placeholder="Search expense by category, vendor, amount or date"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 pl-11 pr-11 bg-secondary/30 border border-border rounded-2xl text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary transition-colors"
-              >
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+        {/* Search */}
+        <div className="relative group mb-3">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <input
+            type="text"
+            placeholder="Search by category, vendor, amount..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-11 pl-11 pr-11 bg-secondary/30 border border-border rounded-2xl text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+          />
+          {searchQuery && (
             <button
-              onClick={handleExportPDF}
-              className="flex-1 md:flex-none h-11 px-4 bg-secondary/50 border border-border rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-secondary transition-all active:scale-[0.98]"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary transition-colors"
             >
-              <Download className="h-3.5 w-3.5" /> PDF
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <button
-              onClick={handleExportExcel}
-              className="flex-1 md:flex-none h-11 px-4 bg-secondary/50 border border-border rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-secondary transition-all active:scale-[0.98]"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-            </button>
-            <div className="relative flex-1 md:flex-none">
-              <input
-                type="file"
-                id="excel-import"
-                className="hidden"
-                accept=".xlsx, .xls, .csv"
-                onChange={handleImportExcel}
-                disabled={isImporting}
-              />
-              <label
-                htmlFor="excel-import"
-                className={`h-11 px-4 bg-primary text-primary-foreground rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer hover:opacity-90 transition-all active:scale-[0.98] ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                Import
-              </label>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Import Results Summary */}
@@ -670,6 +644,39 @@ const CashBookPage = () => {
           >
             Clear Dates
           </button>
+        </div>
+
+        {/* Export / Import Actions */}
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={handleExportPDF}
+            className="h-9 px-3.5 bg-secondary/50 border border-border rounded-xl text-[11px] font-bold flex items-center gap-1.5 hover:bg-secondary transition-all active:scale-[0.98]"
+          >
+            <Download className="h-3.5 w-3.5" /> PDF
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="h-9 px-3.5 bg-secondary/50 border border-border rounded-xl text-[11px] font-bold flex items-center gap-1.5 hover:bg-secondary transition-all active:scale-[0.98]"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+          </button>
+          <div className="relative ml-auto">
+            <input
+              type="file"
+              id="excel-import"
+              className="hidden"
+              accept=".xlsx, .xls, .csv"
+              onChange={handleImportExcel}
+              disabled={isImporting}
+            />
+            <label
+              htmlFor="excel-import"
+              className={`h-9 px-4 bg-primary text-primary-foreground rounded-xl text-[11px] font-bold flex items-center gap-1.5 cursor-pointer hover:opacity-90 transition-all active:scale-[0.98] ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              Import
+            </label>
+          </div>
         </div>
 
         {/* Filters */}
