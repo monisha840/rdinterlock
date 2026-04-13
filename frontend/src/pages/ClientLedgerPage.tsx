@@ -1,12 +1,15 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck, Check, FileText } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const PAYMENT_METHODS = ["CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "OTHER"];
 
@@ -251,8 +254,42 @@ const ClientLedgerPage = () => {
     const totalReceived = clients.reduce((s: number, c: any) => s + (c.totalPaid || 0), 0);
     const totalAdvance = clients.reduce((s: number, c: any) => s + (c.advanceBalance || 0), 0);
 
+    const handleLedgerPDF = () => {
+        try {
+            if (filteredClients.length === 0) { toast.error("No data to export"); return; }
+            const doc = new jsPDF();
+            doc.setFontSize(16); doc.text("RD Interlock - Client Ledger", 14, 15);
+            doc.setFontSize(10); doc.text("Generated: " + format(new Date(), "dd-MM-yyyy"), 14, 22);
+            autoTable(doc, {
+                head: [["Client", "Location", "Total Paid", "Advance Balance", "Pending"]],
+                body: filteredClients.map((c: any) => [c.name, c.address || "-", "Rs." + (c.totalPaid || 0).toLocaleString(), "Rs." + (c.advanceBalance || 0).toLocaleString(), "Rs." + (c.pendingAmount || 0).toLocaleString()]),
+                startY: 28, styles: { fontSize: 8 }, headStyles: { fillColor: [59, 130, 246] },
+            });
+            doc.save("client-ledger-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+            toast.success("PDF exported");
+        } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+    };
+
+    const handleLedgerExcel = () => {
+        try {
+            if (filteredClients.length === 0) { toast.error("No data to export"); return; }
+            const cols = ["Client", "Location", "Total Paid", "Advance Balance", "Pending"];
+            const rows = filteredClients.map((c: any) => [c.name, c.address || "-", c.totalPaid || 0, c.advanceBalance || 0, c.pendingAmount || 0]);
+            const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Client Ledger");
+            XLSX.writeFile(wb, "client-ledger-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+            toast.success("Excel exported");
+        } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+    };
+
     return (
         <MobileFormLayout title="Client Ledger" subtitle="Payment & Advance tracking">
+            {/* Export */}
+            <div className="flex gap-2 mb-3">
+                <button onClick={handleLedgerPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> PDF</button>
+                <button onClick={handleLedgerExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> Excel</button>
+            </div>
             {/* Summary */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                 <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-center">

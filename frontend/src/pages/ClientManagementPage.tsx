@@ -5,8 +5,11 @@ import { toast } from "sonner";
 import {
     Plus, Search, X, Edit2, Trash2, Loader2, Phone, MapPin,
     ChevronDown, ChevronRight, ShoppingCart, IndianRupee, CreditCard,
-    Calendar as CalendarIcon, AlertCircle, Truck, Save
+    Calendar as CalendarIcon, AlertCircle, Truck, Save, FileText, Download
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -410,10 +413,56 @@ const ClientManagementPage = () => {
     };
 
 
+    // ─── Export Functions ──────────────────────────────────────────────────────
+    const handleExportClientsPDF = () => {
+        try {
+            if ((clients as any[]).length === 0) { toast.error("No clients to export"); return; }
+            const doc = new jsPDF({ orientation: "landscape" });
+            doc.setFontSize(16); doc.text("RD Interlock - Client Management Report", 14, 15);
+            doc.setFontSize(10); doc.text("Generated: " + format(new Date(), "dd-MM-yyyy HH:mm") + "  |  Total Clients: " + (clients as any[]).length, 14, 22);
+            autoTable(doc, {
+                head: [["Client Name", "Phone", "Location", "Orders", "Total Amount", "Paid", "Pending"]],
+                body: (clients as any[]).map((c: any) => {
+                    const clientOrders = (allOrders as any[]).filter((o: any) => o.clientId === c.id);
+                    return [c.name, c.phone || "-", c.address || "-", clientOrders.length, "Rs." + (c.totalOrderAmount || 0).toLocaleString(), "Rs." + (c.totalPaid || 0).toLocaleString(), "Rs." + Math.max(0, c.pendingAmount || 0).toLocaleString()];
+                }),
+                startY: 28, styles: { fontSize: 7 }, headStyles: { fillColor: [59, 130, 246] },
+            });
+            doc.save("client-management-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+            toast.success("PDF exported");
+        } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+    };
+
+    const handleExportClientsExcel = () => {
+        try {
+            if ((clients as any[]).length === 0) { toast.error("No clients to export"); return; }
+            const cols = ["Client Name", "Phone", "Location", "Orders", "Total Amount", "Paid", "Pending"];
+            const rows = (clients as any[]).map((c: any) => {
+                const clientOrders = (allOrders as any[]).filter((o: any) => o.clientId === c.id);
+                return [c.name, c.phone || "-", c.address || "-", clientOrders.length, c.totalOrderAmount || 0, c.totalPaid || 0, Math.max(0, c.pendingAmount || 0)];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Clients");
+            XLSX.writeFile(wb, "client-management-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+            toast.success("Excel exported");
+        } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+    };
+
     // ─── Render ────────────────────────────────────────────────────────────────
 
     return (
         <MobileFormLayout title="Client Management" subtitle="All clients and their orders in one place">
+
+            {/* Export Buttons */}
+            <div className="flex gap-2 mb-3">
+                <button onClick={handleExportClientsPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]">
+                    <FileText className="h-3.5 w-3.5" /> PDF
+                </button>
+                <button onClick={handleExportClientsExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]">
+                    <Download className="h-3.5 w-3.5" /> Excel
+                </button>
+            </div>
 
             {/* Search Bar */}
             <div className="relative mb-4">

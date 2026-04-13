@@ -15,11 +15,16 @@ import {
   DollarSign,
   Wrench,
   Fuel,
-  IndianRupee
+  IndianRupee,
+  FileText,
+  Download
 } from "lucide-react";
 import { transportApi } from "@/api/transport.api";
 import { cashApi } from "@/api/cash.api";
 import { format } from "date-fns";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -267,6 +272,62 @@ const VehiclesPage = () => {
 
   const companyVehicles = vehicles.filter(v => v.vehicleType === "COMPANY");
 
+  const handleFleetPDF = () => {
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(16); doc.text("RD Interlock - Fleet & EMI Report", 14, 15);
+      doc.setFontSize(10); doc.text("Generated: " + format(new Date(), "dd-MM-yyyy"), 14, 22);
+      if (vehicles.length > 0) {
+        doc.setFontSize(12); doc.text("Fleet (" + vehicles.length + " vehicles)", 14, 32);
+        autoTable(doc, {
+          head: [["Vehicle No.", "Type", "Owner", "Driver", "Status"]],
+          body: vehicles.map((v: any) => [v.vehicleNumber, v.vehicleType, v.ownerName, v.driverName || "-", v.status]),
+          startY: 36, styles: { fontSize: 8 }, headStyles: { fillColor: [59, 130, 246] },
+        });
+      }
+      if (emis.length > 0) {
+        const emiStart = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 12 : 36;
+        doc.setFontSize(12); doc.text("EMI Records (" + emis.length + ")", 14, emiStart);
+        autoTable(doc, {
+          head: [["Vehicle", "Amount", "Due Date", "Status", "Paid Date"]],
+          body: emis.map((e: any) => [e.vehicle?.vehicleNumber || "-", "Rs." + e.amount.toLocaleString(), format(new Date(e.dueDate), "dd-MM-yyyy"), e.status, e.paidDate ? format(new Date(e.paidDate), "dd-MM-yyyy") : "-"]),
+          startY: emiStart + 4, styles: { fontSize: 8 }, headStyles: { fillColor: [16, 185, 129] },
+        });
+      }
+      if (filteredExpenses.length > 0) {
+        const expStart = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 12 : 36;
+        doc.setFontSize(12); doc.text("Vehicle Expenses (" + filteredExpenses.length + ")", 14, expStart);
+        autoTable(doc, {
+          head: [["Date", "Description", "Mode", "Amount"]],
+          body: filteredExpenses.map((e: any) => [format(new Date(e.date), "dd-MM-yyyy"), e.description || "-", e.paymentMode || "-", "Rs." + e.amount.toLocaleString()]),
+          startY: expStart + 4, styles: { fontSize: 8 }, headStyles: { fillColor: [239, 68, 68] },
+        });
+      }
+      doc.save("fleet-emi-report-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+      toast.success("PDF exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
+  const handleFleetExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      if (vehicles.length > 0) {
+        const ws1 = XLSX.utils.aoa_to_sheet([["Vehicle No.", "Type", "Owner", "Driver", "Status"], ...vehicles.map((v: any) => [v.vehicleNumber, v.vehicleType, v.ownerName, v.driverName || "-", v.status])]);
+        XLSX.utils.book_append_sheet(wb, ws1, "Fleet");
+      }
+      if (emis.length > 0) {
+        const ws2 = XLSX.utils.aoa_to_sheet([["Vehicle", "Amount", "Due Date", "Status", "Paid Date"], ...emis.map((e: any) => [e.vehicle?.vehicleNumber || "-", e.amount, format(new Date(e.dueDate), "dd-MM-yyyy"), e.status, e.paidDate ? format(new Date(e.paidDate), "dd-MM-yyyy") : "-"])]);
+        XLSX.utils.book_append_sheet(wb, ws2, "EMI");
+      }
+      if (filteredExpenses.length > 0) {
+        const ws3 = XLSX.utils.aoa_to_sheet([["Date", "Description", "Mode", "Amount"], ...filteredExpenses.map((e: any) => [format(new Date(e.date), "dd-MM-yyyy"), e.description || "-", e.paymentMode || "-", e.amount])]);
+        XLSX.utils.book_append_sheet(wb, ws3, "Expenses");
+      }
+      XLSX.writeFile(wb, "fleet-emi-report-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+      toast.success("Excel exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500 pb-safe">
       {/* Header section with responsive flex */}
@@ -280,6 +341,8 @@ const VehiclesPage = () => {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          <button onClick={handleFleetPDF} className="h-10 px-3 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold flex items-center gap-1.5 hover:bg-secondary transition-all active:scale-95"><FileText className="h-3.5 w-3.5" /> PDF</button>
+          <button onClick={handleFleetExcel} className="h-10 px-3 rounded-xl bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-emerald-700 transition-all active:scale-95"><Download className="h-3.5 w-3.5" /> Excel</button>
           <Dialog open={isEmiDialogOpen} onOpenChange={(open) => { setIsEmiDialogOpen(open); if (!open) { setEditingEmi(null); setEmiForm({ vehicleId: "", amount: "", dueDate: new Date().toISOString().split("T")[0], notes: "" }); } }}>
             <DialogTrigger asChild>
               <button onClick={() => { setEditingEmi(null); setEmiForm({ vehicleId: "", amount: "", dueDate: new Date().toISOString().split("T")[0], notes: "" }); }} className="h-10 px-4 rounded-xl border border-primary/20 bg-background hover:bg-muted transition-all flex items-center gap-2 text-sm font-bold shadow-sm active:scale-95">

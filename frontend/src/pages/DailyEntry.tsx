@@ -6,13 +6,18 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { PillSelector } from "@/components/PillSelector";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
-import { Save, Plus, X, Fuel, UtensilsCrossed, PackageOpen, MoreHorizontal, Loader2, Receipt, Check, Pencil, Trash2 } from "lucide-react";
+import { Save, Plus, X, Fuel, UtensilsCrossed, PackageOpen, MoreHorizontal, Loader2, Receipt, Check, Pencil, Trash2, FileText, Download } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
 import { productionApi } from "@/api/production.api";
 import { expensesApi } from "@/api/expenses.api";
-import { format } from "date-fns";
+import { materialConfigApi } from "@/api/material-config.api";
+import type { MaterialConfig } from "@/api/material-config.api";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const quickQuantities = [500, 800, 1000, 2000];
 
@@ -26,11 +31,15 @@ const DailyEntry = () => {
   }, [format(entryDate, 'yyyy-MM-dd')]);
   const [shift, setShift] = useState("MORNING");
   const [brickTypeId, setBrickTypeId] = useState("");
+  const [brickRate, setBrickRate] = useState("");
   const [machineId, setMachineId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [damagedQuantity, setDamagedQuantity] = useState("");
-  const [workers, setWorkers] = useState<string[]>([""]);
+  const [operators, setOperators] = useState<string[]>([""]);
+  const [helpers, setHelpers] = useState<string[]>([""]);
+  const [loaders, setLoaders] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
+
   const [lastResult, setLastResult] = useState<any>(null);
 
   const [expenseDate, setExpenseDate] = useState(new Date());
@@ -58,6 +67,13 @@ const DailyEntry = () => {
   const workerList = metadata?.workers || [];
   const rawMaterials = metadata?.rawMaterials || [];
 
+  // Material Config — for live consumption preview
+  const { data: materialConfigs = [] } = useQuery<MaterialConfig[]>({
+    queryKey: ['material-configs'],
+    queryFn: materialConfigApi.getAll,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: todayProductions = [], isLoading: isSummaryLoading } = useQuery({
     queryKey: ['productions', 'today', format(entryDate, 'yyyy-MM-dd')],
     queryFn: () => productionApi.getAll({ date: format(entryDate, 'yyyy-MM-dd') }),
@@ -74,7 +90,10 @@ const DailyEntry = () => {
       setLastResult(data);
       setQuantity("");
       setDamagedQuantity("");
-      setWorkers([""]);
+      setBrickRate("");
+      setOperators([""]);
+      setHelpers([""]);
+      setLoaders([""]);
       setNotes("");
     },
     onError: (error: any) => {
@@ -174,15 +193,23 @@ const DailyEntry = () => {
     if (brickTypes.length > 0 && !brickTypeId) setBrickTypeId(brickTypes[0].id);
   }, [machines, brickTypes]);
 
-  const addWorker = () => setWorkers([...workers, ""]);
-  const removeWorker = (i: number) => {
-    setWorkers(workers.filter((_, idx) => idx !== i));
-  };
-  const updateWorker = (i: number, v: string) => {
-    const updated = [...workers];
-    updated[i] = v;
-    setWorkers(updated);
-  };
+  // Auto-set default brick rate when brick type or shift changes
+  useEffect(() => {
+    if (brickTypeId) {
+      const defaultRate = shift === "NIGHT" ? "3" : "2.5";
+      setBrickRate(defaultRate);
+    }
+  }, [brickTypeId, shift]);
+
+  // Filter workers by role
+  const operatorList = workerList.filter((w: any) => w.role?.toUpperCase() === 'OPERATOR' || w.role?.toUpperCase() === 'PRODUCTION_WORKER');
+  const helperList = workerList.filter((w: any) => w.role?.toUpperCase() === 'HELPER');
+  const loaderList = workerList.filter((w: any) => w.role?.toUpperCase() === 'LOADER');
+
+  // Generic role-based add/remove/update helpers
+  const addToRole = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (prev: string[]) => [...prev, ""];
+  const removeFromRole = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[], i: number) => setter(arr.filter((_, idx) => idx !== i));
+  const updateInRole = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[], i: number, v: string) => { const u = [...arr]; u[i] = v; setter(u); };
   const calcTotal = () => {
     return parseInt(quantity) || 0;
   };
@@ -216,6 +243,28 @@ const DailyEntry = () => {
 
     const availableQty = calcAvailable();
 
+    // Build workers list: Operators + Helpers get brick split, Loaders get 0 (attendance)
+    const productionWorkerIds = [
+      ...operators.filter(w => w !== ""),
+      ...helpers.filter(w => w !== ""),
+    ];
+    const loaderWorkerIds = loaders.filter(w => w !== "");
+
+    const brickWorkers = productionWorkerIds.map((workerId, index) => {
+      const baseQty = Math.floor(availableQty / productionWorkerIds.length);
+      const remainder = availableQty % productionWorkerIds.length;
+      return {
+        workerId,
+        quantity: index === 0 ? baseQty + remainder : baseQty,
+      };
+    });
+
+    // Loaders: present but 0 bricks (they feed materials, not produce bricks)
+    const loaderWorkers = loaderWorkerIds.map(workerId => ({
+      workerId,
+      quantity: 0,
+    }));
+
     const payload = {
       date: format(entryDate, 'yyyy-MM-dd'),
       machineId,
@@ -224,16 +273,7 @@ const DailyEntry = () => {
       quantity: totalQty,
       damagedBricks: damagedQty,
       notes,
-      workers: workers
-        .filter(w => w !== "")
-        .map((workerId, index, filteredArray) => {
-          const baseQty = Math.floor(availableQty / filteredArray.length);
-          const remainder = availableQty % filteredArray.length;
-          return {
-            workerId,
-            quantity: index === 0 ? baseQty + remainder : baseQty,
-          };
-        }),
+      workers: [...brickWorkers, ...loaderWorkers],
     };
 
     createProductionMutation.mutate(payload);
@@ -291,8 +331,185 @@ const DailyEntry = () => {
   const machineOptions = machines.map(m => ({ label: m.name, value: m.id }));
   const brickTypeOptions = brickTypes.map(bt => ({ label: bt.size, value: bt.id }));
 
+  // ─── Monthly Export Helpers ──────────────────────────────────────────────────
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchMonthData = async () => {
+    const monthStart = format(startOfMonth(entryDate), 'yyyy-MM-dd');
+    const monthEnd = format(endOfMonth(entryDate), 'yyyy-MM-dd');
+    const res = await productionApi.getAll({ startDate: monthStart, endDate: monthEnd, limit: 9999 });
+    return res.productions;
+  };
+
+  const buildMonthlyRows = (productions: any[]) => {
+    // Sort by date ascending
+    const sorted = [...productions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const prodRows: any[][] = [];
+    const labourRows: any[][] = [];
+
+    sorted.forEach((p: any) => {
+      const dateStr = format(new Date(p.date), 'dd-MM-yyyy');
+
+      // Production row
+      prodRows.push([
+        dateStr,
+        p.machine?.name || "-",
+        p.shift || "-",
+        p.brickType?.size || "-",
+        p.quantity || 0,
+        p.damagedBricks || 0,
+        p.availableBricks || 0,
+      ]);
+
+      // Labour rows from this production's workers
+      (p.workers || []).forEach((pw: any) => {
+        const w = pw.worker;
+        if (!w) return;
+        const isMason = w.role?.toUpperCase() === 'MASON';
+        const rate = isMason ? (w.rate6Inch || w.rate || 9) : (w.perBrickRate || w.rate || 2.5);
+        labourRows.push([
+          dateStr,
+          w.name || "-",
+          w.role || "-",
+          p.machine?.name || "-",
+          p.brickType?.size || "-",
+          pw.quantity || 0,
+          rate,
+          (pw.quantity || 0) * rate,
+        ]);
+      });
+    });
+
+    return { prodRows, labourRows, sorted };
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      const productions = await fetchMonthData();
+      if (productions.length === 0) { toast.error("No production data for " + format(entryDate, "MMMM yyyy")); setIsExporting(false); return; }
+
+      const { prodRows, labourRows, sorted } = buildMonthlyRows(productions);
+      const monthLabel = format(entryDate, "MMMM yyyy");
+
+      const totalQty = prodRows.reduce((s, r) => s + (r[4] || 0), 0);
+      const totalDamaged = prodRows.reduce((s, r) => s + (r[5] || 0), 0);
+      const totalAvailable = prodRows.reduce((s, r) => s + (r[6] || 0), 0);
+      const totalLabourCost = labourRows.reduce((s, r) => s + (r[7] || 0), 0);
+
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16);
+      doc.text("RD Interlock - Monthly Production Report", 14, 15);
+      doc.setFontSize(10);
+      doc.text("Month: " + monthLabel + "  |  Total Entries: " + prodRows.length, 14, 22);
+
+      // Production Table
+      doc.setFontSize(12);
+      doc.text("Production Summary (Date-wise)", 14, 30);
+
+      autoTable(doc, {
+        head: [["Date", "Machine", "Shift", "Brick Type", "Total Qty", "Damaged", "Available"]],
+        body: prodRows,
+        startY: 34,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      const afterProd = (doc as any).lastAutoTable?.finalY || 100;
+      doc.setFontSize(9);
+      doc.text("Totals  |  Produced: " + totalQty.toLocaleString() + "  |  Damaged: " + totalDamaged.toLocaleString() + "  |  Available: " + totalAvailable.toLocaleString(), 14, afterProd + 6);
+
+      // Labour Table — new page if needed
+      if (labourRows.length > 0) {
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text("RD Interlock - Monthly Labour Report", 14, 15);
+        doc.setFontSize(10);
+        doc.text("Month: " + monthLabel, 14, 22);
+        doc.setFontSize(12);
+        doc.text("Labour Summary (Date-wise)", 14, 30);
+
+        autoTable(doc, {
+          head: [["Date", "Worker", "Role", "Machine", "Brick Type", "Bricks", "Rate", "Earned"]],
+          body: labourRows.map(r => [
+            r[0], r[1], r[2], r[3], r[4],
+            (r[5] || 0).toLocaleString(),
+            "Rs." + r[6],
+            "Rs." + (r[7] || 0).toLocaleString(),
+          ]),
+          startY: 34,
+          styles: { fontSize: 7 },
+          headStyles: { fillColor: [147, 51, 234] },
+        });
+
+        const afterLabour = (doc as any).lastAutoTable?.finalY || 100;
+        doc.setFontSize(9);
+        doc.text("Total Labour Cost: Rs." + totalLabourCost.toLocaleString() + "  |  Total Workers Entries: " + labourRows.length, 14, afterLabour + 6);
+      }
+
+      doc.save("production-report-" + format(entryDate, "MMM-yyyy") + ".pdf");
+      toast.success("Monthly PDF exported — " + monthLabel);
+    } catch (err: any) {
+      console.error("PDF export error:", err);
+      toast.error("PDF export failed", { description: err.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      const productions = await fetchMonthData();
+      if (productions.length === 0) { toast.error("No production data for " + format(entryDate, "MMMM yyyy")); setIsExporting(false); return; }
+
+      const { prodRows, labourRows } = buildMonthlyRows(productions);
+      const monthLabel = format(entryDate, "MMMM yyyy");
+
+      const wb = XLSX.utils.book_new();
+
+      // Production sheet
+      const prodCols = ["Date", "Machine", "Shift", "Brick Type", "Total Qty", "Damaged", "Available"];
+      const ws1 = XLSX.utils.aoa_to_sheet([prodCols, ...prodRows]);
+      ws1["!cols"] = prodCols.map((_, i) => ({ wch: i === 0 ? 12 : 14 }));
+      XLSX.utils.book_append_sheet(wb, ws1, "Production");
+
+      // Labour sheet
+      if (labourRows.length > 0) {
+        const labCols = ["Date", "Worker", "Role", "Machine", "Brick Type", "Bricks", "Rate", "Earned"];
+        const ws2 = XLSX.utils.aoa_to_sheet([labCols, ...labourRows]);
+        ws2["!cols"] = labCols.map((_, i) => ({ wch: i <= 1 ? 12 : 14 }));
+        XLSX.utils.book_append_sheet(wb, ws2, "Labour");
+      }
+
+      XLSX.writeFile(wb, "production-report-" + format(entryDate, "MMM-yyyy") + ".xlsx");
+      toast.success("Monthly Excel exported — " + monthLabel);
+    } catch (err: any) {
+      console.error("Excel export error:", err);
+      toast.error("Excel export failed", { description: err.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <MobileFormLayout title="📖 Daily Entry">
+      {/* Monthly Export */}
+      <div className="space-y-1.5 mb-4">
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider px-1">
+          Export {format(entryDate, "MMMM yyyy")} — All entries date-wise
+        </p>
+        <div className="flex gap-2">
+          <button onClick={handleExportPDF} disabled={isExporting} className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50">
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} PDF
+          </button>
+          <button onClick={handleExportExcel} disabled={isExporting} className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50">
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Excel
+          </button>
+        </div>
+      </div>
+
       {lastResult && (
         <EntryCard title="✅ Production Summary" className="border-green-500/30 bg-green-500/5">
           <div className="space-y-4">
@@ -395,8 +612,53 @@ const DailyEntry = () => {
               <div className="text-sm text-muted-foreground italic">No active brick sizes found.</div>
             )}
           </FormField>
-          
-          
+
+          {/* Rate per Brick */}
+          <FormField label="Rate per Brick (₹)">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold text-sm">₹</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.5"
+                  value={brickRate}
+                  onChange={(e) => setBrickRate(e.target.value)}
+                  placeholder="0"
+                  className="w-full h-12 pl-8 pr-3 text-lg font-bold bg-primary/5 border border-primary/20 rounded-xl focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+                />
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[9px] text-muted-foreground uppercase font-bold">per brick</p>
+                {quantity && brickRate && (
+                  <p className="text-sm font-black text-primary">
+                    = ₹{((parseInt(quantity) || 0) * (parseFloat(brickRate) || 0)).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 mt-2">
+              {[
+                { label: "₹2.5 (Day)", value: "2.5" },
+                { label: "₹3 (Night)", value: "3" },
+                { label: "₹9 (Mason)", value: "9" },
+              ].map((chip) => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  onClick={() => setBrickRate(chip.value)}
+                  className={`px-3 h-8 rounded-full text-[10px] font-bold border transition-all active:scale-95 ${
+                    brickRate === chip.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </FormField>
+
           <FormField label="Quantity Produced" required>
             <BigNumberInput
               value={quantity}
@@ -435,8 +697,18 @@ const DailyEntry = () => {
                   {calcAvailable().toLocaleString()}
                 </p>
               </div>
-              <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${parseInt(damagedQuantity) > calcTotal() ? 'bg-destructive/20' : 'bg-primary/20'}`}>
-                {parseInt(damagedQuantity) > calcTotal() ? <X className="h-5 w-5 text-destructive" /> : <Check className="h-5 w-5 text-primary" />}
+              <div className="text-right">
+                {brickRate && calcAvailable() > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Cost</p>
+                    <p className="text-lg font-black text-primary">₹{(calcAvailable() * (parseFloat(brickRate) || 0)).toLocaleString()}</p>
+                  </div>
+                )}
+                {(!brickRate || calcAvailable() <= 0) && (
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${parseInt(damagedQuantity) > calcTotal() ? 'bg-destructive/20' : 'bg-primary/20'}`}>
+                    {parseInt(damagedQuantity) > calcTotal() ? <X className="h-5 w-5 text-destructive" /> : <Check className="h-5 w-5 text-primary" />}
+                  </div>
+                )}
               </div>
             </div>
             {parseInt(damagedQuantity) > calcTotal() && (
@@ -446,34 +718,179 @@ const DailyEntry = () => {
             )}
           </div>
 
+          {/* Live Material Consumption Preview */}
+          {(() => {
+            const qty = parseInt(quantity) || 0;
+            if (qty <= 0 || !brickTypeId) return null;
 
+            const config = materialConfigs.find((c: MaterialConfig) => c.brickTypeId === brickTypeId);
+            if (!config) return (
+              <div className="p-3 bg-secondary/20 rounded-xl text-center">
+                <p className="text-[10px] text-muted-foreground italic">Material config not set for this brick type. Configure in Settings.</p>
+              </div>
+            );
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-muted-foreground">Workers</span>
-              <button type="button" onClick={addWorker} className="inline-flex items-center gap-1 text-sm text-primary font-semibold touch-target">
-                <Plus className="h-4 w-4" /> Add
-              </button>
-            </div>
-            <div className="space-y-2">
-              {workers.map((w, i) => (
-                <div key={i} className="flex gap-2">
-                  <select
-                    value={w}
-                    onChange={(e) => updateWorker(i, e.target.value)}
-                    disabled={isMetaLoading}
-                    className="flex-1 h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
-                  >
-                    <option value="">{isMetaLoading ? "Loading workers..." : "Select worker..."}</option>
-                    {workerList.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
-                  </select>
-                  {workers.length > 1 && (
-                    <button onClick={() => removeWorker(i)} className="text-muted-foreground hover:text-destructive touch-target px-2 transition-colors">
-                      <X className="h-5 w-5" />
-                    </button>
-                  )}
+            const factor = qty / 1000;
+            const cementUsed = parseFloat((factor * config.cementPer1000).toFixed(2));
+            const flyAshUsed = parseFloat((factor * config.flyAshPer1000).toFixed(2));
+            const powderUsed = parseFloat((factor * config.powderPer1000).toFixed(2));
+            const selectedSize = brickTypes.find((bt: any) => bt.id === brickTypeId)?.size || "";
+
+            return (
+              <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-7 w-7 rounded-lg bg-amber-500 flex items-center justify-center">
+                    <PackageOpen className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Material Consumption</p>
+                    <p className="text-[10px] text-muted-foreground">For {qty.toLocaleString()} bricks ({selectedSize})</p>
+                  </div>
                 </div>
-              ))}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/50 p-3 rounded-xl border border-amber-500/10 text-center">
+                    <p className="text-[9px] font-bold text-amber-700 uppercase mb-0.5">Cement</p>
+                    <p className="text-base font-black text-foreground">{cementUsed}</p>
+                    <p className="text-[9px] text-muted-foreground">BAGS</p>
+                  </div>
+                  <div className="bg-white/50 p-3 rounded-xl border border-amber-500/10 text-center">
+                    <p className="text-[9px] font-bold text-amber-700 uppercase mb-0.5">Fly Ash</p>
+                    <p className="text-base font-black text-foreground">{flyAshUsed}</p>
+                    <p className="text-[9px] text-muted-foreground">KG</p>
+                  </div>
+                  <div className="bg-white/50 p-3 rounded-xl border border-amber-500/10 text-center">
+                    <p className="text-[9px] font-bold text-amber-700 uppercase mb-0.5">Powder</p>
+                    <p className="text-base font-black text-foreground">{powderUsed}</p>
+                    <p className="text-[9px] text-muted-foreground">KG</p>
+                  </div>
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-2 text-center italic">
+                  Based on config: {config.cementPer1000} bags / {config.flyAshPer1000} KG / {config.powderPer1000} KG per 1000 bricks
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Role-Based Worker Assignment */}
+          <div className="space-y-4">
+            {/* Operators */}
+            <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-lg bg-blue-500 flex items-center justify-center">
+                    <span className="text-white text-[10px] font-black">OP</span>
+                  </div>
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Operators</span>
+                  <span className="text-[10px] text-muted-foreground">(Machine Operators — get brick count)</span>
+                </div>
+                <button type="button" onClick={() => setOperators(prev => [...prev, ""])} className="text-xs text-primary font-semibold flex items-center gap-0.5">
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {operators.map((w, i) => (
+                  <div key={i} className="flex gap-2">
+                    <select
+                      value={w}
+                      onChange={(e) => updateInRole(setOperators, operators, i, e.target.value)}
+                      disabled={isMetaLoading}
+                      className="flex-1 h-10 px-3 bg-background border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
+                    >
+                      <option value="">Select operator...</option>
+                      {operatorList.length > 0 ? operatorList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name}</option>) : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)}
+                    </select>
+                    {operators.length > 1 && (
+                      <button onClick={() => removeFromRole(setOperators, operators, i)} className="text-muted-foreground hover:text-destructive px-1">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Helpers */}
+            <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-lg bg-green-500 flex items-center justify-center">
+                    <span className="text-white text-[10px] font-black">HP</span>
+                  </div>
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Helpers</span>
+                  <span className="text-[10px] text-muted-foreground">(Brick handlers — get brick count)</span>
+                </div>
+                <button type="button" onClick={() => setHelpers(prev => [...prev, ""])} className="text-xs text-primary font-semibold flex items-center gap-0.5">
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {helpers.map((w, i) => (
+                  <div key={i} className="flex gap-2">
+                    <select
+                      value={w}
+                      onChange={(e) => updateInRole(setHelpers, helpers, i, e.target.value)}
+                      disabled={isMetaLoading}
+                      className="flex-1 h-10 px-3 bg-background border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
+                    >
+                      <option value="">Select helper...</option>
+                      {helperList.length > 0 ? helperList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name}</option>) : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)}
+                    </select>
+                    {helpers.length > 1 && (
+                      <button onClick={() => removeFromRole(setHelpers, helpers, i)} className="text-muted-foreground hover:text-destructive px-1">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Loaders */}
+            <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-lg bg-amber-500 flex items-center justify-center">
+                    <span className="text-white text-[10px] font-black">LD</span>
+                  </div>
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Loaders</span>
+                  <span className="text-[10px] text-muted-foreground">(Material feeders — attendance only)</span>
+                </div>
+                <button type="button" onClick={() => setLoaders(prev => [...prev, ""])} className="text-xs text-primary font-semibold flex items-center gap-0.5">
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {loaders.map((w, i) => (
+                  <div key={i} className="flex gap-2">
+                    <select
+                      value={w}
+                      onChange={(e) => updateInRole(setLoaders, loaders, i, e.target.value)}
+                      disabled={isMetaLoading}
+                      className="flex-1 h-10 px-3 bg-background border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
+                    >
+                      <option value="">Select loader...</option>
+                      {loaderList.length > 0 ? loaderList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name}</option>) : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)}
+                    </select>
+                    {loaders.length > 1 && (
+                      <button onClick={() => removeFromRole(setLoaders, loaders, i)} className="text-muted-foreground hover:text-destructive px-1">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-amber-600 font-medium mt-2 italic">Loaders are marked present but don't receive brick count (daily wage based)</p>
+            </div>
+
+            {/* Mason Note */}
+            <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-2xl flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-purple-500 flex items-center justify-center shrink-0">
+                <span className="text-white text-[10px] font-black">MS</span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">Mason (Site Work)</p>
+                <p className="text-[10px] text-muted-foreground">Masons work at client sites. Record their work in <span className="font-bold text-purple-600">Mason Ledger</span> (More → Ledgers → Mason Ledger).</p>
+              </div>
             </div>
           </div>
 

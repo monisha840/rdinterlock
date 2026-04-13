@@ -2,10 +2,14 @@ import { useState } from "react";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { EntryCard } from "@/components/EntryCard";
 import { KPICard } from "@/components/KPICard";
-import { Loader2, Truck, MapPin, IndianRupee, Search, X, Package } from "lucide-react";
+import { Loader2, Truck, MapPin, IndianRupee, Search, X, Package, FileText, Download } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/api/apiClient";
 import { format } from "date-fns";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 const TipperLedgerPage = () => {
   const [startDate, setStartDate] = useState(format(new Date(new Date().setDate(1)), "yyyy-MM-dd"));
@@ -35,8 +39,42 @@ const TipperLedgerPage = () => {
   const totalQuantity = filtered.reduce((s: number, e: any) => s + (e.quantity || 0), 0);
   const totalAmount = filtered.reduce((s: number, e: any) => s + (e.totalAmount || 0), 0);
 
+  const handleTipperPDF = () => {
+    try {
+      if (filtered.length === 0) { toast.error("No data to export"); return; }
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16); doc.text("RD Interlock - Tipper Ledger", 14, 15);
+      doc.setFontSize(10); doc.text("Period: " + startDate + " to " + endDate, 14, 22);
+      autoTable(doc, {
+        head: [["Vendor", "Vehicle", "Date", "Brick Type", "Loads", "Qty", "Location", "Rate", "Amount"]],
+        body: filtered.map((e: any) => [e.companyVendor || "-", e.vehicleNumber || "-", format(new Date(e.date), "dd-MM-yyyy"), e.brickType || "-", e.tippedLoad || 0, (e.quantity || 0).toLocaleString(), e.location || "-", "Rs." + (e.rate || 0), "Rs." + (e.totalAmount || 0).toLocaleString()]),
+        startY: 28, styles: { fontSize: 7 }, headStyles: { fillColor: [59, 130, 246] },
+      });
+      doc.save("tipper-ledger-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+      toast.success("PDF exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
+  const handleTipperExcel = () => {
+    try {
+      if (filtered.length === 0) { toast.error("No data to export"); return; }
+      const cols = ["Vendor", "Vehicle", "Date", "Brick Type", "Loads", "Qty", "Location", "Rate", "Amount"];
+      const rows = filtered.map((e: any) => [e.companyVendor || "-", e.vehicleNumber || "-", format(new Date(e.date), "dd-MM-yyyy"), e.brickType || "-", e.tippedLoad || 0, e.quantity || 0, e.location || "-", e.rate || 0, e.totalAmount || 0]);
+      const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Tipper Ledger");
+      XLSX.writeFile(wb, "tipper-ledger-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+      toast.success("Excel exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
   return (
     <MobileFormLayout title="Tipper Ledger" subtitle="Track tipper vehicle loads & deliveries">
+      {/* Export */}
+      <div className="flex gap-2 mb-3">
+        <button onClick={handleTipperPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> PDF</button>
+        <button onClick={handleTipperExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> Excel</button>
+      </div>
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-2">
         <KPICard title="Total Loads" value={totalLoads.toLocaleString()} icon={Truck} variant="primary" />

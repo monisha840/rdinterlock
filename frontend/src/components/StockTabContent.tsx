@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Factory, Package, Loader2, AlertTriangle, Info, RefreshCw, Zap } from "lucide-react";
+import { Factory, Package, Loader2, AlertTriangle, Info, RefreshCw, Zap, FileText, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
+import { format } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { stockApi } from "@/api/stock.api";
 import apiClient from "@/api/apiClient";
@@ -79,15 +84,44 @@ export const StockTabContent = () => {
 
   return (
     <div className="space-y-4 pb-8">
-      {/* Header */}
+      {/* Header + Export */}
       <div className="flex justify-between items-center px-1">
         <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Live Inventory</h2>
-        <button
-          onClick={refreshData}
-          className="p-2 rounded-xl bg-secondary/50 text-muted-foreground hover:text-primary transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => {
+            try {
+              const doc = new jsPDF();
+              doc.setFontSize(16); doc.text("RD Interlock - Stock Report", 14, 15);
+              doc.setFontSize(10); doc.text("Generated: " + format(new Date(), "dd-MM-yyyy HH:mm"), 14, 22);
+              autoTable(doc, {
+                head: [["Brick Type", "Produced", "Dispatched", "Current Stock"]],
+                body: stockData.map((d: any) => [d.brickType?.size || "-", d.produced || 0, d.dispatched || 0, d.currentStock || 0]),
+                startY: 28, styles: { fontSize: 9 }, headStyles: { fillColor: [16, 185, 129] },
+              });
+              const fy = (doc as any).lastAutoTable?.finalY || 80;
+              doc.text("Totals — Produced: " + totalProduced.toLocaleString() + " | Dispatched: " + totalDispatched.toLocaleString() + " | Stock: " + totalStock.toLocaleString(), 14, fy + 8);
+              doc.save("stock-report-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+              toast.success("PDF exported");
+            } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+          }} className="h-8 px-2.5 flex items-center gap-1 rounded-lg bg-secondary/50 border border-border text-[10px] font-bold hover:bg-secondary transition-all active:scale-95"><FileText className="h-3 w-3" /> PDF</button>
+          <button onClick={() => {
+            try {
+              const cols = ["Brick Type", "Produced", "Dispatched", "Current Stock"];
+              const rows = stockData.map((d: any) => [d.brickType?.size || "-", d.produced || 0, d.dispatched || 0, d.currentStock || 0]);
+              const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Stock");
+              XLSX.writeFile(wb, "stock-report-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+              toast.success("Excel exported");
+            } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+          }} className="h-8 px-2.5 flex items-center gap-1 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 transition-all active:scale-95"><Download className="h-3 w-3" /> Excel</button>
+          <button
+            onClick={refreshData}
+            className="p-2 rounded-xl bg-secondary/50 text-muted-foreground hover:text-primary transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Alert Banners */}

@@ -302,6 +302,11 @@ const CashBookPage = () => {
 
   return (
     <MobileFormLayout title="💵 Unified Cash Book">
+      {/* Export at top */}
+      <div className="flex gap-2 mb-4">
+        <button onClick={handleExportPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> PDF</button>
+        <button onClick={handleExportExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><FileSpreadsheet className="h-3.5 w-3.5" /> Excel</button>
+      </div>
       <div className="grid grid-cols-2 gap-4 mb-6">
         <KPICard
           title="Current Balance"

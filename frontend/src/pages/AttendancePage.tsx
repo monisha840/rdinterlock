@@ -7,7 +7,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
-import { Save, Loader2, Users, Hammer, FileText, ChevronDown } from "lucide-react";
+import { Save, Loader2, Users, Hammer, FileText, ChevronDown, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workersApi } from "@/api/workers.api";
 import { format } from "date-fns";
@@ -133,10 +136,56 @@ const AttendancePage = () => {
 
     const isLoaded = !isLoading && !isAttLoading;
 
+    // ─── Export ─────────────────────────────────────────────────────────────
+    const handleAttendancePDF = () => {
+        try {
+            const allWorkersList = [...staffWorkers, ...weeklyWorkers];
+            if (allWorkersList.length === 0) { toast.error("No workers to export"); return; }
+            const doc = new jsPDF();
+            doc.setFontSize(16); doc.text("RD Interlock - Attendance", 14, 15);
+            doc.setFontSize(10); doc.text("Date: " + format(date, "dd MMM yyyy"), 14, 22);
+            autoTable(doc, {
+                head: [["Worker", "Role", "Type", "Status"]],
+                body: allWorkersList.map(w => {
+                    const isStaff = staffWorkers.some(s => s.id === w.id);
+                    const isPresent = isStaff ? staffAttendance[w.id] : workerAttendance[w.id];
+                    return [w.name, w.role, isStaff ? "Monthly Staff" : "Weekly Worker", isPresent ? "PRESENT" : "ABSENT"];
+                }),
+                startY: 28, styles: { fontSize: 9 }, headStyles: { fillColor: [59, 130, 246] },
+            });
+            doc.save("attendance-" + format(date, "dd-MM-yyyy") + ".pdf");
+            toast.success("PDF exported");
+        } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+    };
+
+    const handleAttendanceExcel = () => {
+        try {
+            const allWorkersList = [...staffWorkers, ...weeklyWorkers];
+            if (allWorkersList.length === 0) { toast.error("No workers to export"); return; }
+            const cols = ["Worker", "Role", "Type", "Status", "Date"];
+            const rows = allWorkersList.map(w => {
+                const isStaff = staffWorkers.some(s => s.id === w.id);
+                const isPresent = isStaff ? staffAttendance[w.id] : workerAttendance[w.id];
+                return [w.name, w.role, isStaff ? "Monthly Staff" : "Weekly Worker", isPresent ? "PRESENT" : "ABSENT", format(date, "dd-MM-yyyy")];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+            XLSX.writeFile(wb, "attendance-" + format(date, "dd-MM-yyyy") + ".xlsx");
+            toast.success("Excel exported");
+        } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+    };
+
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <MobileFormLayout title="📅 Attendance">
             <div className="space-y-5">
+                {/* Export */}
+                <div className="flex gap-2">
+                    <button onClick={handleAttendancePDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> PDF</button>
+                    <button onClick={handleAttendanceExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> Excel</button>
+                </div>
+
                 {/* Attendance History & Selection */}
                 <EntryCard title="Attendance History">
                     <div className="space-y-6">
@@ -359,7 +408,7 @@ const AttendancePage = () => {
                                                             {w.role}
                                                         </span>
                                                         <span className="text-[9px] sm:text-[10px] text-muted-foreground font-semibold">
-                                                            {isMason ? "₹9/brick" : "₹2.5/₹3"}
+                                                            {isMason ? `₹${w.rate6Inch || w.rate || 9}/brick` : `₹${w.perBrickRate || w.rate || 2.5}/brick`}
                                                         </span>
                                                     </div>
                                                 </div>

@@ -16,9 +16,12 @@ import {
   Trash2,
   Save,
   Navigation,
-  Edit2
+  Edit2,
+  FileText,
+  Download
 } from "lucide-react";
 import { transportApi } from "@/api/transport.api";
+import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +46,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { 
   Dialog, 
   DialogContent, 
@@ -77,6 +83,7 @@ const TransportEntryPage = () => {
   const [brickTypeId, setBrickTypeId] = useState("");
   const [quantity, setQuantity] = useState<number>(0);
   const [location, setLocation] = useState("");
+  const [linkedOrderId, setLinkedOrderId] = useState("");
   
   // Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +109,13 @@ const TransportEntryPage = () => {
   const { data: entries = [], isLoading: entriesLoading } = useQuery({
     queryKey: ["transport-entries"],
     queryFn: () => transportApi.getEntries(),
+  });
+
+  // Client orders for linking
+  const { data: clientOrders = [] } = useQuery({
+    queryKey: ["client-orders-for-transport"],
+    queryFn: () => clientsApi.getAllOrders({}),
+    enabled: isDialogOpen,
   });
 
   const { data: summary } = useQuery({
@@ -151,6 +165,22 @@ const TransportEntryPage = () => {
     }
   });
 
+  const handleLinkOrder = (orderId: string) => {
+    setLinkedOrderId(orderId);
+    if (!orderId) return;
+
+    const order = (clientOrders as any[]).find((o: any) => o.id === orderId);
+    if (order) {
+      // Auto-fill from order
+      if (order.brickTypeId) setBrickTypeId(order.brickTypeId);
+      if (order.quantity) setQuantity(order.quantity);
+      const loc = order.location || order.client?.address || "";
+      if (loc) setLocation(loc);
+      setMaterial("Bricks");
+      toast.success("Order linked", { description: `${order.client?.name || "Client"} — ${order.brickType?.size || ""} ${order.quantity?.toLocaleString() || 0} pcs` });
+    }
+  };
+
   const handleEditEntry = (item: any) => {
     setEditingEntry(item);
     setDate(format(new Date(item.date), "yyyy-MM-dd"));
@@ -171,6 +201,7 @@ const TransportEntryPage = () => {
     setBrickTypeId(item.brickTypeId || "");
     setQuantity(item.quantity || 0);
     setLocation(item.location || "");
+    setLinkedOrderId(item.dispatchId || "");
     setIsDialogOpen(true);
   };
 
@@ -190,6 +221,7 @@ const TransportEntryPage = () => {
     setBrickTypeId("");
     setQuantity(0);
     setLocation("");
+    setLinkedOrderId("");
   };
   // Reset fields when switching transport type
   useEffect(() => {
@@ -209,17 +241,29 @@ const TransportEntryPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Build notes with linked order info
+    let finalNotes = notes || "";
+    if (linkedOrderId) {
+      const linkedOrder = (clientOrders as any[]).find((o: any) => o.id === linkedOrderId);
+      if (linkedOrder) {
+        const clientName = linkedOrder.client?.name || "Client";
+        const orderInfo = `Linked: ${clientName} - ${linkedOrder.brickType?.size || ""} ${linkedOrder.quantity || 0} pcs`;
+        finalNotes = finalNotes ? finalNotes + " | " + orderInfo : orderInfo;
+      }
+    }
+
     const payload: any = {
       date,
       transportType,
       vehicleId,
       loads,
       material: material || undefined,
-      notes: notes || undefined,
+      notes: finalNotes || undefined,
       syncToCashBook,
       brickTypeId: brickTypeId || undefined,
       quantity: quantity || undefined,
       location: location || undefined,
+      dispatchId: linkedOrderId || undefined,
     };
 
     if (transportType === "RD_VEHICLE") {
@@ -257,6 +301,44 @@ const TransportEntryPage = () => {
     
     return matchesSearch && matchesType;
   });
+
+  const handleTransportPDF = () => {
+    try {
+      if (filteredEntries.length === 0) { toast.error("No entries to export"); return; }
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16); doc.text("RD Interlock - Transport Activity Log", 14, 15);
+      doc.setFontSize(10); doc.text("Generated: " + format(new Date(), "dd-MM-yyyy") + "  |  Entries: " + filteredEntries.length, 14, 22);
+      autoTable(doc, {
+        head: [["Date", "Type", "Vehicle", "Driver/Vendor", "Material", "Loads", "Expense", "Income"]],
+        body: filteredEntries.map((i: any) => [
+          format(new Date(i.date), "dd-MM-yyyy"), i.transportType === "RD_VEHICLE" ? "RD" : "Vendor",
+          i.vehicle?.vehicleNumber || "-", i.transportType === "RD_VEHICLE" ? (i.driverName || "-") : (i.vendor?.name || "-"),
+          i.material || "-", i.loads, i.expenseAmount > 0 ? "Rs." + i.expenseAmount.toLocaleString() : "-",
+          i.incomeAmount > 0 ? "Rs." + i.incomeAmount.toLocaleString() : "-"
+        ]),
+        startY: 28, styles: { fontSize: 7 }, headStyles: { fillColor: [59, 130, 246] },
+      });
+      doc.save("transport-log-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+      toast.success("PDF exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
+
+  const handleTransportExcel = () => {
+    try {
+      if (filteredEntries.length === 0) { toast.error("No entries to export"); return; }
+      const cols = ["Date", "Type", "Vehicle", "Driver/Vendor", "Material", "Loads", "Expense", "Income"];
+      const rows = filteredEntries.map((i: any) => [
+        format(new Date(i.date), "dd-MM-yyyy"), i.transportType === "RD_VEHICLE" ? "RD" : "Vendor",
+        i.vehicle?.vehicleNumber || "-", i.transportType === "RD_VEHICLE" ? (i.driverName || "-") : (i.vendor?.name || "-"),
+        i.material || "-", i.loads, i.expenseAmount || 0, i.incomeAmount || 0
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Transport Log");
+      XLSX.writeFile(wb, "transport-log-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+      toast.success("Excel exported");
+    } catch (err: any) { toast.error("Export failed", { description: err.message }); }
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
@@ -431,6 +513,42 @@ const TransportEntryPage = () => {
                 />
               </div>
 
+              {/* Link to Client Order */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Link to Client Order (Optional)</label>
+                <select
+                  value={linkedOrderId}
+                  onChange={(e) => handleLinkOrder(e.target.value)}
+                  className="w-full h-12 px-3 bg-primary/5 border border-primary/20 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary/10 outline-none"
+                >
+                  <option value="">No linked order — manual entry</option>
+                  {(clientOrders as any[])
+                    .filter((o: any) => o.status === "READY" || o.status === "IN_PRODUCTION" || o.status === "PENDING" || o.status === "DISPATCHED")
+                    .map((o: any) => (
+                      <option key={o.id} value={o.id}>
+                        {o.client?.name || "Client"} — {o.brickType?.size || "?"} — {(o.quantity || 0).toLocaleString()} pcs — {o.status}
+                      </option>
+                    ))
+                  }
+                </select>
+                {linkedOrderId && (() => {
+                  const order = (clientOrders as any[]).find((o: any) => o.id === linkedOrderId);
+                  if (!order) return null;
+                  return (
+                    <div className="p-2.5 bg-primary/5 border border-primary/10 rounded-xl text-[11px] font-medium text-foreground flex items-center justify-between">
+                      <div>
+                        <span className="font-bold">{order.client?.name}</span>
+                        <span className="text-muted-foreground"> — {order.brickType?.size} — {order.quantity?.toLocaleString()} pcs</span>
+                        {order.client?.address && <span className="text-muted-foreground"> — {order.client.address}</span>}
+                      </div>
+                      <button type="button" onClick={() => { setLinkedOrderId(""); }} className="p-1 hover:bg-secondary rounded-lg">
+                        <X className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Brick Type</label>
@@ -492,6 +610,12 @@ const TransportEntryPage = () => {
             </form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Export */}
+      <div className="flex gap-2">
+        <button onClick={handleTransportPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> PDF</button>
+        <button onClick={handleTransportExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> Excel</button>
       </div>
 
       {/* Summary Cards */}

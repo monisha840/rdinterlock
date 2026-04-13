@@ -33,6 +33,7 @@ import { BIReportsDashboard } from "@/components/BIReportsDashboard";
 import { SalaryPaymentModal } from "@/components/SalaryPaymentModal";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
 import { StockTabContent } from "@/components/StockTabContent";
+import { ProfitAnalysis } from "@/components/ProfitAnalysis";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -315,6 +316,14 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* Export — top of page */}
+      {["Staff Salaries", "Worker Wages", "Advance Ledger"].includes(activeTab) && (
+        <div className="flex gap-2 mb-4">
+          <button onClick={handleExportPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> Export PDF</button>
+          <button onClick={handleExportExcel} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> Export Excel</button>
+        </div>
+      )}
+
       {/* ══════════════════════ DASHBOARD TAB ══════════════════════ */}
       {activeTab === "Dashboard" && (
         <BIReportsDashboard startDate={dateRange.from} endDate={dateRange.to} />
@@ -322,34 +331,7 @@ const ReportsPage = () => {
 
       {/* ══════════════════════ OPERATIONS TAB ══════════════════════ */}
       {activeTab === "Operations" && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <KPICard title="Total Production" value="1,85,000" icon={Factory} variant="primary" />
-            <KPICard title="Total Dispatch" value="1,62,000" icon={Truck} variant="accent" />
-            <KPICard title="Total Expense" value={`₹${(operationsSummary?.expenses || 0).toLocaleString()}`} icon={Wallet} variant="warning" />
-            <KPICard title="Est. Profit" value={`₹${(operationsSummary?.profit || 0).toLocaleString()}`} icon={TrendingUp} variant="success" />
-          </div>
-
-          <EntryCard title="Summary">
-            <div className="space-y-0">
-              {[
-                { label: "Production (6 inch)", value: "1,20,000" },
-                { label: "Production (8 inch)", value: "65,000" },
-                { label: "Dispatched", value: "1,62,000" },
-                { label: "Revenue Collected", value: "₹8,10,000" },
-                { label: "Pending Payments", value: "₹32,000" },
-                { label: "Worker Payments", value: "₹1,85,000" },
-                { label: "Fuel Costs", value: "₹42,000" },
-                { label: "Material Costs", value: "₹1,50,000" },
-              ].map((item, i) => (
-                <div key={i} className="flex justify-between items-center py-3 border-b border-border/50 last:border-0">
-                  <span className="text-sm text-muted-foreground">{item.label}</span>
-                  <span className="text-sm font-bold text-foreground">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </EntryCard>
-        </>
+        <ProfitAnalysis startDate={dateRange.from} endDate={dateRange.to} />
       )}
 
       {/* ══════════════════ STAFF SALARIES TAB ══════════════════ */}
@@ -494,7 +476,7 @@ const ReportsPage = () => {
               className="w-full mt-3"
             />
             <p className="text-[10px] text-muted-foreground mt-2 italic">
-              * Based on brick output from Daily Entry. Day shift: ₹2.50/brick · Night: ₹3.00/brick · Mason: ₹9.00/brick
+              * Based on brick output from Daily Entry. Rates are configured in Settings.
             </p>
           </div>
 
@@ -591,7 +573,7 @@ const ReportsPage = () => {
                             </div>
                             <div className="flex justify-between pl-4">
                               <span className="text-muted-foreground">Rate:</span>
-                              <span className="font-bold">₹9/brick</span>
+                              <span className="font-bold text-purple-600">₹{w.rate || 9}/brick</span>
                             </div>
                           </>
                         ) : (
@@ -603,6 +585,14 @@ const ReportsPage = () => {
                             <div className="flex justify-between pl-4">
                               <span className="text-muted-foreground">Night Bricks:</span>
                               <span className="font-bold">{w.nightBricks.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between pr-4 border-r border-border/30">
+                              <span className="text-muted-foreground">Day Rate:</span>
+                              <span className="font-bold text-blue-600">₹{w.rate || 2.5}/brick</span>
+                            </div>
+                            <div className="flex justify-between pl-4">
+                              <span className="text-muted-foreground">Night Rate:</span>
+                              <span className="font-bold text-blue-600">₹{((w.rate || 2.5) * 1.2).toFixed(1)}/brick</span>
                             </div>
                           </>
                         )}
@@ -620,6 +610,9 @@ const ReportsPage = () => {
                             <span className="font-bold">{w.daysPresent}</span>
                           </div>
                         )}
+                        <div className="col-span-2 pt-1 border-t border-border/30 mt-1">
+                          <p className="text-[9px] text-muted-foreground normal-case font-medium">Rates from Settings. To change rates, go to Settings → Salary & Rates.</p>
+                        </div>
                       </div>
 
                       {/* Advance Breakdown */}
@@ -766,27 +759,6 @@ const ReportsPage = () => {
       {/* ══════════════════════ STOCKS TAB ══════════════════════ */}
       {activeTab === "Stocks" && <StockTabContent />}
 
-      {/* Export buttons — show on tabs that have exportable data */}
-      {["Staff Salaries", "Worker Wages", "Advance Ledger"].includes(activeTab) && (
-        <div className="grid grid-cols-2 gap-3 mt-2">
-          <ActionButton
-            label="Export PDF"
-            icon={FileText}
-            variant="primary"
-            size="lg"
-            onClick={handleExportPDF}
-            className="w-full"
-          />
-          <ActionButton
-            label="Export Excel"
-            icon={Download}
-            variant="accent"
-            size="lg"
-            onClick={handleExportExcel}
-            className="w-full"
-          />
-        </div>
-      )}
       {selectedWorker && (
         <SalaryPaymentModal
           isOpen={isPaymentModalOpen}
