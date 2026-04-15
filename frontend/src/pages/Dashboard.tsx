@@ -12,6 +12,11 @@ import {
   AlertTriangle,
   Loader2,
   Trash2,
+  BookOpen,
+  IndianRupee,
+  ShoppingCart,
+  CalendarCheck,
+  Hammer,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useNavigate } from "react-router-dom";
@@ -106,6 +111,67 @@ const Dashboard = () => {
 
   return (
     <MobileFormLayout title="Dashboard">
+      {/* Daily Tasks */}
+      <div className="mb-5">
+        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2.5 px-1">Daily Tasks</p>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <button
+            onClick={() => navigate("/daily-entry")}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-blue-500/5 border border-blue-500/15 hover:border-blue-500/30 transition-all active:scale-95"
+          >
+            <div className="h-9 w-9 rounded-xl bg-blue-500 flex items-center justify-center shadow-sm">
+              <BookOpen className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-foreground text-center leading-tight">Production</span>
+          </button>
+          <button
+            onClick={() => navigate("/cash-book")}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/15 hover:border-emerald-500/30 transition-all active:scale-95"
+          >
+            <div className="h-9 w-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-sm">
+              <IndianRupee className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-foreground text-center leading-tight">Payment</span>
+          </button>
+          <button
+            onClick={() => navigate("/client-management")}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-purple-500/5 border border-purple-500/15 hover:border-purple-500/30 transition-all active:scale-95"
+          >
+            <div className="h-9 w-9 rounded-xl bg-purple-500 flex items-center justify-center shadow-sm">
+              <ShoppingCart className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-foreground text-center leading-tight">Order</span>
+          </button>
+          <button
+            onClick={() => navigate("/attendance")}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15 hover:border-amber-500/30 transition-all active:scale-95"
+          >
+            <div className="h-9 w-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm">
+              <CalendarCheck className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-foreground text-center leading-tight">Attendance</span>
+          </button>
+          <button
+            onClick={() => navigate("/mason-ledger")}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-orange-500/5 border border-orange-500/15 hover:border-orange-500/30 transition-all active:scale-95"
+          >
+            <div className="h-9 w-9 rounded-xl bg-orange-500 flex items-center justify-center shadow-sm">
+              <Hammer className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-foreground text-center leading-tight">Mason</span>
+          </button>
+          <button
+            onClick={() => navigate("/transport")}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-cyan-500/5 border border-cyan-500/15 hover:border-cyan-500/30 transition-all active:scale-95"
+          >
+            <div className="h-9 w-9 rounded-xl bg-cyan-500 flex items-center justify-center shadow-sm">
+              <Truck className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-[10px] font-bold text-foreground text-center leading-tight">Transport</span>
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KPICard
           title="Today Production"

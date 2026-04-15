@@ -21,7 +21,9 @@ import {
 } from "lucide-react";
 import { transportApi } from "@/api/transport.api";
 import { cashApi } from "@/api/cash.api";
+import apiClient from "@/api/apiClient";
 import { format } from "date-fns";
+import { MapPin, Package } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -272,6 +274,28 @@ const VehiclesPage = () => {
 
   const companyVehicles = vehicles.filter(v => v.vehicleType === "COMPANY");
 
+  // Tipper Ledger
+  const [tipperStartDate, setTipperStartDate] = useState(format(new Date(new Date().setDate(1)), "yyyy-MM-dd"));
+  const [tipperEndDate, setTipperEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [tipperSearch, setTipperSearch] = useState("");
+
+  const { data: tipperLedger = [], isLoading: isTipperLoading } = useQuery<any[]>({
+    queryKey: ["tipper-ledger", tipperStartDate, tipperEndDate],
+    queryFn: async () => {
+      const res = await apiClient.get(`/reports/tipper-ledger?startDate=${tipperStartDate}&endDate=${tipperEndDate}`);
+      return (res as any).data;
+    },
+  });
+
+  const filteredTipper = (tipperLedger || []).filter((e: any) => {
+    if (!tipperSearch) return true;
+    const q = tipperSearch.toLowerCase();
+    return e.companyVendor?.toLowerCase().includes(q) || e.vehicleNumber?.toLowerCase().includes(q) || e.location?.toLowerCase().includes(q);
+  });
+
+  const tipperTotalLoads = filteredTipper.reduce((s: number, e: any) => s + (e.tippedLoad || 0), 0);
+  const tipperTotalAmount = filteredTipper.reduce((s: number, e: any) => s + (e.totalAmount || 0), 0);
+
   const handleFleetPDF = () => {
     try {
       const doc = new jsPDF();
@@ -511,10 +535,11 @@ const VehiclesPage = () => {
       </div>
 
       <Tabs defaultValue="fleet" className="w-full">
-        <TabsList className="bg-secondary/50 p-1 rounded-2xl mb-6 grid grid-cols-3 max-w-md">
-          <TabsTrigger value="fleet" className="rounded-xl px-3 py-2 font-bold text-xs sm:text-sm">Fleet</TabsTrigger>
-          <TabsTrigger value="emis" className="rounded-xl px-3 py-2 font-bold text-xs sm:text-sm">EMI</TabsTrigger>
-          <TabsTrigger value="expenses" className="rounded-xl px-3 py-2 font-bold text-xs sm:text-sm">Expenses</TabsTrigger>
+        <TabsList className="bg-secondary/50 p-1 rounded-2xl mb-6 grid grid-cols-4 max-w-lg">
+          <TabsTrigger value="fleet" className="rounded-xl px-2 py-2 font-bold text-[10px] sm:text-sm">Fleet</TabsTrigger>
+          <TabsTrigger value="emis" className="rounded-xl px-2 py-2 font-bold text-[10px] sm:text-sm">EMI</TabsTrigger>
+          <TabsTrigger value="expenses" className="rounded-xl px-2 py-2 font-bold text-[10px] sm:text-sm">Expenses</TabsTrigger>
+          <TabsTrigger value="tipper" className="rounded-xl px-2 py-2 font-bold text-[10px] sm:text-sm">Tipper</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fleet" className="space-y-4">
@@ -840,6 +865,75 @@ const VehiclesPage = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ═══ TIPPER LEDGER TAB ═══ */}
+        <TabsContent value="tipper" className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="p-3 rounded-2xl bg-primary/5 border border-primary/10 text-center">
+              <p className="text-[9px] font-black text-primary uppercase">Total Loads</p>
+              <p className="text-lg font-black">{tipperTotalLoads.toLocaleString()}</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-center">
+              <p className="text-[9px] font-black text-emerald-600 uppercase">Total Amount</p>
+              <p className="text-lg font-black text-emerald-700">₹{tipperTotalAmount.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">From</label>
+              <input type="date" value={tipperStartDate} onChange={(e) => setTipperStartDate(e.target.value)} className="w-full h-10 px-3 bg-card border border-border rounded-xl text-xs focus:border-primary outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">To</label>
+              <input type="date" value={tipperEndDate} onChange={(e) => setTipperEndDate(e.target.value)} className="w-full h-10 px-3 bg-card border border-border rounded-xl text-xs focus:border-primary outline-none" />
+            </div>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input value={tipperSearch} onChange={(e) => setTipperSearch(e.target.value)} placeholder="Search vendor, vehicle, location..." className="w-full h-10 pl-10 pr-10 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
+            {tipperSearch && <button onClick={() => setTipperSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="h-4 w-4 text-muted-foreground" /></button>}
+          </div>
+
+          {isTipperLoading ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : filteredTipper.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground italic">
+              <Truck className="h-10 w-10 mx-auto mb-3 opacity-10" />
+              <p className="text-sm">No tipper entries found</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredTipper.map((e: any) => (
+                <div key={e.id} className="p-3.5 bg-secondary/30 rounded-2xl border border-border/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-9 w-9 rounded-xl bg-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">{e.companyVendor?.[0] || "T"}</div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-foreground truncate">{e.companyVendor}</p>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3 shrink-0" />{e.vehicleNumber}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className="text-[13px] font-black text-primary">₹{(e.totalAmount || 0).toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground">{format(new Date(e.date), "dd MMM")}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[10px] font-bold text-muted-foreground pt-2 border-t border-border/30">
+                    <div className="text-center"><p className="uppercase text-[8px]">Loads</p><p className="text-foreground">{e.tippedLoad}</p></div>
+                    <div className="text-center"><p className="uppercase text-[8px]">Qty</p><p className="text-foreground">{(e.quantity || 0).toLocaleString()}</p></div>
+                    <div className="text-center"><p className="uppercase text-[8px]">Location</p><p className="text-foreground truncate">{e.location || "-"}</p></div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-3 border-t-2 border-primary/20">
+                <span className="text-sm font-bold text-foreground">Total ({filteredTipper.length})</span>
+                <span className="text-lg font-bold text-primary">₹{tipperTotalAmount.toLocaleString()}</span>
+              </div>
             </div>
           )}
         </TabsContent>

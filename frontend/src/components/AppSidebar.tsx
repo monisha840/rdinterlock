@@ -57,10 +57,8 @@ const navItemsAfter = [
 
 const transportItems = [
   { title: "Transport Entry", url: "/transport", icon: ClipboardList },
-  { title: "Tipper Ledger", url: "/tipper-ledger", icon: Truck },
-  { title: "Vehicles", url: "/transport/vehicles", icon: Truck },
+  { title: "Vehicles & EMI", url: "/transport/vehicles", icon: Truck },
   { title: "Vendors", url: "/transport/vendors", icon: Users },
-  { title: "Reports", url: "/transport/reports", icon: BarChart3 },
 ];
 
 export function AppSidebar() {

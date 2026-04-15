@@ -89,6 +89,11 @@ const TransportEntryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"activity" | "reports">("activity");
+
+  // Reports view state
+  const [reportStartDate, setReportStartDate] = useState(format(new Date(), "yyyy-MM-01"));
+  const [reportEndDate, setReportEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   // Queries
   const { data: vehicles = [] } = useQuery({
@@ -109,6 +114,19 @@ const TransportEntryPage = () => {
   const { data: entries = [], isLoading: entriesLoading } = useQuery({
     queryKey: ["transport-entries"],
     queryFn: () => transportApi.getEntries(),
+  });
+
+  // Reports data
+  const { data: reportEntries = [], isLoading: isReportLoading } = useQuery({
+    queryKey: ["transport-report-entries", reportStartDate, reportEndDate],
+    queryFn: () => transportApi.getEntries({ startDate: reportStartDate, endDate: reportEndDate }),
+    enabled: activeView === "reports",
+  });
+
+  const { data: reportSummary } = useQuery({
+    queryKey: ["transport-report-summary", reportStartDate, reportEndDate],
+    queryFn: () => transportApi.getSummary({ startDate: reportStartDate, endDate: reportEndDate }),
+    enabled: activeView === "reports",
   });
 
   // Client orders for linking
@@ -612,6 +630,115 @@ const TransportEntryPage = () => {
         </Dialog>
       </div>
 
+      {/* View Toggle */}
+      <div className="flex gap-2 p-1 bg-secondary/50 rounded-2xl max-w-xs">
+        <button onClick={() => setActiveView("activity")} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${activeView === "activity" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>Activity Log</button>
+        <button onClick={() => setActiveView("reports")} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${activeView === "reports" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>Reports</button>
+      </div>
+
+      {activeView === "reports" ? (
+        <>
+          {/* Report Filters */}
+          <div className="card-modern p-4 grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Start Date</label>
+              <input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">End Date</label>
+              <input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none" />
+            </div>
+          </div>
+
+          {/* Report Summary Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3 rounded-2xl bg-primary/5 border border-primary/10">
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total Loads</p>
+              <p className="text-xl font-black">{reportSummary?.totalLoads || 0}</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-rose-500/5 border border-rose-500/10">
+              <p className="text-[9px] font-black uppercase tracking-widest text-rose-500 mb-1">Expense</p>
+              <p className="text-xl font-black text-rose-600">₹{(reportSummary?.totalExpense || 0).toLocaleString()}</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-1">Income</p>
+              <p className="text-xl font-black text-emerald-600">₹{(reportSummary?.totalIncome || 0).toLocaleString()}</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Net Cost</p>
+              <p className="text-xl font-black text-white">₹{(reportSummary?.netCost || 0).toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Report Export */}
+          <div className="flex gap-2">
+            <button onClick={() => {
+              try {
+                if (reportEntries.length === 0) { toast.error("No data"); return; }
+                const doc = new jsPDF({ orientation: "landscape" });
+                doc.setFontSize(16); doc.text("Transport Report", 14, 15);
+                doc.setFontSize(10); doc.text("Period: " + reportStartDate + " to " + reportEndDate, 14, 22);
+                autoTable(doc, {
+                  head: [["Date", "Vehicle", "Type", "Loads", "Expense", "Income"]],
+                  body: reportEntries.map((i: any) => [format(new Date(i.date), "dd-MM-yyyy"), i.vehicle?.vehicleNumber || "-", i.transportType === "RD_VEHICLE" ? "RD" : "Vendor", i.loads, i.expenseAmount > 0 ? "Rs." + i.expenseAmount.toLocaleString() : "-", i.incomeAmount > 0 ? "Rs." + i.incomeAmount.toLocaleString() : "-"]),
+                  startY: 28, styles: { fontSize: 8 }, headStyles: { fillColor: [59, 130, 246] },
+                });
+                doc.save("transport-report-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
+                toast.success("PDF exported");
+              } catch (err: any) { toast.error("Failed", { description: err.message }); }
+            }} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> PDF</button>
+            <button onClick={() => {
+              try {
+                if (reportEntries.length === 0) { toast.error("No data"); return; }
+                const cols = ["Date", "Vehicle", "Type", "Loads", "Expense", "Income"];
+                const rows = reportEntries.map((i: any) => [format(new Date(i.date), "dd-MM-yyyy"), i.vehicle?.vehicleNumber || "-", i.transportType === "RD_VEHICLE" ? "RD" : "Vendor", i.loads, i.expenseAmount || 0, i.incomeAmount || 0]);
+                const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Report");
+                XLSX.writeFile(wb, "transport-report-" + format(new Date(), "dd-MM-yyyy") + ".xlsx");
+                toast.success("Excel exported");
+              } catch (err: any) { toast.error("Failed", { description: err.message }); }
+            }} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-all active:scale-[0.98]"><Download className="h-3.5 w-3.5" /> Excel</button>
+          </div>
+
+          {/* Report Table */}
+          <Card className="rounded-2xl border-border/50 shadow-xl overflow-hidden bg-background/50">
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[500px]">
+                <thead className="bg-muted/30 text-xs text-muted-foreground border-b border-border uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4 font-bold">Date</th>
+                    <th className="py-3 px-4 font-bold">Vehicle</th>
+                    <th className="py-3 px-4 font-bold">Type</th>
+                    <th className="py-3 px-4 font-bold text-center">Loads</th>
+                    <th className="py-3 px-4 font-bold text-right">Expense</th>
+                    <th className="py-3 px-4 font-bold text-right">Income</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isReportLoading ? (
+                    <tr><td colSpan={6} className="h-32 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary/20" /></td></tr>
+                  ) : reportEntries.length === 0 ? (
+                    <tr><td colSpan={6} className="h-32 text-center text-muted-foreground italic">No entries for selected period</td></tr>
+                  ) : (
+                    reportEntries.map((item: any) => (
+                      <tr key={item.id} className="border-b border-border/50 hover:bg-muted/20">
+                        <td className="py-3 px-4 font-bold">{format(new Date(item.date), "dd MMM yyyy")}</td>
+                        <td className="py-3 px-4 font-bold text-primary">{item.vehicle?.vehicleNumber}</td>
+                        <td className="py-3 px-4"><Badge variant="outline" className="rounded-md text-[10px] font-black">{item.transportType === "RD_VEHICLE" ? "RD" : "VENDOR"}</Badge></td>
+                        <td className="py-3 px-4 text-center font-bold">{item.loads}</td>
+                        <td className="py-3 px-4 text-right text-rose-500 font-bold">{item.expenseAmount > 0 ? "₹" + item.expenseAmount.toLocaleString() : "-"}</td>
+                        <td className="py-3 px-4 text-right text-emerald-500 font-bold">{item.incomeAmount > 0 ? "₹" + item.incomeAmount.toLocaleString() : "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <>
       {/* Export */}
       <div className="flex gap-2">
         <button onClick={handleTransportPDF} className="h-9 px-3 flex items-center gap-1.5 rounded-xl bg-secondary/50 border border-border text-[11px] font-bold hover:bg-secondary transition-all active:scale-[0.98]"><FileText className="h-3.5 w-3.5" /> PDF</button>
@@ -909,6 +1036,8 @@ const TransportEntryPage = () => {
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* Delete Entry Confirm */}
       {deleteEntryId && (
