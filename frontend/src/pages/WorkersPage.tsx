@@ -25,7 +25,7 @@ import {
 import { format } from "date-fns";
 import { KPICard } from "@/components/KPICard";
 
-const roles = ["PRODUCTION", "MASON", "LOADER", "OPERATOR", "HELPER"];
+const roles = ["PRODUCTION", "MASON", "LOADER", "OPERATOR"];
 const paymentTypes = ["PER_BRICK", "WEEKLY"];
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -222,7 +222,6 @@ const WorkersPage = () => {
     OFFICE: "primary",
     LOADER: "accent",
     OPERATOR: "primary",
-    HELPER: "secondary"
   };
 
   return (

@@ -205,7 +205,7 @@ const sections: Section[] = [
       {
         title: "Worker Wages",
         whatItDoes: [
-          "Calculate weekly wages for Operators, Masons, Helpers, Loaders",
+          "Calculate weekly wages for Operators, Masons, Loaders",
           "Based on brick output from Daily Entry",
           "Rates: Operator Day Rs.2.50/brick, Night Rs.3/brick, Mason Rs.9/brick",
           "Shows: Day bricks, Night bricks, Total, Gross wage, Advances, Paid, Pending",
@@ -230,7 +230,7 @@ const sections: Section[] = [
         title: "Advance Ledger",
         whatItDoes: [
           "Shows advance balance for every worker and staff",
-          "Filter by role — Operator, Mason, Helper, Loader, Driver, Manager",
+          "Filter by role — Operator, Mason, Loader, Driver, Manager",
           "Shows each advance transaction with date and payment mode",
         ],
         howToUse: [

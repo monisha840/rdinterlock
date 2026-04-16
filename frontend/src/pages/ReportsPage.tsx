@@ -649,7 +649,7 @@ const ReportsPage = () => {
         <div className="space-y-4 pb-8">
           {/* Role Filter Pills */}
           <div className="flex flex-wrap gap-2">
-            {["ALL", "OPERATOR", "MASON", "HELPER", "LOADER", "DRIVER", "MANAGER"].map(role => (
+            {["ALL", "OPERATOR", "MASON", "LOADER", "DRIVER", "MANAGER"].map(role => (
               <button
                 key={role}
                 onClick={() => setAdvRoleFilter(role)}

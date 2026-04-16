@@ -35,9 +35,7 @@ const DailyEntry = () => {
   const [machineId, setMachineId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [damagedQuantity, setDamagedQuantity] = useState("");
-  const [operators, setOperators] = useState<string[]>([""]);
-  const [helpers, setHelpers] = useState<string[]>([""]);
-  const [loaders, setLoaders] = useState<string[]>([""]);
+  const [workers, setWorkers] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
 
   const [lastResult, setLastResult] = useState<any>(null);
@@ -91,9 +89,7 @@ const DailyEntry = () => {
       setQuantity("");
       setDamagedQuantity("");
       setBrickRate("");
-      setOperators([""]);
-      setHelpers([""]);
-      setLoaders([""]);
+      setWorkers([""]);
       setNotes("");
     },
     onError: (error: any) => {
@@ -201,15 +197,15 @@ const DailyEntry = () => {
     }
   }, [brickTypeId, shift]);
 
-  // Filter workers by role
-  const operatorList = workerList.filter((w: any) => w.role?.toUpperCase() === 'OPERATOR' || w.role?.toUpperCase() === 'PRODUCTION_WORKER');
-  const helperList = workerList.filter((w: any) => w.role?.toUpperCase() === 'HELPER');
-  const loaderList = workerList.filter((w: any) => w.role?.toUpperCase() === 'LOADER');
+  // Production workers — Operators + Loaders (both involved in brick production)
+  const productionWorkerList = workerList.filter((w: any) => {
+    const role = w.role?.toUpperCase();
+    return role === 'OPERATOR' || role === 'PRODUCTION_WORKER' || role === 'LOADER';
+  });
 
-  // Generic role-based add/remove/update helpers
-  const addToRole = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (prev: string[]) => [...prev, ""];
-  const removeFromRole = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[], i: number) => setter(arr.filter((_, idx) => idx !== i));
-  const updateInRole = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[], i: number, v: string) => { const u = [...arr]; u[i] = v; setter(u); };
+  const addWorker = () => setWorkers(prev => [...prev, ""]);
+  const removeWorker = (i: number) => setWorkers(prev => prev.filter((_, idx) => idx !== i));
+  const updateWorker = (i: number, v: string) => { const u = [...workers]; u[i] = v; setWorkers(u); };
   const calcTotal = () => {
     return parseInt(quantity) || 0;
   };
@@ -243,27 +239,17 @@ const DailyEntry = () => {
 
     const availableQty = calcAvailable();
 
-    // Build workers list: Operators + Helpers get brick split, Loaders get 0 (attendance)
-    const productionWorkerIds = [
-      ...operators.filter(w => w !== ""),
-      ...helpers.filter(w => w !== ""),
-    ];
-    const loaderWorkerIds = loaders.filter(w => w !== "");
+    // All selected workers share bricks equally
+    const selectedWorkerIds = workers.filter(w => w !== "");
 
-    const brickWorkers = productionWorkerIds.map((workerId, index) => {
-      const baseQty = Math.floor(availableQty / productionWorkerIds.length);
-      const remainder = availableQty % productionWorkerIds.length;
+    const workerPayload = selectedWorkerIds.map((workerId, index) => {
+      const baseQty = Math.floor(availableQty / selectedWorkerIds.length);
+      const remainder = availableQty % selectedWorkerIds.length;
       return {
         workerId,
         quantity: index === 0 ? baseQty + remainder : baseQty,
       };
     });
-
-    // Loaders: present but 0 bricks (they feed materials, not produce bricks)
-    const loaderWorkers = loaderWorkerIds.map(workerId => ({
-      workerId,
-      quantity: 0,
-    }));
 
     const payload = {
       date: format(entryDate, 'yyyy-MM-dd'),
@@ -273,7 +259,7 @@ const DailyEntry = () => {
       quantity: totalQty,
       damagedBricks: damagedQty,
       notes,
-      workers: [...brickWorkers, ...loaderWorkers],
+      workers: workerPayload,
     };
 
     createProductionMutation.mutate(payload);
@@ -771,127 +757,45 @@ const DailyEntry = () => {
             );
           })()}
 
-          {/* Role-Based Worker Assignment */}
-          <div className="space-y-4">
-            {/* Operators */}
-            <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-blue-500 flex items-center justify-center">
-                    <span className="text-white text-[10px] font-black">OP</span>
-                  </div>
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Operators</span>
-                  <span className="text-[10px] text-muted-foreground">(Machine Operators — get brick count)</span>
-                </div>
-                <button type="button" onClick={() => setOperators(prev => [...prev, ""])} className="text-xs text-primary font-semibold flex items-center gap-0.5">
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {operators.map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <select
-                      value={w}
-                      onChange={(e) => updateInRole(setOperators, operators, i, e.target.value)}
-                      disabled={isMetaLoading}
-                      className="flex-1 h-10 px-3 bg-background border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
-                    >
-                      <option value="">Select operator...</option>
-                      {operatorList.length > 0 ? operatorList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name}</option>) : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)}
-                    </select>
-                    {operators.length > 1 && (
-                      <button onClick={() => removeFromRole(setOperators, operators, i)} className="text-muted-foreground hover:text-destructive px-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Helpers */}
-            <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-2xl">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-green-500 flex items-center justify-center">
-                    <span className="text-white text-[10px] font-black">HP</span>
-                  </div>
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Helpers</span>
-                  <span className="text-[10px] text-muted-foreground">(Brick handlers — get brick count)</span>
-                </div>
-                <button type="button" onClick={() => setHelpers(prev => [...prev, ""])} className="text-xs text-primary font-semibold flex items-center gap-0.5">
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {helpers.map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <select
-                      value={w}
-                      onChange={(e) => updateInRole(setHelpers, helpers, i, e.target.value)}
-                      disabled={isMetaLoading}
-                      className="flex-1 h-10 px-3 bg-background border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
-                    >
-                      <option value="">Select helper...</option>
-                      {helperList.length > 0 ? helperList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name}</option>) : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)}
-                    </select>
-                    {helpers.length > 1 && (
-                      <button onClick={() => removeFromRole(setHelpers, helpers, i)} className="text-muted-foreground hover:text-destructive px-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Loaders */}
-            <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-amber-500 flex items-center justify-center">
-                    <span className="text-white text-[10px] font-black">LD</span>
-                  </div>
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">Loaders</span>
-                  <span className="text-[10px] text-muted-foreground">(Material feeders — attendance only)</span>
-                </div>
-                <button type="button" onClick={() => setLoaders(prev => [...prev, ""])} className="text-xs text-primary font-semibold flex items-center gap-0.5">
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {loaders.map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <select
-                      value={w}
-                      onChange={(e) => updateInRole(setLoaders, loaders, i, e.target.value)}
-                      disabled={isMetaLoading}
-                      className="flex-1 h-10 px-3 bg-background border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
-                    >
-                      <option value="">Select loader...</option>
-                      {loaderList.length > 0 ? loaderList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name}</option>) : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)}
-                    </select>
-                    {loaders.length > 1 && (
-                      <button onClick={() => removeFromRole(setLoaders, loaders, i)} className="text-muted-foreground hover:text-destructive px-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-amber-600 font-medium mt-2 italic">Loaders are marked present but don't receive brick count (daily wage based)</p>
-            </div>
-
-            {/* Mason Note */}
-            <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-2xl flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-purple-500 flex items-center justify-center shrink-0">
-                <span className="text-white text-[10px] font-black">MS</span>
-              </div>
+          {/* Select Workers */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
               <div>
-                <p className="text-xs font-bold text-foreground">Mason (Site Work)</p>
-                <p className="text-[10px] text-muted-foreground">Masons work at client sites. Record their work in <span className="font-bold text-purple-600">Mason Ledger</span> (More → Ledgers → Mason Ledger).</p>
+                <span className="text-sm font-medium text-muted-foreground">Workers</span>
+                <p className="text-[10px] text-primary font-medium">Operators + Loaders — bricks split equally among all selected workers</p>
               </div>
+              <button type="button" onClick={addWorker} className="inline-flex items-center gap-1 text-sm text-primary font-semibold touch-target">
+                <Plus className="h-4 w-4" /> Add
+              </button>
             </div>
+            <div className="space-y-2">
+              {workers.map((w, i) => (
+                <div key={i} className="flex gap-2">
+                  <select
+                    value={w}
+                    onChange={(e) => updateWorker(i, e.target.value)}
+                    disabled={isMetaLoading}
+                    className="flex-1 h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
+                  >
+                    <option value="">{isMetaLoading ? "Loading workers..." : "Select worker..."}</option>
+                    {productionWorkerList.length > 0
+                      ? productionWorkerList.map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)
+                      : workerList.filter((wk: any) => !['MASON', 'MANAGER', 'DRIVER', 'TELECALLER'].includes(wk.role?.toUpperCase())).map((worker: any) => <option key={worker.id} value={worker.id}>{worker.name} ({worker.role})</option>)
+                    }
+                  </select>
+                  {workers.length > 1 && (
+                    <button onClick={() => removeWorker(i)} className="text-muted-foreground hover:text-destructive touch-target px-2 transition-colors">
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {workers.filter(w => w !== "").length > 1 && (
+              <p className="text-[10px] text-muted-foreground mt-2 italic">
+                {calcAvailable().toLocaleString()} bricks ÷ {workers.filter(w => w !== "").length} workers = {Math.floor(calcAvailable() / workers.filter(w => w !== "").length).toLocaleString()} bricks each
+              </p>
+            )}
           </div>
 
           {/* Sticky-style Save */}

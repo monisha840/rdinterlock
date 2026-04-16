@@ -1028,7 +1028,6 @@ const SettingsPage = () => {
                 className="h-10 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
               >
                 <option value="OPERATOR">Operator</option>
-                <option value="HELPER">Helper</option>
                 <option value="LOADER">Loader</option>
                 <option value="MASON">Mason</option>
               </select>

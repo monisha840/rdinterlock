@@ -67,7 +67,6 @@ async function main() {
     // Create some default workers if needed
     const workers = [
         { name: 'Raju', role: 'OPERATOR', paymentType: 'PER_BRICK', rate: 1.5 },
-        { name: 'Suresh', role: 'HELPER', paymentType: 'DAILY', rate: 500 },
         { name: 'Manager', role: 'MANAGER', paymentType: 'MONTHLY', rate: 1000 },
         { name: 'Driver 1', role: 'DRIVER', paymentType: 'MONTHLY', rate: 800 },
         { name: 'Telecaller', role: 'TELECALLER', paymentType: 'MONTHLY', rate: 500 },
