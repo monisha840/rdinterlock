@@ -288,7 +288,10 @@ const DailyEntry = () => {
     });
   };
 
-  const totalToday = todayProductions.reduce((sum, p) => sum + p.availableBricks, 0);
+  // Total produced today — full quantity, NOT reduced by damaged bricks.
+  // Damaged is tracked as a separate wastage metric (see totalDamagedToday below).
+  const totalToday = todayProductions.reduce((sum, p) => sum + (p.quantity || 0), 0);
+  const totalDamagedToday = todayProductions.reduce((sum, p) => sum + (p.damagedBricks || 0), 0);
 
   // Build labour summary from today's productions (track production IDs for edit/delete)
   const labourSummary = (() => {
@@ -501,13 +504,18 @@ const DailyEntry = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-end border-b border-green-500/10 pb-3">
               <div>
-                <p className="text-[10px] font-bold text-green-600 uppercase">Available Quantity</p>
-                <p className="text-3xl font-black text-green-700">{lastResult.availableBricks?.toLocaleString()}</p>
+                <p className="text-[10px] font-bold text-green-600 uppercase">Produced Quantity</p>
+                <p className="text-3xl font-black text-green-700">{lastResult.quantity?.toLocaleString()}</p>
+                {(lastResult.damagedBricks || 0) > 0 && (
+                  <p className="text-[10px] font-semibold text-muted-foreground mt-1">
+                    Available for dispatch: {lastResult.availableBricks?.toLocaleString()}
+                  </p>
+                )}
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase">Wastage</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Damaged</p>
                 <p className={`text-sm font-bold ${lastResult.wastagePercentage > 5 ? 'text-red-500' : 'text-orange-500'}`}>
-                  {lastResult.wastagePercentage}% ({lastResult.damagedBricks})
+                  {lastResult.damagedBricks || 0} ({lastResult.wastagePercentage}%)
                 </p>
               </div>
             </div>
@@ -678,19 +686,29 @@ const DailyEntry = () => {
           <div className={`p-4 rounded-2xl border-2 transition-all ${parseInt(damagedQuantity) > calcTotal() ? 'bg-destructive/10 border-destructive shadow-destructive/10' : 'bg-primary/10 border-primary shadow-primary/10'}`}>
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Available Bricks</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Produced Bricks</p>
                 <p className={`text-2xl font-black ${parseInt(damagedQuantity) > calcTotal() ? 'text-destructive' : 'text-primary'}`}>
-                  {calcAvailable().toLocaleString()}
+                  {calcTotal().toLocaleString()}
                 </p>
-              </div>
-              <div className="text-right">
-                {brickRate && calcAvailable() > 0 && (
-                  <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Cost</p>
-                    <p className="text-lg font-black text-primary">₹{(calcAvailable() * (parseFloat(brickRate) || 0)).toLocaleString()}</p>
+                {(parseInt(damagedQuantity) || 0) > 0 && parseInt(damagedQuantity) <= calcTotal() && (
+                  <div className="flex items-center gap-3 mt-1.5 text-[10px] font-semibold">
+                    <span className="text-destructive">
+                      Damaged: {(parseInt(damagedQuantity) || 0).toLocaleString()}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Payable to workers: {calcAvailable().toLocaleString()}
+                    </span>
                   </div>
                 )}
-                {(!brickRate || calcAvailable() <= 0) && (
+              </div>
+              <div className="text-right">
+                {brickRate && calcTotal() > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Cost</p>
+                    <p className="text-lg font-black text-primary">₹{(calcTotal() * (parseFloat(brickRate) || 0)).toLocaleString()}</p>
+                  </div>
+                )}
+                {(!brickRate || calcTotal() <= 0) && (
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${parseInt(damagedQuantity) > calcTotal() ? 'bg-destructive/20' : 'bg-primary/20'}`}>
                     {parseInt(damagedQuantity) > calcTotal() ? <X className="h-5 w-5 text-destructive" /> : <Check className="h-5 w-5 text-primary" />}
                   </div>
@@ -821,14 +839,28 @@ const DailyEntry = () => {
             todayProductions.map((p, i) => (
               <div key={i} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0">
                 <span className="text-sm text-muted-foreground">{p.machine.name} ({p.shift.toLowerCase()})</span>
-                <span className="text-sm font-bold text-foreground">{p.availableBricks.toLocaleString()} bricks</span>
+                <span className="text-right">
+                  <span className="block text-sm font-bold text-foreground">{(p.quantity || 0).toLocaleString()} bricks</span>
+                  {(p.damagedBricks || 0) > 0 && (
+                    <span className="block text-[10px] font-semibold text-destructive">
+                      {p.damagedBricks.toLocaleString()} damaged
+                    </span>
+                  )}
+                </span>
               </div>
             ))
           ) : (
             <p className="text-sm text-muted-foreground py-4 text-center italic">No entries for this date</p>
           )}
           <div className="flex justify-between items-center pt-3 border-t-2 border-primary/20">
-            <span className="text-sm font-bold text-foreground">Total</span>
+            <div>
+              <span className="text-sm font-bold text-foreground">Total Produced</span>
+              {totalDamagedToday > 0 && (
+                <p className="text-[10px] font-bold text-destructive mt-0.5">
+                  Damaged: {totalDamagedToday.toLocaleString()} (tracked separately)
+                </p>
+              )}
+            </div>
             <span className="text-lg font-bold text-primary">{totalToday.toLocaleString()} bricks</span>
           </div>
         </div>

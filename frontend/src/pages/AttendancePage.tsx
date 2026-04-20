@@ -527,22 +527,25 @@ const AttendancePage = () => {
                     />
                 </EntryCard>
 
-                {/* Spacer so content doesn't hide behind the floating save bar */}
-                <div className="h-20" aria-hidden />
             </div>
 
-            {/* Floating Save bar — always visible while scrolling. Sits above the
-                mobile BottomNav (h-16 + safe-area) and clear of the desktop edge. */}
-            <div className="fixed left-0 right-0 bottom-16 md:bottom-4 z-40 px-4 pointer-events-none">
-                <div className="max-w-xl mx-auto pointer-events-auto">
-                    <div className="bg-gradient-to-t from-background via-background to-background/95 backdrop-blur-sm p-2 rounded-2xl">
+            {/* Floating Save Attendance — always visible while scrolling.
+                Mobile: spans edge-to-edge above the BottomNav (h-16).
+                Desktop: offset by the sidebar so it's centred against the main
+                content column, and capped to the form's max-width. Leaves
+                right-side breathing room for the scroll-to-top arrow. */}
+            <div
+                className="fixed inset-x-0 bottom-16 md:bottom-4 md:left-[var(--sidebar-width,0px)] z-40 pointer-events-none px-4 md:pr-20"
+            >
+                <div className="max-w-2xl mx-auto pointer-events-auto">
+                    <div className="rounded-2xl bg-gradient-to-t from-background via-background/95 to-background/80 backdrop-blur-sm p-1.5 shadow-xl shadow-primary/10">
                         <ActionButton
                             label={saveMutation.isPending ? "Saving..." : "Save Attendance"}
                             icon={saveMutation.isPending ? Loader2 : Save}
                             variant="primary"
                             size="lg"
                             onClick={() => saveMutation.mutate()}
-                            className="w-full shadow-2xl shadow-primary/20"
+                            className="w-full"
                             disabled={saveMutation.isPending}
                         />
                     </div>

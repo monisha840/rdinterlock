@@ -33,6 +33,7 @@ import MasonLedgerPage from "./pages/MasonLedgerPage";
 import TipperLedgerPage from "./pages/TipperLedgerPage";
 import BrickReturnPage from "./pages/BrickReturnPage";
 import HelpGuidePage from "./pages/HelpGuidePage";
+import DocumentsPage from "./pages/DocumentsPage";
 
 const queryClient = new QueryClient();
 
@@ -293,6 +294,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <HelpGuidePage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <DocumentsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

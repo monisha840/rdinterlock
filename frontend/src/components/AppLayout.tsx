@@ -1,9 +1,8 @@
 import { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
-import { Button } from "@/components/ui/button";
 import { RefreshCw, ArrowLeft } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -26,42 +25,35 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="hidden md:block">
           <AppSidebar />
         </div>
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Unified top header — no blur, clean background */}
-          <header className="flex h-14 items-center justify-between border-b border-border/50 bg-background px-3 md:px-4 sticky top-0 z-20">
-            <div className="flex items-center gap-2">
-              {!isDashboard ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleBack}
-                  className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
-                  title="Go Back"
-                  aria-label="Go Back"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              ) : (
-                <div className="h-10 w-10 md:hidden" />
-              )}
-              <SidebarTrigger className="hidden md:inline-flex text-muted-foreground hover:text-foreground" />
-            </div>
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* No header bar. Back and Refresh are independent floating controls. */}
 
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => window.location.reload()}
-                className="h-10 w-10 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all active:scale-90"
-                title="Refresh Page"
-                aria-label="Refresh Page"
-              >
-                <RefreshCw className="h-5 w-5" />
-              </Button>
-            </div>
-          </header>
+          {/* Floating Back — top-left, only on non-dashboard pages */}
+          {!isDashboard && (
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label="Go Back"
+              title="Go Back"
+              className="fixed top-3 left-3 md:top-4 md:left-[calc(var(--sidebar-width,0px)+1rem)] z-40 h-10 w-10 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-foreground hover:text-primary hover:border-primary/40 hover:shadow-lg active:scale-90 transition-all"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
 
-          <main className="flex-1 overflow-auto">
+          {/* Floating Refresh — top-right, always visible */}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            aria-label="Refresh Page"
+            title="Refresh Page"
+            className="fixed top-3 right-3 md:top-4 md:right-4 z-40 h-10 w-10 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 hover:shadow-lg active:scale-90 transition-all"
+          >
+            <RefreshCw className="h-5 w-5" />
+          </button>
+
+          {/* pt-14 leaves clearance for the fixed top Back / Refresh buttons */}
+          <main className="flex-1 overflow-auto pt-14">
             {children}
           </main>
         </div>

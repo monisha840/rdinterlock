@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Hammer,
   HelpCircle,
+  FileText,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,6 +52,7 @@ const navItemsAfter = [
   { title: "Cash Book", url: "/cash-book", icon: BookText },
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
   { title: "Mason Ledger", url: "/mason-ledger", icon: Hammer },
+  { title: "Documents", url: "/documents", icon: FileText },
   { title: "App Guide", url: "/app-guide", icon: HelpCircle },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

@@ -18,7 +18,7 @@ import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
 import { stockApi } from "@/api/stock.api";
 import { transportApi } from "@/api/transport.api";
-import { sanitizePhone, isValidPhone, sanitizeText, sanitizeNumber } from "@/lib/inputValidation";
+import { sanitizePhone, isValidPhone, sanitizeText, sanitizeNumber, sanitizeName, isValidName } from "@/lib/inputValidation";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -253,6 +253,7 @@ const ClientManagementPage = () => {
 
     const handleClientSubmit = () => {
         if (!clientForm.name.trim()) return toast.error("Client name is required");
+        if (!isValidName(clientForm.name)) return toast.error("Client name must be text only (no digits)");
         if (clientForm.phone && !isValidPhone(clientForm.phone)) {
             return toast.error("Phone must be a valid 10-digit number");
         }
@@ -690,8 +691,8 @@ const ClientManagementPage = () => {
                         <div className="space-y-3">
                             <input
                                 value={clientForm.name}
-                                onChange={(e) => setClientForm({ ...clientForm, name: sanitizeText(e.target.value) })}
-                                placeholder="Client Name *"
+                                onChange={(e) => setClientForm({ ...clientForm, name: sanitizeName(e.target.value) })}
+                                placeholder="Client Name (letters only) *"
                                 className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none"
                             />
                             <input

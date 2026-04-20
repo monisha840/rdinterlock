@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Factory, Package, Loader2, AlertTriangle, Info, RefreshCw, Zap, FileText, Download } from "lucide-react";
+import { Factory, Package, Loader2, AlertTriangle, Info, RefreshCw, Zap, FileText, Download, AlertOctagon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -36,8 +36,10 @@ export const StockTabContent = () => {
   const isLoading = isStockLoading || isAlertsLoading;
 
   const totalProduced = stockData.reduce((sum: number, s: any) => sum + s.produced, 0);
+  const totalDamaged = stockData.reduce((sum: number, s: any) => sum + (s.damaged || 0), 0);
   const totalDispatched = stockData.reduce((sum: number, s: any) => sum + s.dispatched, 0);
   const totalStock = stockData.reduce((sum: number, s: any) => sum + s.currentStock, 0);
+  const wastagePct = totalProduced > 0 ? (totalDamaged / totalProduced) * 100 : 0;
 
   const stages = [
     {
@@ -47,7 +49,16 @@ export const StockTabContent = () => {
       gradient: "gradient-primary",
       pct: 100,
       barColor: "bg-primary",
-      details: "Total production logs recorded"
+      details: "Total production logs recorded (full output including any damaged)"
+    },
+    {
+      label: "Damaged Bricks",
+      value: totalDamaged.toLocaleString(),
+      icon: AlertOctagon,
+      gradient: "bg-destructive",
+      pct: wastagePct,
+      barColor: "bg-destructive",
+      details: `Recorded as scrap / wastage during production (${wastagePct.toFixed(2)}% of output). Tracked separately — never subtracted from stock.`
     },
     {
       label: "Total Dispatched",
@@ -94,20 +105,20 @@ export const StockTabContent = () => {
               doc.setFontSize(16); doc.text("RD Interlock - Stock Report", 14, 15);
               doc.setFontSize(10); doc.text("Generated: " + format(new Date(), "dd-MM-yyyy HH:mm"), 14, 22);
               autoTable(doc, {
-                head: [["Brick Type", "Produced", "Dispatched", "Current Stock"]],
-                body: stockData.map((d: any) => [d.brickType?.size || "-", d.produced || 0, d.dispatched || 0, d.currentStock || 0]),
+                head: [["Brick Type", "Produced", "Damaged", "Dispatched", "Current Stock"]],
+                body: stockData.map((d: any) => [d.brickType?.size || "-", d.produced || 0, d.damaged || 0, d.dispatched || 0, d.currentStock || 0]),
                 startY: 28, styles: { fontSize: 9 }, headStyles: { fillColor: [16, 185, 129] },
               });
               const fy = (doc as any).lastAutoTable?.finalY || 80;
-              doc.text("Totals — Produced: " + totalProduced.toLocaleString() + " | Dispatched: " + totalDispatched.toLocaleString() + " | Stock: " + totalStock.toLocaleString(), 14, fy + 8);
+              doc.text("Totals — Produced: " + totalProduced.toLocaleString() + " | Damaged: " + totalDamaged.toLocaleString() + " | Dispatched: " + totalDispatched.toLocaleString() + " | Stock: " + totalStock.toLocaleString(), 14, fy + 8);
               doc.save("stock-report-" + format(new Date(), "dd-MM-yyyy") + ".pdf");
               toast.success("PDF exported");
             } catch (err: any) { toast.error("Export failed", { description: err.message }); }
           }} className="h-8 px-2.5 flex items-center gap-1 rounded-lg bg-secondary/50 border border-border text-[10px] font-bold hover:bg-secondary transition-all active:scale-95"><FileText className="h-3 w-3" /> PDF</button>
           <button onClick={() => {
             try {
-              const cols = ["Brick Type", "Produced", "Dispatched", "Current Stock"];
-              const rows = stockData.map((d: any) => [d.brickType?.size || "-", d.produced || 0, d.dispatched || 0, d.currentStock || 0]);
+              const cols = ["Brick Type", "Produced", "Damaged", "Dispatched", "Current Stock"];
+              const rows = stockData.map((d: any) => [d.brickType?.size || "-", d.produced || 0, d.damaged || 0, d.dispatched || 0, d.currentStock || 0]);
               const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
               const wb = XLSX.utils.book_new();
               XLSX.utils.book_append_sheet(wb, ws, "Stock");
@@ -180,12 +191,43 @@ export const StockTabContent = () => {
             </h2>
             <div className="grid grid-cols-2 gap-3">
               {stockData.map((data: any) => (
-                <div key={data.brickType.id} className="bg-secondary/40 rounded-2xl p-4 text-center border border-transparent hover:border-primary/20 transition-all">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">{data.brickType.size}</p>
-                  <p className="text-xl font-bold text-foreground">{data.currentStock.toLocaleString()}</p>
+                <div key={data.brickType.id} className="bg-secondary/40 rounded-2xl p-4 border border-transparent hover:border-primary/20 transition-all">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 text-center">{data.brickType.size}</p>
+                  <p className="text-xl font-bold text-foreground text-center">{data.currentStock.toLocaleString()}</p>
+                  <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between text-[10px] font-semibold">
+                    <span className="text-muted-foreground">Produced: {(data.produced || 0).toLocaleString()}</span>
+                    <span className={`${(data.damaged || 0) > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                      Damaged: {(data.damaged || 0).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Damaged Bricks Summary — admin-only visibility, not subtracted from stock */}
+          <div className="card-modern p-5 border-destructive/20 bg-destructive/5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <AlertOctagon className="h-4 w-4 text-destructive" /> Damaged Bricks
+              </h2>
+              <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                {wastagePct.toFixed(2)}% wastage
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-background/70 border border-destructive/10 p-3">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total Damaged</p>
+                <p className="text-2xl font-black text-destructive">{totalDamaged.toLocaleString()}</p>
+              </div>
+              <div className="rounded-xl bg-background/70 border border-destructive/10 p-3">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Good Output</p>
+                <p className="text-2xl font-black text-foreground">{(totalProduced - totalDamaged).toLocaleString()}</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-3 italic leading-relaxed">
+              Damaged bricks are stored separately per Daily Entry (Production.damagedBricks). They are <span className="font-bold text-foreground">not</span> subtracted from produced quantity or available stock — they are tracked for wastage analysis only.
+            </p>
           </div>
 
           {/* Material Availability */}

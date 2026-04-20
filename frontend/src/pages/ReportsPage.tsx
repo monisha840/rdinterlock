@@ -74,10 +74,14 @@ const ReportsPage = () => {
     setDateRange(range);
   };
 
-  // When switching to Worker Wages, force a weekly range since wages are
-  // calculated per week. This also hides the Monthly/Custom filter pills.
+  // When switching to Worker Wages, default to the current week only if we
+  // arrive from a context the Worker Wages filter doesn't support (e.g.
+  // Today / This Month). Custom is honoured so the admin can pick any range.
   useEffect(() => {
-    if (activeTab === "Worker Wages" && dateRange.label !== "This Week" && dateRange.label !== "Last Week") {
+    if (
+      activeTab === "Worker Wages" &&
+      !["This Week", "Last Week", "Custom"].includes(dateRange.label)
+    ) {
       const now = new Date();
       setDateRange({
         from: startOfWeek(now, { weekStartsOn: 1 }),
@@ -341,14 +345,14 @@ const ReportsPage = () => {
         ))}
       </DragScrollContainer>
 
-      {/* Global Date Filter — Worker Wages is a weekly-only view */}
+      {/* Global Date Filter — Worker Wages defaults to weekly but allows custom range */}
       <GlobalDateFilter
         onRangeChange={handleRangeChange}
         currentLabel={dateRange.label}
-        allowedOptions={activeTab === "Worker Wages" ? ["This Week", "Last Week"] : undefined}
+        allowedOptions={activeTab === "Worker Wages" ? ["This Week", "Last Week", "Custom"] : undefined}
       />
 
-      {dateRange.label === "Custom" && activeTab !== "Worker Wages" && (
+      {dateRange.label === "Custom" && (
         <>
           <div className="relative z-30 grid grid-cols-2 gap-3 mb-2 p-3 bg-card border border-border/50 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
             <DatePickerField

@@ -32,6 +32,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workersApi } from "@/api/workers.api";
 import { Loader2 as Spinner } from "lucide-react";
 import { Worker } from "@/types/api";
+import { sanitizeName, isValidName } from "@/lib/inputValidation";
 
 const WorkerStatsModal = ({ worker }: { worker: Worker }) => {
   const { data: stats, isLoading } = useQuery({
@@ -178,6 +179,10 @@ const WorkersPage = () => {
       toast.error("Please enter a worker name");
       return;
     }
+    if (!isValidName(name)) {
+      toast.error("Worker name must be text only (no digits)");
+      return;
+    }
 
     const isMason = role.toUpperCase() === 'MASON';
     const isPerBrick = payType === 'PER_BRICK';
@@ -231,8 +236,8 @@ const WorkersPage = () => {
           <FormField label="Name" required>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Worker name"
+              onChange={(e) => setName(sanitizeName(e.target.value))}
+              placeholder="Worker name (letters only)"
               className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors"
             />
           </FormField>

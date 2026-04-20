@@ -28,6 +28,24 @@ export const sanitizeText = (value: string): string => {
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "");
 };
 
+// Strict name fields: letters, spaces and a small set of punctuation (. ' -)
+// allowed for names like "O'Brien" or "Dr. Murugan". Digits are stripped.
+export const sanitizeName = (value: string): string => {
+  if (!value) return "";
+  return sanitizeText(value)
+    .replace(/[0-9]/g, "")
+    // Collapse runs of spaces
+    .replace(/\s{2,}/g, " ");
+};
+
+// Validity check — a name must contain at least one letter and no digits.
+export const isValidName = (value: string): boolean => {
+  const v = (value || "").trim();
+  if (v.length < 2) return false;
+  if (/\d/.test(v)) return false;
+  return /[A-Za-z\u00C0-\u024F]/.test(v);
+};
+
 // Phone: digits only, capped at 10 chars.
 export const sanitizePhone = (value: string): string => {
   return (value || "").replace(/\D/g, "").slice(0, 10);

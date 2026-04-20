@@ -6,7 +6,7 @@ import { Plus, Search, X, Eye, Edit2, Trash2, Loader2, Phone, MapPin } from "luc
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { useNavigate } from "react-router-dom";
-import { sanitizePhone, isValidPhone, sanitizeText } from "@/lib/inputValidation";
+import { sanitizePhone, isValidPhone, sanitizeText, sanitizeName, isValidName } from "@/lib/inputValidation";
 
 const ClientsPage = () => {
     const queryClient = useQueryClient();
@@ -62,6 +62,7 @@ const ClientsPage = () => {
 
     const handleSubmit = () => {
         if (!form.name.trim()) return toast.error("Name is required");
+        if (!isValidName(form.name)) return toast.error("Client name must be text only (no digits)");
         if (form.phone && !isValidPhone(form.phone)) {
             return toast.error("Phone must be a valid 10-digit number");
         }
@@ -155,7 +156,7 @@ const ClientsPage = () => {
                     <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl" onClick={(e) => e.stopPropagation()}>
                         <h2 className="text-lg font-bold mb-4">{editingClient ? "Edit Client" : "Add Client"}</h2>
                         <div className="space-y-3">
-                            <input value={form.name} onChange={(e) => setForm({ ...form, name: sanitizeText(e.target.value) })} placeholder="Client Name *" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
+                            <input value={form.name} onChange={(e) => setForm({ ...form, name: sanitizeName(e.target.value) })} placeholder="Client Name (letters only) *" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
                             <input
                                 value={form.phone}
                                 onChange={(e) => setForm({ ...form, phone: sanitizePhone(e.target.value) })}

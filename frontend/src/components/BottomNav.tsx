@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Hammer,
   HelpCircle,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +52,7 @@ const ledgerItems = [
 
 const moreNavItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarCheck },
+  { title: "Documents", url: "/documents", icon: FileText },
   { title: "App Guide", url: "/app-guide", icon: HelpCircle },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

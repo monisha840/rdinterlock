@@ -25,7 +25,6 @@ import { dashboardApi } from "@/api/dashboard.api";
 import { clientsApi } from "@/api/clients.api";
 import { format, isToday, formatDistanceToNow } from "date-fns";
 import { AlertsPanel } from "@/components/AlertsPanel";
-import { RemindersPanel } from "@/components/RemindersPanel";
 import { TodaysTasksPanel } from "@/components/TodaysTasksPanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
@@ -328,9 +327,6 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
       </div>
-
-      {/* Reminders only (Tasks already shown above with Alerts) */}
-      <RemindersPanel />
 
       <div className="card-modern p-5 animate-fade-in">
         <h2 className="font-semibold text-foreground text-sm mb-4">Recent Activity</h2>
