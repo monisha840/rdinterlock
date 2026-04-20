@@ -220,8 +220,11 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* 🔴 Phase 7: Smart Alerts (Automated) */}
-      <AlertsPanel />
+      {/* Smart Alerts + Today's Tasks side by side (responsive) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <AlertsPanel />
+        <TodaysTasksPanel />
+      </div>
 
       {/* Latest Production Info - Only show if production exists today */}
       {dashboardData?.todayProduction?.quantity > 0 && dashboardData?.todayProduction?.latestTime && (
@@ -326,8 +329,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 📌 Phase 7: Manual Reminders / Tasks */}
-      <TodaysTasksPanel />
+      {/* Reminders only (Tasks already shown above with Alerts) */}
       <RemindersPanel />
 
       <div className="card-modern p-5 animate-fade-in">

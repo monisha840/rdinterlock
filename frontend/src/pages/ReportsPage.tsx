@@ -19,7 +19,7 @@ import {
   Banknote,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settlementsApi } from "@/api/settlements.api";
@@ -28,6 +28,7 @@ import apiClient from "@/api/apiClient";
 import { workersApi } from "@/api/workers.api";
 import { reportsApi } from "@/api/reports.api";
 import { User, Receipt, CreditCard, TrendingDown } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { GlobalDateFilter, DateRange } from "@/components/GlobalDateFilter";
 import { BIReportsDashboard } from "@/components/BIReportsDashboard";
 import { SalaryPaymentModal } from "@/components/SalaryPaymentModal";
@@ -72,6 +73,20 @@ const ReportsPage = () => {
   const handleRangeChange = (range: DateRange) => {
     setDateRange(range);
   };
+
+  // When switching to Worker Wages, force a weekly range since wages are
+  // calculated per week. This also hides the Monthly/Custom filter pills.
+  useEffect(() => {
+    if (activeTab === "Worker Wages" && dateRange.label !== "This Week" && dateRange.label !== "Last Week") {
+      const now = new Date();
+      setDateRange({
+        from: startOfWeek(now, { weekStartsOn: 1 }),
+        to: endOfWeek(now, { weekStartsOn: 1 }),
+        label: "This Week",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // ── Payment Modal state ───────────────────────────────────────────────────
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
@@ -230,22 +245,40 @@ const ReportsPage = () => {
     return { title: `Report — ${activeTab}`, columns: [], rows: [] };
   };
 
+  // Build a filename-safe range segment. Single-day ranges collapse to one date
+  // (avoids the "same-day appears twice" confusion in exports).
+  const buildRangeSegment = () => {
+    const from = format(dateRange.from, 'dd-MM-yyyy');
+    const to = format(dateRange.to, 'dd-MM-yyyy');
+    return from === to ? from : `${from}_to_${to}`;
+  };
+
   const handleExportPDF = () => {
     try {
       const { title, columns, rows } = getExportData();
       if (rows.length === 0) { toast.error("No data to export for the current tab"); return; }
+
+      const fromStr = format(dateRange.from, 'dd MMM yyyy');
+      const toStr = format(dateRange.to, 'dd MMM yyyy');
+      const sameDay = fromStr === toStr;
 
       const doc = new jsPDF();
       doc.setFontSize(16);
       doc.text("RD Interlock - Report", 14, 15);
       doc.setFontSize(11);
       doc.text(title, 14, 23);
-      doc.text("Generated: " + format(new Date(), 'dd-MM-yyyy HH:mm'), 14, 30);
+      doc.setFontSize(10);
+      doc.text(
+        sameDay ? `Date: ${fromStr}` : `Date Range: ${fromStr}  to  ${toStr}`,
+        14,
+        30,
+      );
+      doc.text("Generated: " + format(new Date(), 'dd-MM-yyyy HH:mm'), 14, 36);
 
       autoTable(doc, {
         head: [columns],
         body: rows,
-        startY: 36,
+        startY: 42,
         styles: { fontSize: 8 },
         headStyles: { fillColor: [59, 130, 246] },
       });
@@ -254,7 +287,9 @@ const ReportsPage = () => {
       doc.setFontSize(10);
       doc.text("Total Records: " + rows.length, 14, finalY + 8);
 
-      doc.save(activeTab.toLowerCase().replace(/\s+/g, '-') + "-report-" + format(new Date(), 'dd-MM-yyyy') + ".pdf");
+      doc.save(
+        activeTab.toLowerCase().replace(/\s+/g, '-') + "-report-" + buildRangeSegment() + ".pdf",
+      );
       toast.success("PDF exported successfully");
     } catch (err: any) {
       console.error("PDF export error:", err);
@@ -267,11 +302,19 @@ const ReportsPage = () => {
       const { title, columns, rows } = getExportData();
       if (rows.length === 0) { toast.error("No data to export for the current tab"); return; }
 
-      const sheetData = [columns, ...rows];
+      const fromStr = format(dateRange.from, 'dd MMM yyyy');
+      const toStr = format(dateRange.to, 'dd MMM yyyy');
+      const sameDay = fromStr === toStr;
+      const dateRow = sameDay ? [`Date: ${fromStr}`] : [`Date Range: ${fromStr} to ${toStr}`];
+
+      const sheetData = [[title], dateRow, [], columns, ...rows];
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, activeTab);
-      XLSX.writeFile(wb, activeTab.toLowerCase().replace(/\s+/g, '-') + "-report-" + format(new Date(), 'dd-MM-yyyy') + ".xlsx");
+      XLSX.writeFile(
+        wb,
+        activeTab.toLowerCase().replace(/\s+/g, '-') + "-report-" + buildRangeSegment() + ".xlsx",
+      );
       toast.success("Excel exported successfully");
     } catch (err: any) {
       console.error("Excel export error:", err);
@@ -298,22 +341,41 @@ const ReportsPage = () => {
         ))}
       </DragScrollContainer>
 
-      {/* Global Date Filter */}
-      <GlobalDateFilter onRangeChange={handleRangeChange} currentLabel={dateRange.label} />
+      {/* Global Date Filter — Worker Wages is a weekly-only view */}
+      <GlobalDateFilter
+        onRangeChange={handleRangeChange}
+        currentLabel={dateRange.label}
+        allowedOptions={activeTab === "Worker Wages" ? ["This Week", "Last Week"] : undefined}
+      />
 
-      {dateRange.label === "Custom" && (
-        <div className="relative z-30 grid grid-cols-2 gap-3 mb-4 p-3 bg-card border border-border/50 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-          <DatePickerField
-            date={dateRange.from}
-            onDateChange={(d) => setDateRange(prev => ({ ...prev, from: d }))}
-            label="From"
-          />
-          <DatePickerField
-            date={dateRange.to}
-            onDateChange={(d) => setDateRange(prev => ({ ...prev, to: d }))}
-            label="To"
-          />
-        </div>
+      {dateRange.label === "Custom" && activeTab !== "Worker Wages" && (
+        <>
+          <div className="relative z-30 grid grid-cols-2 gap-3 mb-2 p-3 bg-card border border-border/50 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+            <DatePickerField
+              date={dateRange.from}
+              onDateChange={(d) => {
+                // From and To are independent; if From > To, bump To forward so
+                // the range stays valid instead of silently swapping.
+                setDateRange(prev => ({ ...prev, from: d, to: prev.to < d ? d : prev.to }));
+              }}
+              label="From"
+            />
+            <DatePickerField
+              date={dateRange.to}
+              onDateChange={(d) => {
+                if (d < dateRange.from) {
+                  toast.error("End date cannot be before start date");
+                  return;
+                }
+                setDateRange(prev => ({ ...prev, to: d }));
+              }}
+              label="To"
+            />
+          </div>
+          {dateRange.from > dateRange.to && (
+            <p className="text-[11px] text-red-600 font-semibold mb-3 px-1">From date must be on or before To date.</p>
+          )}
+        </>
       )}
 
       {/* Export — top of page */}
@@ -773,8 +835,8 @@ const ReportsPage = () => {
 
       {/* ── Advance Payment Modal ── */}
       {isAdvanceModalOpen && advanceWorker && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsAdvanceModalOpen(false)}>
+          <div className="w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-border/50 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }} onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="p-4 sm:p-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white relative shrink-0">
               <button
@@ -900,6 +962,15 @@ const LogsTabContent = ({ globalDateRange }: { globalDateRange: DateRange }) => 
     enabled: true,
   });
 
+  // Reset log type when switching to a role that doesn't support it
+  useEffect(() => {
+    const selected = people?.find((p: any) => p.id === personId);
+    const role = (selected?.role || "").toUpperCase();
+    if ((role === "OPERATOR" || role === "LOADER") && (logType === "Transport" || logType === "Sales")) {
+      setLogType("All");
+    }
+  }, [personId, people, logType]);
+
   const { data: logsData, isLoading } = useQuery({
     queryKey: ["person-logs", personId, format(dateRange.from, "yyyy-MM-dd"), format(dateRange.to, "yyyy-MM-dd")],
     queryFn: async () => {
@@ -948,36 +1019,45 @@ const LogsTabContent = ({ globalDateRange }: { globalDateRange: DateRange }) => 
         <div className="space-y-4">
           <div>
             <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Select Staff or Worker</label>
-            <div className="relative">
-              <select 
-                value={personId} 
-                onChange={(e) => setPersonId(e.target.value)}
-                className="w-full h-12 bg-secondary/50 border-none rounded-xl px-4 pr-10 text-sm font-semibold focus:ring-2 ring-primary/20 appearance-none text-foreground"
-              >
-                <option value="">Choose a person...</option>
-                {people?.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
-                ))}
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-                <User className="h-4 w-4" />
-              </div>
-            </div>
+            <SearchableSelect
+              value={personId}
+              onChange={setPersonId}
+              options={(people || []).map((p: any) => ({ value: p.id, label: p.name, sublabel: p.role }))}
+              placeholder="Choose a person..."
+              allowClear
+              emptyText="No matching person"
+            />
           </div>
 
           <DragScrollContainer className="pb-2 flex gap-1.5">
-            {["All", "Attendance", "Production", "Payments", "Transport", "Sales", "Expenses"].map(t => (
-              <button
-                key={t}
-                onClick={() => setLogType(t)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all active:scale-95 shrink-0 ${logType === t
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-secondary/70 text-muted-foreground hover:bg-secondary"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+            {(() => {
+              const selectedPerson = people?.find((p: any) => p.id === personId);
+              const role = (selectedPerson?.role || "").toUpperCase();
+              // Operators/Loaders don't have Transport or Sales activity — hide those tabs.
+              const roleRestricted = role === "OPERATOR" || role === "LOADER";
+              const restrictedTabs = new Set(["Transport", "Sales"]);
+              return ["All", "Attendance", "Production", "Payments", "Transport", "Sales", "Expenses"].map(t => {
+                const isDisabled = roleRestricted && restrictedTabs.has(t);
+                const isActive = logType === t;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => { if (!isDisabled) setLogType(t); }}
+                    disabled={isDisabled}
+                    title={isDisabled ? `Not applicable for ${role.toLowerCase()}s` : undefined}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all shrink-0 ${
+                      isDisabled
+                        ? "bg-secondary/30 text-muted-foreground/40 cursor-not-allowed opacity-60"
+                        : isActive
+                          ? "bg-primary text-primary-foreground shadow-sm active:scale-95"
+                          : "bg-secondary/70 text-muted-foreground hover:bg-secondary active:scale-95"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                );
+              });
+            })()}
           </DragScrollContainer>
 
           <div className="bg-primary/5 p-3 rounded-xl border border-primary/10">

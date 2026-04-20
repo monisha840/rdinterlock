@@ -227,9 +227,12 @@ export class ClientsService {
     }
 
     async getOpenOrders() {
+        // Only return orders that still need transport/dispatch scheduling.
+        // Completed and already-dispatched orders are excluded from the
+        // Transport → Dispatch Order picker.
         return prisma.clientOrder.findMany({
             where: {
-                status: { not: 'COMPLETED' }
+                status: { notIn: ['COMPLETED', 'DISPATCHED'] }
             },
             include: { client: true, brickType: true, dispatches: true },
             orderBy: { orderDate: 'desc' },

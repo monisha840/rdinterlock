@@ -52,15 +52,22 @@ export class ExpensesService {
         },
       });
 
-      // 1. Create material usage if applicable
-      if (data.category === 'MATERIAL' && data.materialId && data.quantity && data.pricePerUnit) {
+      // 1. Create material usage if applicable.
+      // Stock is driven by quantity — record the usage even when price/unit is 0 or missing
+      // (e.g., free samples, receipts without unit cost). Fall back to amount/quantity for
+      // pricePerUnit so totalCost stays consistent.
+      if (data.category === 'MATERIAL' && data.materialId && data.quantity) {
+        const qty = data.quantity!;
+        const ppu = data.pricePerUnit && data.pricePerUnit > 0
+          ? data.pricePerUnit
+          : (qty > 0 ? data.amount / qty : 0);
         await tx.materialUsage.create({
           data: {
             materialId: data.materialId,
             expenseId: expense.id,
-            quantity: data.quantity!,
-            pricePerUnit: data.pricePerUnit!,
-            totalCost: data.quantity! * data.pricePerUnit!,
+            quantity: qty,
+            pricePerUnit: ppu,
+            totalCost: qty * ppu,
             date: new Date(data.date),
           },
         });
@@ -213,16 +220,20 @@ export class ExpensesService {
         where: { expenseId: id },
       });
 
-      // 2. Create new usage if category is MATERIAL and we have all data
-      // Use data from updated object to ensure we have the latest
-      if (updated.category === 'MATERIAL' && data.materialId && data.quantity && data.pricePerUnit) {
+      // 2. Create new usage if category is MATERIAL and we have quantity.
+      // pricePerUnit is optional — stock tracking depends on quantity.
+      if (updated.category === 'MATERIAL' && data.materialId && data.quantity) {
+        const qty = data.quantity;
+        const ppu = data.pricePerUnit && data.pricePerUnit > 0
+          ? data.pricePerUnit
+          : (qty > 0 ? (updated.amount || 0) / qty : 0);
         await tx.materialUsage.create({
           data: {
             materialId: data.materialId,
             expenseId: id,
-            quantity: data.quantity,
-            pricePerUnit: data.pricePerUnit,
-            totalCost: data.quantity * data.pricePerUnit,
+            quantity: qty,
+            pricePerUnit: ppu,
+            totalCost: qty * ppu,
             date: updated.date,
           },
         });

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { MonthlyExpenseChart } from "@/components/MonthlyExpenseChart";
 
 const CashBookPage = () => {
   const queryClient = useQueryClient();
@@ -62,9 +63,9 @@ const CashBookPage = () => {
   const groupedCategoriesOut = {
     "Material & Spares": ["Material", "Bearings", "PLC Elements", "Mould (Die)", "Bolts", "Welding", "Lathe"],
     "Utilities & Rent": ["E.B (Electricity Bill)", "Gas", "WiFi", "Rent"],
-    "Daily Tracking Improvements": ["Diesel", "Maintenance", "Labour", "Transport", "Office Expense", "Miscellaneous"],
+    "Daily Tracking": ["Diesel", "Maintenance", "Labour", "Transport", "Office Expense"],
     "Staff & Workers": ["Worker Advance", "Staff Advance", "Worker Wages", "Staff Salary"],
-    "Office / Misc": ["Food", "Rice", "Tea", "Video Editing", "S.V Expense", "Other Expense"]
+    "Office": ["Food", "Rice", "Tea", "Video Editing", "S.V Expense", "Other Expense"]
   };
   const allCategoriesOut = Object.values(groupedCategoriesOut).flat();
 
@@ -334,6 +335,11 @@ const CashBookPage = () => {
         />
       </div>
 
+      {/* Monthly expense bar — defaults to current month, prev/next buttons navigate */}
+      <div className="mb-6">
+        <MonthlyExpenseChart />
+      </div>
+
       <EntryCard title={editingEntry ? "Edit Entry" : "New Entry"}>
         <div className="space-y-5">
           <DatePickerField date={entryDate} onDateChange={setEntryDate} />
@@ -370,13 +376,16 @@ const CashBookPage = () => {
                   type="button"
                   role="combobox"
                   aria-expanded={categoryOpen}
-                  className="w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-foreground text-sm focus:border-primary focus:outline-none transition-colors flex items-center justify-between"
+                  className={cn(
+                    "w-full h-12 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none transition-colors flex items-center justify-between",
+                    category ? "text-foreground" : "text-muted-foreground",
+                  )}
                 >
-                  {category ? category : "Select Category"}
+                  <span className="truncate">{category ? category : "Select Category"}</span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-[calc(100vw-2rem)] md:w-[400px] p-0" align="start">
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0 rounded-xl shadow-xl" align="start" sideOffset={6}>
                 <Command>
                   <CommandInput placeholder="Search category..." />
                   <CommandList className="max-h-[300px] overflow-y-auto">

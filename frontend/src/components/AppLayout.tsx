@@ -27,65 +27,36 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <AppSidebar />
         </div>
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Desktop header */}
-          <header className="hidden md:flex h-14 items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sticky top-0 z-10">
-            <div className="flex items-center">
-              {!isDashboard && (
+          {/* Unified top header — no blur, clean background */}
+          <header className="flex h-14 items-center justify-between border-b border-border/50 bg-background px-3 md:px-4 sticky top-0 z-20">
+            <div className="flex items-center gap-2">
+              {!isDashboard ? (
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={handleBack}
-                  className="mr-2 h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                  className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
                   title="Go Back"
+                  aria-label="Go Back"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
+              ) : (
+                <div className="h-10 w-10 md:hidden" />
               )}
-              <SidebarTrigger className="mr-3 text-muted-foreground hover:text-foreground" />
-              <div className="flex items-center gap-2">
-                <img src="/favicon.ico" alt="RD Interlock" className="h-7 w-7 md:hidden" />
-                <span className="font-semibold text-foreground text-sm">RD Interlock</span>
-              </div>
+              <SidebarTrigger className="hidden md:inline-flex text-muted-foreground hover:text-foreground" />
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.location.reload()}
-                className="text-muted-foreground hover:text-primary transition-colors"
-                title="Refresh Page"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-          </header>
 
-          {/* Mobile header */}
-          <header className="md:hidden flex h-14 items-center justify-between px-4 sticky top-0 z-10 glass-effect border-b border-border/30">
-            <div className="flex items-center gap-2.5">
-              {!isDashboard && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleBack}
-                  className="h-10 w-10 flex items-center justify-center rounded-xl bg-secondary/50 border border-border/30 active:scale-90 transition-all mr-1"
-                >
-                  <ArrowLeft className="h-6 w-6 text-foreground" />
-                </Button>
-              )}
-              <img src="/favicon.ico" alt="RD Interlock" className="h-8 w-8 text-white filter brightness-100" />
-              <span className="font-bold text-foreground text-base tracking-tight">RD Interlock</span>
-            </div>
             <div className="flex items-center">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => window.location.reload()}
-                className="text-muted-foreground hover:text-primary transition-colors h-8 w-8"
+                className="h-10 w-10 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all active:scale-90"
                 title="Refresh Page"
+                aria-label="Refresh Page"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-5 w-5" />
               </Button>
             </div>
           </header>

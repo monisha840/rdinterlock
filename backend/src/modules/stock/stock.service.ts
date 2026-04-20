@@ -12,10 +12,11 @@ export class StockService {
 
     const stockData = await Promise.all(
       brickTypes.map(async (brickType: any) => {
-        // Total production for this brick type (use availableBricks to exclude damaged ones)
+        // Total production for this brick type — use full produced quantity.
+        // Damaged bricks are tracked separately and should NOT reduce stock counts here.
         const totalProduction = await prisma.production.aggregate({
           where: { brickTypeId: brickType.id },
-          _sum: { availableBricks: true },
+          _sum: { quantity: true, damagedBricks: true },
         });
 
         // Total dispatched for this brick type
@@ -30,7 +31,8 @@ export class StockService {
           _sum: { returnedQuantity: true },
         });
 
-        const produced = totalProduction._sum.availableBricks || 0;
+        const produced = totalProduction._sum.quantity || 0;
+        const damaged = totalProduction._sum.damagedBricks || 0;
         const dispatched = totalDispatched._sum.quantity || 0;
         const returned = totalReturned._sum.returnedQuantity || 0;
         const currentStock = produced - dispatched + returned;
@@ -41,6 +43,7 @@ export class StockService {
             size: brickType.size,
           },
           produced,
+          damaged,
           dispatched,
           returned,
           currentStock,
@@ -93,7 +96,8 @@ export class StockService {
       productions,
       dispatches,
       summary: {
-        totalProduced: productions.reduce((sum: number, p: any) => sum + p.availableBricks, 0),
+        totalProduced: productions.reduce((sum: number, p: any) => sum + p.quantity, 0),
+        totalDamaged: productions.reduce((sum: number, p: any) => sum + (p.damagedBricks || 0), 0),
         totalDispatched: dispatches.reduce((sum: number, d: any) => sum + d.quantity, 0),
       },
     };

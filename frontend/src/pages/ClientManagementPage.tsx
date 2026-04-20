@@ -18,6 +18,7 @@ import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
 import { stockApi } from "@/api/stock.api";
 import { transportApi } from "@/api/transport.api";
+import { sanitizePhone, isValidPhone, sanitizeText, sanitizeNumber } from "@/lib/inputValidation";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -252,6 +253,9 @@ const ClientManagementPage = () => {
 
     const handleClientSubmit = () => {
         if (!clientForm.name.trim()) return toast.error("Client name is required");
+        if (clientForm.phone && !isValidPhone(clientForm.phone)) {
+            return toast.error("Phone must be a valid 10-digit number");
+        }
         if (editingClient) {
             updateClientMut.mutate({ id: editingClient.id, data: clientForm });
         } else {
@@ -294,11 +298,13 @@ const ClientManagementPage = () => {
     };
 
     const handleOrderCalcChange = (field: "quantity" | "rate", value: string) => {
+        // Sanitize — quantity is whole bricks (integer), rate can have decimals.
+        const clean = sanitizeNumber(value, { allowDecimal: field === "rate" });
         setOrderForm(prev => {
-            const updated = { ...prev, [field]: value };
+            const updated = { ...prev, [field]: clean };
             // Always recalculate total when quantity or rate changes
-            const q = parseInt(field === "quantity" ? value : prev.quantity) || 0;
-            const r = parseFloat(field === "rate" ? value : prev.rate) || 0;
+            const q = parseInt(field === "quantity" ? clean : prev.quantity) || 0;
+            const r = parseFloat(field === "rate" ? clean : prev.rate) || 0;
             const extraCosts = (prev.extraItems || []).reduce((s, i) => s + (i.price || 0), 0);
             const total = (q * r) + extraCosts;
             updated.totalAmount = total > 0 ? String(total) : "";
@@ -673,8 +679,8 @@ const ClientManagementPage = () => {
 
             {/* ─── Client Modal ──────────────────────────────────────────────── */}
             {showClientModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowClientModal(false); setEditingClient(null); }}>
+                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">{editingClient ? "Edit Client" : "Add Client"}</h2>
                             <button onClick={() => { setShowClientModal(false); setEditingClient(null); }}>
@@ -684,25 +690,30 @@ const ClientManagementPage = () => {
                         <div className="space-y-3">
                             <input
                                 value={clientForm.name}
-                                onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
+                                onChange={(e) => setClientForm({ ...clientForm, name: sanitizeText(e.target.value) })}
                                 placeholder="Client Name *"
                                 className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none"
                             />
                             <input
                                 value={clientForm.phone}
-                                onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })}
-                                placeholder="Phone Number"
-                                className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none"
+                                onChange={(e) => setClientForm({ ...clientForm, phone: sanitizePhone(e.target.value) })}
+                                inputMode="numeric"
+                                maxLength={10}
+                                placeholder="Phone Number (10 digits)"
+                                className={`w-full h-10 px-3 bg-secondary/50 border rounded-xl text-sm focus:outline-none ${clientForm.phone && !isValidPhone(clientForm.phone) ? "border-red-500 focus:border-red-500" : "border-border focus:border-primary"}`}
                             />
+                            {clientForm.phone && !isValidPhone(clientForm.phone) && (
+                                <p className="text-[10px] text-red-600 px-1 -mt-1">Enter a valid 10-digit phone number</p>
+                            )}
                             <input
                                 value={clientForm.address}
-                                onChange={(e) => setClientForm({ ...clientForm, address: e.target.value })}
+                                onChange={(e) => setClientForm({ ...clientForm, address: sanitizeText(e.target.value) })}
                                 placeholder="Location"
                                 className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none"
                             />
                             <textarea
                                 value={clientForm.notes}
-                                onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })}
+                                onChange={(e) => setClientForm({ ...clientForm, notes: sanitizeText(e.target.value) })}
                                 placeholder="Notes"
                                 rows={2}
                                 className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none resize-none"
@@ -732,8 +743,8 @@ const ClientManagementPage = () => {
 
             {/* ─── Order Modal ───────────────────────────────────────────────── */}
             {showOrderModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-md rounded-3xl border border-primary/10 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => { setShowOrderModal(false); setEditingOrder(null); setOrderForm(emptyOrderForm()); }}>
+                    <div className="bg-card w-full max-w-md rounded-3xl border border-primary/10 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" style={{ maxHeight: 'calc(100vh - 120px)' }} onClick={(e) => e.stopPropagation()}>
                         {/* Header */}
                         <div className="p-4 sm:p-6 border-b border-border/50 flex justify-between items-center bg-secondary/20 shrink-0">
                             <div>
@@ -828,8 +839,9 @@ const ClientManagementPage = () => {
                                     <span className="text-2xl font-black text-foreground">₹</span>
                                     <input
                                         value={orderForm.totalAmount}
-                                        onChange={(e) => { setAutoCalc(false); setOrderForm({ ...orderForm, totalAmount: e.target.value }); }}
+                                        onChange={(e) => { setAutoCalc(false); setOrderForm({ ...orderForm, totalAmount: sanitizeNumber(e.target.value) }); }}
                                         type="number"
+                                        min={0}
                                         className="w-full bg-transparent border-none p-0 text-2xl font-black focus:ring-0"
                                         placeholder="0"
                                     />

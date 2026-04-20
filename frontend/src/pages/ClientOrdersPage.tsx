@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, Loader2, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 const STATUS_OPTIONS = ["PENDING", "IN_PRODUCTION", "READY", "DISPATCHED", "COMPLETED"];
 const STATUS_COLORS: Record<string, string> = {
@@ -208,18 +209,21 @@ const ClientOrdersPage = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowModal(false); setEditing(null); resetForm(); }}>
+                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">{editing ? "Edit Order" : "New Order"}</h2>
                             <button onClick={() => { setShowModal(false); setEditing(null); resetForm(); }}><X className="h-5 w-5" /></button>
                         </div>
                         <div className="space-y-3">
                             <div className="space-y-2">
-                                <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
-                                    <option value="">Select Client *</option>
-                                    {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <SearchableSelect
+                                    value={form.clientId}
+                                    onChange={(id) => setForm({ ...form, clientId: id })}
+                                    options={clients.map((c: any) => ({ value: c.id, label: c.name, sublabel: c.phone }))}
+                                    placeholder="Select Client *"
+                                    emptyText="No matching client"
+                                />
                                 {form.clientId && (
                                     <div className="text-xs text-muted-foreground bg-secondary/30 p-2 rounded-lg border border-border/50">
                                         {(() => {

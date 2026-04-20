@@ -6,6 +6,7 @@ import { Plus, Search, X, Eye, Edit2, Trash2, Loader2, Phone, MapPin } from "luc
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { useNavigate } from "react-router-dom";
+import { sanitizePhone, isValidPhone, sanitizeText } from "@/lib/inputValidation";
 
 const ClientsPage = () => {
     const queryClient = useQueryClient();
@@ -61,6 +62,9 @@ const ClientsPage = () => {
 
     const handleSubmit = () => {
         if (!form.name.trim()) return toast.error("Name is required");
+        if (form.phone && !isValidPhone(form.phone)) {
+            return toast.error("Phone must be a valid 10-digit number");
+        }
         if (editingClient) {
             updateMutation.mutate({ id: editingClient.id, data: form });
         } else {
@@ -147,14 +151,24 @@ const ClientsPage = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowModal(false); setEditingClient(null); resetForm(); }}>
+                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl" onClick={(e) => e.stopPropagation()}>
                         <h2 className="text-lg font-bold mb-4">{editingClient ? "Edit Client" : "Add Client"}</h2>
                         <div className="space-y-3">
-                            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Client Name *" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
-                            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone Number" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
-                            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Location" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
-                            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notes" rows={2} className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none resize-none" />
+                            <input value={form.name} onChange={(e) => setForm({ ...form, name: sanitizeText(e.target.value) })} placeholder="Client Name *" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
+                            <input
+                                value={form.phone}
+                                onChange={(e) => setForm({ ...form, phone: sanitizePhone(e.target.value) })}
+                                inputMode="numeric"
+                                maxLength={10}
+                                placeholder="Phone Number (10 digits)"
+                                className={`w-full h-10 px-3 bg-secondary/50 border rounded-xl text-sm focus:outline-none ${form.phone && !isValidPhone(form.phone) ? "border-red-500 focus:border-red-500" : "border-border focus:border-primary"}`}
+                            />
+                            {form.phone && !isValidPhone(form.phone) && (
+                                <p className="text-[10px] text-red-600 px-1 -mt-1">Enter a valid 10-digit phone number</p>
+                            )}
+                            <input value={form.address} onChange={(e) => setForm({ ...form, address: sanitizeText(e.target.value) })} placeholder="Location" className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none" />
+                            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: sanitizeText(e.target.value) })} placeholder="Notes" rows={2} className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm focus:border-primary focus:outline-none resize-none" />
                         </div>
                         <div className="flex gap-2 mt-5">
                             <button onClick={() => { setShowModal(false); setEditingClient(null); resetForm(); }} className="flex-1 h-10 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors">Cancel</button>

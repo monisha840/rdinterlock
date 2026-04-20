@@ -11,10 +11,11 @@ export type DateRange = {
 interface GlobalDateFilterProps {
   onRangeChange: (range: DateRange) => void;
   currentLabel: string;
+  allowedOptions?: string[];
 }
 
-export const GlobalDateFilter: React.FC<GlobalDateFilterProps> = ({ onRangeChange, currentLabel }) => {
-  const options = ["Today", "This Week", "This Month", "Custom"];
+export const GlobalDateFilter: React.FC<GlobalDateFilterProps> = ({ onRangeChange, currentLabel, allowedOptions }) => {
+  const options = allowedOptions ?? ["Today", "This Week", "This Month", "Custom"];
 
   const handleSelect = (option: string) => {
     const now = new Date();
@@ -27,6 +28,10 @@ export const GlobalDateFilter: React.FC<GlobalDateFilterProps> = ({ onRangeChang
     } else if (option === "This Week") {
       from = startOfWeek(now, { weekStartsOn: 1 });
       to = endOfWeek(now, { weekStartsOn: 1 });
+    } else if (option === "Last Week") {
+      const lastWeekAnchor = subDays(now, 7);
+      from = startOfWeek(lastWeekAnchor, { weekStartsOn: 1 });
+      to = endOfWeek(lastWeekAnchor, { weekStartsOn: 1 });
     } else if (option === "This Month") {
       from = startOfMonth(now);
       to = endOfMonth(now);

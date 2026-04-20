@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ScrollToTop } from "@/components/ScrollToTop";
+import { ScrollToTopButton } from "@/components/ScrollToTopButton";
 import Dashboard from "./pages/Dashboard";
 import DailyEntry from "./pages/DailyEntry";
 import StockPage from "./pages/StockPage";
@@ -40,6 +42,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
+        <ScrollToTopButton />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route

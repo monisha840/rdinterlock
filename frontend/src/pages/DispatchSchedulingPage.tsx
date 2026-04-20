@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
 import { workersApi } from "@/api/workers.api";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 const STATUS_OPTIONS = ["SCHEDULED", "READY", "DISPATCHED", "COMPLETED"];
 const STATUS_COLORS: Record<string, string> = {
@@ -213,8 +214,8 @@ const DispatchSchedulingPage = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowModal(false); setEditing(null); resetForm(); }}>
+                    <div className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">{editing ? "Edit Schedule" : "New Schedule"}</h2>
                             <button onClick={() => { setShowModal(false); setEditing(null); resetForm(); }}><X className="h-5 w-5" /></button>
@@ -268,10 +269,13 @@ const DispatchSchedulingPage = () => {
                         <div className="space-y-3">
                             <div>
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Client Details</p>
-                                <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
-                                    <option value="">Select Client *</option>
-                                    {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <SearchableSelect
+                                    value={form.clientId}
+                                    onChange={(id) => setForm({ ...form, clientId: id })}
+                                    options={clients.map((c: any) => ({ value: c.id, label: c.name, sublabel: c.phone }))}
+                                    placeholder="Select Client *"
+                                    emptyText="No matching client"
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">

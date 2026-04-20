@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { MobileFormLayout } from "@/components/MobileFormLayout";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck, Check, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, X, Download, IndianRupee, Tag, Search, MapPin, ChevronDown, ChevronRight, Truck, Check, FileText, Receipt } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients.api";
 import { settingsApi } from "@/api/settings.api";
@@ -164,13 +165,37 @@ const ClientLedgerPage = () => {
     const { data: orders = [] } = useQuery({
         queryKey: ["client-orders-for-payment", form.clientId],
         queryFn: () => clientsApi.getAllOrders({ clientId: form.clientId }),
-        enabled: !!form.clientId && formType === "PAYMENT",
+        enabled: !!form.clientId && (formType === "PAYMENT" || formType === "RETURN"),
     });
 
     const { data: brickTypes = [] } = useQuery({
         queryKey: ["brick-types"],
         queryFn: () => settingsApi.getBrickTypes(),
     });
+
+    // Derive brick types the selected client has actually ordered — used to
+    // auto-scope the return form instead of showing every brick type.
+    const clientBrickTypes = useMemo(() => {
+        if (formType !== "RETURN" || !form.clientId) return [] as { id: string; size: string; quantity: number }[];
+        const seen = new Map<string, { id: string; size: string; quantity: number }>();
+        (orders as any[]).forEach((o) => {
+            if (!o?.brickType?.id) return;
+            const prev = seen.get(o.brickType.id);
+            seen.set(o.brickType.id, {
+                id: o.brickType.id,
+                size: o.brickType.size,
+                quantity: (prev?.quantity || 0) + (o.quantity || 0),
+            });
+        });
+        return Array.from(seen.values());
+    }, [orders, form.clientId, formType]);
+
+    // Auto-select when the client has exactly one brick type
+    useEffect(() => {
+        if (formType === "RETURN" && clientBrickTypes.length === 1 && form.brickTypeId !== clientBrickTypes[0].id) {
+            setForm((f) => ({ ...f, brickTypeId: clientBrickTypes[0].id }));
+        }
+    }, [clientBrickTypes, formType]);
 
     const createMut = useMutation({
         mutationFn: (data: any) => clientsApi.createPayment(data),
@@ -352,14 +377,38 @@ const ClientLedgerPage = () => {
                                         <MapPin className="h-3 w-3" /> {c.address || "No Location"}
                                     </p>
                                 </div>
-                                 <div className="flex gap-1">
-                                    <button onClick={() => openModal("PAYMENT", c.id)} className="p-1.5 rounded-lg bg-secondary/50 hover:bg-secondary text-primary" title="Quick Payment">
-                                        <Plus className="h-4 w-4" />
-                                    </button>
-                                    <button onClick={() => openModal("RETURN", c.id)} className="p-1.5 rounded-lg bg-secondary/50 hover:bg-secondary text-orange-600" title="Quick Return">
-                                        < IndianRupee className="h-4 w-4" />
-                                    </button>
-                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            className="h-8 px-2.5 flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 active:scale-95 transition-all"
+                                            title="Add Transaction"
+                                        >
+                                            <Plus className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline">Add Transaction</span>
+                                            <ChevronDown className="h-3 w-3 opacity-70" />
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="end" className="w-48 p-1.5">
+                                        <button
+                                            onClick={() => openModal("PAYMENT", c.id)}
+                                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-left hover:bg-secondary transition-colors"
+                                        >
+                                            <IndianRupee className="h-3.5 w-3.5 text-primary" /> Record Payment
+                                        </button>
+                                        <button
+                                            onClick={() => openModal("ADVANCE", c.id)}
+                                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-left hover:bg-secondary transition-colors"
+                                        >
+                                            <Receipt className="h-3.5 w-3.5 text-blue-600" /> Add Advance
+                                        </button>
+                                        <button
+                                            onClick={() => openModal("RETURN", c.id)}
+                                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-left hover:bg-secondary transition-colors"
+                                        >
+                                            <Truck className="h-3.5 w-3.5 text-orange-600" /> Add Brick Return
+                                        </button>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             <div className="grid grid-cols-1 gap-2 py-2 border-t border-b border-border/50 my-2">
@@ -405,8 +454,8 @@ const ClientLedgerPage = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50">
-                    <div className="bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[85vh] overflow-y-auto pb-safe sm:pb-6">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50" onClick={() => { setShowModal(false); resetForm(); }}>
+                    <div className="bg-card rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md border border-border shadow-2xl max-h-[85vh] overflow-y-auto pb-safe sm:pb-6" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">
                                 {editing ? (formType === 'ADVANCE' ? "Edit Advance" : formType === 'RETURN' ? "Edit Return" : "Edit Payment") : (formType === 'ADVANCE' ? "Add Advance" : formType === 'RETURN' ? "Add Return" : "Add Payment")}
@@ -448,14 +497,39 @@ const ClientLedgerPage = () => {
                             
                             {formType === "RETURN" ? (
                                 <>
-                                    <select 
-                                        value={form.brickTypeId} 
-                                        onChange={(e) => setForm({ ...form, brickTypeId: e.target.value })} 
-                                        className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
-                                    >
-                                        <option value="">Select Brick Type *</option>
-                                        {brickTypes.map((b: any) => <option key={b.id} value={b.id}>{b.size}</option>)}
-                                    </select>
+                                    {!form.clientId ? (
+                                        <div className="p-3 rounded-xl bg-secondary/30 border border-border/50 text-xs text-muted-foreground">
+                                            Select a client first to view purchased brick types.
+                                        </div>
+                                    ) : clientBrickTypes.length === 0 ? (
+                                        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                                            This client has no recorded orders yet — nothing to return.
+                                        </div>
+                                    ) : clientBrickTypes.length === 1 ? (
+                                        // Auto-select single brick type — read-only summary card
+                                        <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+                                            <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Brick Type (auto-selected)</p>
+                                            <p className="text-sm font-semibold text-foreground">{clientBrickTypes[0].size}</p>
+                                            <p className="text-[11px] text-muted-foreground mt-0.5">Ordered: {clientBrickTypes[0].quantity.toLocaleString()} pcs</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Client's Purchased Brick Types</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {clientBrickTypes.map((b) => (
+                                                    <button
+                                                        key={b.id}
+                                                        type="button"
+                                                        onClick={() => setForm({ ...form, brickTypeId: b.id })}
+                                                        className={`p-2.5 rounded-xl border text-left transition-all ${form.brickTypeId === b.id ? "bg-primary/10 border-primary text-primary" : "bg-secondary/40 border-border hover:border-primary/40"}`}
+                                                    >
+                                                        <p className="text-sm font-bold">{b.size}</p>
+                                                        <p className="text-[10px] text-muted-foreground">{b.quantity.toLocaleString()} pcs ordered</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     <input value={form.returnedQuantity} onChange={(e) => setForm({ ...form, returnedQuantity: e.target.value })} type="number" placeholder="Returned Quantity *" className="w-full h-11 px-3 bg-secondary/50 border border-border rounded-xl text-sm" />
                                 </>
                             ) : (

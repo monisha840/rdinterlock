@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DragScrollContainer } from "@/components/DragScrollContainer";
-import { Save, Loader2, Users, Hammer, FileText, ChevronDown, Download } from "lucide-react";
+import { Save, Loader2, Users, Hammer, FileText, ChevronDown, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -63,6 +63,25 @@ const AttendancePage = () => {
         const present = attendanceHistory.filter((a: any) => a.present).length;
         return { total, present, absent: total - present };
     }, [attendanceHistory]);
+
+    // Paginated slice (10 rows per page) — most-recent first.
+    const HISTORY_PAGE_SIZE = 10;
+    const sortedHistory = useMemo(() => {
+        return [...(attendanceHistory as any[])].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
+    }, [attendanceHistory]);
+    const totalHistoryPages = Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE));
+    const clampedPage = Math.min(historyPage, totalHistoryPages);
+    const paginatedHistory = sortedHistory.slice(
+        (clampedPage - 1) * HISTORY_PAGE_SIZE,
+        clampedPage * HISTORY_PAGE_SIZE,
+    );
+
+    // Reset to page 1 whenever the selected worker changes.
+    useEffect(() => {
+        setHistoryPage(1);
+    }, [selectedWorkerId]);
 
     // Fetch existing attendance for the date
     const { data: existingAttendance = [], isLoading: isAttLoading } = useQuery({
@@ -234,9 +253,9 @@ const AttendancePage = () => {
 
                                 {/* History Table */}
                                 <div className="rounded-2xl border border-border/60 overflow-hidden bg-card/50 shadow-sm backdrop-blur-sm">
-                                    <DragScrollContainer showHint className="max-h-[300px] overflow-y-auto">
+                                    <DragScrollContainer showHint>
                                         <table className="w-full text-xs text-left border-collapse min-w-[400px]">
-                                            <thead className="sticky top-0 z-10 bg-secondary/80 backdrop-blur-md text-muted-foreground font-black border-b border-border uppercase tracking-widest text-[9px]">
+                                            <thead className="bg-secondary/80 text-muted-foreground font-black border-b border-border uppercase tracking-widest text-[9px]">
                                                 <tr>
                                                     <th className="py-2.5 px-3 sm:px-5">Date</th>
                                                     <th className="py-2.5 px-3 sm:px-5 text-center">Status</th>
@@ -251,7 +270,7 @@ const AttendancePage = () => {
                                                             <p className="font-bold text-[10px] uppercase">Fetching logs...</p>
                                                         </td>
                                                     </tr>
-                                                ) : attendanceHistory.length === 0 ? (
+                                                ) : paginatedHistory.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={3} className="py-10 text-center text-muted-foreground italic">
                                                             <FileText className="h-8 w-8 mx-auto mb-2 opacity-10" />
@@ -259,10 +278,10 @@ const AttendancePage = () => {
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    attendanceHistory.map((h: any) => (
+                                                    paginatedHistory.map((h: any) => (
                                                         <tr key={h.id} className="hover:bg-secondary/30 transition-colors group">
                                                             <td className="py-2.5 px-3 sm:px-5 font-bold text-foreground/80 whitespace-nowrap">
-                                                                {format(new Date(h.date), "dd MMM")}
+                                                                {format(new Date(h.date), "dd MMM yyyy")}
                                                             </td>
                                                             <td className="py-2.5 px-3 sm:px-5 text-center">
                                                                 <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
@@ -283,6 +302,58 @@ const AttendancePage = () => {
                                         </table>
                                     </DragScrollContainer>
                                 </div>
+
+                                {/* Pagination */}
+                                {sortedHistory.length > HISTORY_PAGE_SIZE && (
+                                    <div className="flex items-center justify-between gap-3 px-1">
+                                        <p className="text-[11px] text-muted-foreground font-semibold">
+                                            Showing <span className="text-foreground font-bold">
+                                                {(clampedPage - 1) * HISTORY_PAGE_SIZE + 1}
+                                                –{Math.min(clampedPage * HISTORY_PAGE_SIZE, sortedHistory.length)}
+                                            </span> of <span className="text-foreground font-bold">{sortedHistory.length}</span>
+                                        </p>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                                                disabled={clampedPage === 1}
+                                                className="h-8 w-8 rounded-lg bg-secondary/60 hover:bg-secondary text-foreground flex items-center justify-center active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                aria-label="Previous page"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </button>
+                                            {Array.from({ length: totalHistoryPages }, (_, i) => i + 1)
+                                                .filter((p) => p === 1 || p === totalHistoryPages || Math.abs(p - clampedPage) <= 1)
+                                                .map((p, idx, arr) => (
+                                                    <span key={p} className="flex items-center">
+                                                        {idx > 0 && arr[idx - 1] !== p - 1 && (
+                                                            <span className="px-1 text-[11px] text-muted-foreground">…</span>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setHistoryPage(p)}
+                                                            className={`h-8 min-w-[32px] px-2 rounded-lg text-[11px] font-bold transition-all ${
+                                                                p === clampedPage
+                                                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                                                    : "bg-secondary/60 text-foreground hover:bg-secondary"
+                                                            }`}
+                                                        >
+                                                            {p}
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                                                disabled={clampedPage === totalHistoryPages}
+                                                className="h-8 w-8 rounded-lg bg-secondary/60 hover:bg-secondary text-foreground flex items-center justify-center active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                aria-label="Next page"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -456,17 +527,25 @@ const AttendancePage = () => {
                     />
                 </EntryCard>
 
-                {/* Save Button */}
-                <div className="sticky bottom-20 z-10 pt-2">
-                    <ActionButton
-                        label={saveMutation.isPending ? "Saving..." : "Save Attendance"}
-                        icon={saveMutation.isPending ? Loader2 : Save}
-                        variant="primary"
-                        size="lg"
-                        onClick={() => saveMutation.mutate()}
-                        className="w-full shadow-xl"
-                        disabled={saveMutation.isPending}
-                    />
+                {/* Spacer so content doesn't hide behind the floating save bar */}
+                <div className="h-20" aria-hidden />
+            </div>
+
+            {/* Floating Save bar — always visible while scrolling. Sits above the
+                mobile BottomNav (h-16 + safe-area) and clear of the desktop edge. */}
+            <div className="fixed left-0 right-0 bottom-16 md:bottom-4 z-40 px-4 pointer-events-none">
+                <div className="max-w-xl mx-auto pointer-events-auto">
+                    <div className="bg-gradient-to-t from-background via-background to-background/95 backdrop-blur-sm p-2 rounded-2xl">
+                        <ActionButton
+                            label={saveMutation.isPending ? "Saving..." : "Save Attendance"}
+                            icon={saveMutation.isPending ? Loader2 : Save}
+                            variant="primary"
+                            size="lg"
+                            onClick={() => saveMutation.mutate()}
+                            className="w-full shadow-2xl shadow-primary/20"
+                            disabled={saveMutation.isPending}
+                        />
+                    </div>
                 </div>
             </div>
 

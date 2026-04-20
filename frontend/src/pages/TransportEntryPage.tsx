@@ -541,7 +541,8 @@ const TransportEntryPage = () => {
                 >
                   <option value="">No linked order — manual entry</option>
                   {(clientOrders as any[])
-                    .filter((o: any) => o.status === "READY" || o.status === "IN_PRODUCTION" || o.status === "PENDING" || o.status === "DISPATCHED")
+                    // Only show orders that still need transport — hide already-dispatched/completed ones.
+                    .filter((o: any) => ["PENDING", "IN_PRODUCTION", "READY"].includes(o.status))
                     .map((o: any) => (
                       <option key={o.id} value={o.id}>
                         {o.client?.name || "Client"} — {o.brickType?.size || "?"} — {(o.quantity || 0).toLocaleString()} pcs — {o.status}
