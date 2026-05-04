@@ -28,6 +28,7 @@ const DispatchSchedulingPage = () => {
         dispatchDate: new Date().toISOString().split("T")[0],
         driverId: "",
         status: "SCHEDULED",
+        tripNumber: "",
         notes: "",
         orderId: ""
     });
@@ -112,7 +113,7 @@ const DispatchSchedulingPage = () => {
     const markDispatched = (id: string) => updateMut.mutate({ id, data: { status: "DISPATCHED" } });
     const markCompleted = (id: string) => updateMut.mutate({ id, data: { status: "COMPLETED" } });
 
-    const resetForm = () => setForm({ clientId: "", brickTypeId: "", quantity: "", location: "", dispatchDate: new Date().toISOString().split("T")[0], driverId: "", status: "SCHEDULED", notes: "", orderId: "" });
+    const resetForm = () => setForm({ clientId: "", brickTypeId: "", quantity: "", location: "", dispatchDate: new Date().toISOString().split("T")[0], driverId: "", status: "SCHEDULED", tripNumber: "", notes: "", orderId: "" });
 
     const openEdit = (s: any) => {
         setEditing(s);
@@ -124,6 +125,7 @@ const DispatchSchedulingPage = () => {
             dispatchDate: new Date(s.dispatchDate).toISOString().split("T")[0],
             driverId: s.driverId || "",
             status: s.status,
+            tripNumber: s.tripNumber != null ? String(s.tripNumber) : "",
             notes: s.notes || "",
             orderId: s.orderId || ""
         });
@@ -132,6 +134,7 @@ const DispatchSchedulingPage = () => {
 
     const handleSubmit = () => {
         if (!form.clientId || !form.brickTypeId || !form.quantity) return toast.error("Fill required fields");
+        const tripNum = form.tripNumber ? parseInt(form.tripNumber, 10) : undefined;
         const payload = {
             clientId: form.clientId,
             brickTypeId: form.brickTypeId,
@@ -140,6 +143,7 @@ const DispatchSchedulingPage = () => {
             dispatchDate: form.dispatchDate,
             driverId: form.driverId || undefined,
             status: form.status,
+            tripNumber: tripNum && tripNum > 0 ? tripNum : undefined,
             notes: form.notes || undefined,
             orderId: form.orderId || undefined
         };
@@ -178,9 +182,14 @@ const DispatchSchedulingPage = () => {
                         <div key={s.id} className="p-3 bg-card border border-border rounded-xl">
                             <div className="flex justify-between items-start">
                                 <div className="flex-1">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <h3 className="text-sm font-semibold">{s.client?.name}</h3>
                                         {s.orderId && <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded-md ring-1 ring-border">Ordered</span>}
+                                        {s.tripNumber != null && (
+                                            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-md font-bold">
+                                                Trip #{s.tripNumber}
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-0.5">
                                         {s.brickType?.size} • {s.quantity} pcs
@@ -311,11 +320,25 @@ const DispatchSchedulingPage = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Status</p>
-                                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
-                                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Status</p>
+                                    <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm">
+                                        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 px-1">Trip #</p>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        inputMode="numeric"
+                                        value={form.tripNumber}
+                                        onChange={(e) => setForm({ ...form, tripNumber: e.target.value.replace(/\D/g, "") })}
+                                        placeholder="e.g. 1, 2, 3"
+                                        className="w-full h-10 px-3 bg-secondary/50 border border-border rounded-xl text-sm"
+                                    />
+                                </div>
                             </div>
 
                             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notes" rows={2} className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-xl text-sm resize-none" />

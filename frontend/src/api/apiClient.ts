@@ -11,7 +11,9 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  // 60s gives Supabase's pooled connections enough headroom for write-heavy
+  // requests (Production create chains, monthly exports, settlement saves).
+  timeout: 60_000,
 });
 
 // Request interceptor to add auth token

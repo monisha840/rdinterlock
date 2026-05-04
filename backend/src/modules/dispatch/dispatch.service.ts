@@ -57,6 +57,7 @@ export class DispatchService {
           location: data.location,
           driverId: data.driverId,
           vehicleNumber: data.vehicleNumber,
+          tripNumber: data.tripNumber ?? null,
           notes: data.notes,
           orderId: data.orderId,
         },

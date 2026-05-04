@@ -518,6 +518,7 @@ export class ClientsService {
                 dispatchDate: new Date(data.dispatchDate),
                 driverId: data.driverId || null,
                 status: data.status || 'SCHEDULED',
+                tripNumber: data.tripNumber ?? null,
                 notes: data.notes,
                 orderId: data.orderId || null,
             },
@@ -570,6 +571,9 @@ export class ClientsService {
                         totalAmount: 0,
                         paidAmount: 0,
                         vehicleType: 'OWN',
+                        // Carry over the trip number from the schedule (handwritten ledger
+                        // notation like "(1) Kallapalayam" / "(2) ...").
+                        tripNumber: (schedule as any).tripNumber ?? null,
                         notes: schedule.notes,
                         orderId: schedule.orderId,
                     }

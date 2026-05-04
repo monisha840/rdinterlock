@@ -2,6 +2,24 @@ import prisma from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
 import { CreateProductionInput, UpdateProductionInput, GetProductionQuery } from './production.validation';
 
+// Fire-and-forget wage recalculation. The wage table is a derived view that
+// can be rebuilt from production data at any time, so we don't need callers
+// to wait on it — the next save / view will surface the fresh numbers.
+// Awaiting here used to push create/update past the frontend's 15s timeout
+// over Supabase's pooler.
+const recalcWagesAsync = (date: Date) => {
+  setImmediate(async () => {
+    try {
+      const { WageService } = require('../wages/wage.service');
+      const wageService = new WageService();
+      const calculations = await wageService.calculateDailyWages(date);
+      await wageService.saveCalculatedWages(date, calculations);
+    } catch (error) {
+      console.error('[wages] background recalc failed:', error);
+    }
+  });
+};
+
 export class ProductionService {
   async createProduction(data: CreateProductionInput) {
     // Validate machine exists
@@ -82,7 +100,12 @@ export class ProductionService {
 
       if (config) {
         const factor = data.quantity / 1000;
-        const cementUsed = parseFloat((factor * config.cementPer1000).toFixed(3));
+        // Cement is admin-editable: prefer the override if provided, otherwise
+        // derive from the recipe.
+        const recipeCement = parseFloat((factor * config.cementPer1000).toFixed(3));
+        const cementUsed = (data as any).cementUsed != null
+          ? parseFloat(Number((data as any).cementUsed).toFixed(3))
+          : recipeCement;
         const flyAshUsed = parseFloat((factor * config.flyAshPer1000).toFixed(3));
         const powderUsed = parseFloat((factor * config.powderPer1000).toFixed(3));
 
@@ -100,14 +123,8 @@ export class ProductionService {
       console.error('Failed to auto-log material consumption:', error);
     }
 
-    // Automatically trigger wage calculation for this date
-    try {
-      const wageService = new (require('../wages/wage.service').WageService)();
-      const calculations = await wageService.calculateDailyWages(new Date(data.date));
-      await wageService.saveCalculatedWages(new Date(data.date), calculations);
-    } catch (error) {
-      console.error('Failed to auto-calculate wages:', error);
-    }
+    // Trigger wage recalc in the background — don't block the response.
+    recalcWagesAsync(new Date(data.date));
 
     return {
       ...production,
@@ -323,14 +340,8 @@ export class ProductionService {
       });
     });
 
-    // Recalculate wages
-    try {
-      const wageService = new (require('../wages/wage.service').WageService)();
-      const calculations = await wageService.calculateDailyWages(new Date(production.date));
-      await wageService.saveCalculatedWages(new Date(production.date), calculations);
-    } catch (error) {
-      console.error('Failed to auto-recalculate wages after update:', error);
-    }
+    // Recalculate wages in background
+    recalcWagesAsync(new Date(production.date));
 
     return { ...updated, wastagePercentage };
   }
@@ -348,15 +359,8 @@ export class ProductionService {
       where: { id: id },
     });
 
-    // Automatically trigger wage calculation for this date to reflect the deletion
-    try {
-      const wageService = new (require('../wages/wage.service').WageService)();
-      const calculations = await wageService.calculateDailyWages(new Date(production.date));
-      // Note: saveCalculatedWages is idempotent and deletes old records first
-      await wageService.saveCalculatedWages(new Date(production.date), calculations);
-    } catch (error) {
-      console.error('Failed to auto-recalculate wages after deletion:', error);
-    }
+    // Trigger background recalculation so the next view surfaces the deletion.
+    recalcWagesAsync(new Date(production.date));
 
     return { message: 'Production deleted successfully' };
   }

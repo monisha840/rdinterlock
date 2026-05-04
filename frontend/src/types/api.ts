@@ -100,6 +100,8 @@ export interface CreateProductionRequest {
   brickTypeId: string;
   quantity: number;
   damagedBricks?: number;
+  /** Optional override for cement bags actually used. Falls back to recipe. */
+  cementUsed?: number;
   workers?: ProductionWorker[];
   notes?: string;
 }
@@ -153,6 +155,8 @@ export interface CreateDispatchRequest {
   paymentStatus: 'PAID' | 'PENDING' | 'PARTIAL';
   totalAmount?: number;
   paidAmount: number;
+  vehicleNumber?: string;
+  tripNumber?: number;
   notes?: string;
 }
 
@@ -169,6 +173,9 @@ export interface Dispatch {
   paymentStatus: string;
   totalAmount?: number;
   paidAmount: number;
+  vehicleNumber?: string;
+  tripNumber?: number | null;
+  location?: string;
   notes?: string;
   customer: Customer;
   brickType: BrickType;

@@ -14,6 +14,9 @@ export const createProductionSchema = z.object({
   brickTypeId: z.string().uuid('Invalid brick type ID'),
   quantity: z.number().int().positive('Total quantity must be a positive integer'),
   damagedBricks: z.number().int().min(0, 'Damaged bricks cannot be negative').optional(),
+  // Optional override for cement bags actually used. When omitted, the
+  // service computes it from the brick-type material config (recipe).
+  cementUsed: z.number().min(0, 'Cement bags cannot be negative').optional(),
   workers: z.array(workerProductionSchema).optional(),
   notes: z.string().optional(),
   siteName: z.string().optional(),
@@ -33,6 +36,7 @@ export const getProductionQuerySchema = z.object({
 export const updateProductionSchema = z.object({
   quantity: z.number().int().positive('Total quantity must be a positive integer').optional(),
   damagedBricks: z.number().int().min(0, 'Damaged bricks cannot be negative').optional(),
+  cementUsed: z.number().min(0, 'Cement bags cannot be negative').optional(),
   workers: z.array(workerProductionSchema).optional(),
   notes: z.string().optional(),
 });

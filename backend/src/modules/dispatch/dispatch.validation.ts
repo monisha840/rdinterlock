@@ -20,6 +20,7 @@ export const createDispatchSchema = z.object({
   location: z.string().optional(),
   driverId: z.string().uuid().optional().nullable(),
   vehicleNumber: z.string().optional(),
+  tripNumber: z.number().int().positive().optional().nullable(),
   notes: z.string().optional(),
   orderId: z.string().uuid().optional().nullable(),
 });
@@ -31,6 +32,7 @@ export const updateDispatchSchema = z.object({
   location: z.string().optional(),
   driverId: z.string().uuid().optional().nullable(),
   vehicleNumber: z.string().optional(),
+  tripNumber: z.number().int().positive().optional().nullable(),
   notes: z.string().optional(),
   orderId: z.string().uuid().optional().nullable(),
 });

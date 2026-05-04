@@ -37,6 +37,11 @@ const DailyEntry = () => {
   const [damagedQuantity, setDamagedQuantity] = useState("");
   const [workers, setWorkers] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
+  // Cement bags used in this batch. Defaults to the auto-calculated value from
+  // brick-type material config (qty / 1000 × bagsPer1000) but the admin can
+  // override it whenever actual usage differs from the recipe.
+  const [cementUsedOverride, setCementUsedOverride] = useState<string>("");
+  const [cementOverridden, setCementOverridden] = useState(false);
 
   const [lastResult, setLastResult] = useState<any>(null);
 
@@ -78,6 +83,26 @@ const DailyEntry = () => {
     select: (data) => data.productions,
   });
 
+  // Auto-default the cement field from the brick-type recipe whenever quantity
+  // or brick type changes — but only if the admin hasn't manually overridden
+  // it. Once overridden, we respect their value until the form resets.
+  useEffect(() => {
+    if (cementOverridden) return;
+    const qty = parseInt(quantity) || 0;
+    if (qty <= 0 || !brickTypeId) {
+      setCementUsedOverride("");
+      return;
+    }
+    const config = materialConfigs.find((c: MaterialConfig) => c.brickTypeId === brickTypeId);
+    if (!config) {
+      setCementUsedOverride("");
+      return;
+    }
+    const factor = qty / 1000;
+    const cement = parseFloat((factor * config.cementPer1000).toFixed(2));
+    setCementUsedOverride(String(cement));
+  }, [quantity, brickTypeId, materialConfigs, cementOverridden]);
+
   // Mutations
   const createProductionMutation = useMutation({
     mutationFn: productionApi.create,
@@ -91,6 +116,8 @@ const DailyEntry = () => {
       setBrickRate("");
       setWorkers([""]);
       setNotes("");
+      setCementUsedOverride("");
+      setCementOverridden(false);
     },
     onError: (error: any) => {
       toast.error("❌ Failed to save production", {
@@ -251,7 +278,13 @@ const DailyEntry = () => {
       };
     });
 
-    const payload = {
+    // Resolve final cement bags: prefer the (possibly overridden) value the
+    // admin sees on screen; fall back to the recipe-computed default.
+    const cementBags = cementUsedOverride !== ""
+      ? Math.max(0, parseFloat(cementUsedOverride) || 0)
+      : undefined;
+
+    const payload: any = {
       date: format(entryDate, 'yyyy-MM-dd'),
       machineId,
       shift: shift as any,
@@ -261,6 +294,9 @@ const DailyEntry = () => {
       notes,
       workers: workerPayload,
     };
+    if (cementBags !== undefined) {
+      payload.cementUsed = cementBags;
+    }
 
     createProductionMutation.mutate(payload);
   };
@@ -736,8 +772,6 @@ const DailyEntry = () => {
 
             const factor = qty / 1000;
             const cementUsed = parseFloat((factor * config.cementPer1000).toFixed(2));
-            const flyAshUsed = parseFloat((factor * config.flyAshPer1000).toFixed(2));
-            const powderUsed = parseFloat((factor * config.powderPer1000).toFixed(2));
             const selectedSize = brickTypes.find((bt: any) => bt.id === brickTypeId)?.size || "";
 
             return (
@@ -747,30 +781,42 @@ const DailyEntry = () => {
                     <PackageOpen className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-foreground">Material Consumption</p>
+                    <p className="text-xs font-bold text-foreground">Cement Used</p>
                     <p className="text-[10px] text-muted-foreground">For {qty.toLocaleString()} bricks ({selectedSize})</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-white/50 p-3 rounded-xl border border-amber-500/10 text-center">
-                    <p className="text-[9px] font-bold text-amber-700 uppercase mb-0.5">Cement</p>
-                    <p className="text-base font-black text-foreground">{cementUsed}</p>
-                    <p className="text-[9px] text-muted-foreground">BAGS</p>
+                {/* Editable cement bags. Defaults to the recipe value but
+                    the admin can correct it in real time. */}
+                <div className="bg-white/70 p-4 rounded-xl border border-amber-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Cement (Bags)</p>
+                    {cementOverridden && (
+                      <button
+                        type="button"
+                        onClick={() => { setCementOverridden(false); setCementUsedOverride(String(cementUsed)); }}
+                        className="text-[10px] font-bold text-blue-600 underline"
+                        title="Reset to calculated value"
+                      >
+                        Reset to recipe
+                      </button>
+                    )}
                   </div>
-                  <div className="bg-white/50 p-3 rounded-xl border border-amber-500/10 text-center">
-                    <p className="text-[9px] font-bold text-amber-700 uppercase mb-0.5">Fly Ash</p>
-                    <p className="text-base font-black text-foreground">{flyAshUsed}</p>
-                    <p className="text-[9px] text-muted-foreground">KG</p>
-                  </div>
-                  <div className="bg-white/50 p-3 rounded-xl border border-amber-500/10 text-center">
-                    <p className="text-[9px] font-bold text-amber-700 uppercase mb-0.5">Powder</p>
-                    <p className="text-base font-black text-foreground">{powderUsed}</p>
-                    <p className="text-[9px] text-muted-foreground">KG</p>
-                  </div>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min={0}
+                    value={cementUsedOverride}
+                    onChange={(e) => {
+                      setCementUsedOverride(e.target.value.replace(/[^0-9.]/g, ""));
+                      setCementOverridden(true);
+                    }}
+                    className="w-full bg-transparent border-none p-0 text-3xl font-black text-foreground text-center focus:ring-0 focus:outline-none"
+                    placeholder={String(cementUsed)}
+                  />
+                  <p className="text-[10px] text-muted-foreground text-center mt-1">
+                    {cementOverridden ? "Edited — will save your value" : `Auto-calculated from recipe (${config.cementPer1000} bags / 1000 bricks)`}
+                  </p>
                 </div>
-                <p className="text-[9px] text-muted-foreground mt-2 text-center italic">
-                  Based on config: {config.cementPer1000} bags / {config.flyAshPer1000} KG / {config.powderPer1000} KG per 1000 bricks
-                </p>
               </div>
             );
           })()}

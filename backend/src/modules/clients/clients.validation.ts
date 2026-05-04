@@ -89,6 +89,7 @@ export const createScheduleSchema = z.object({
     status: z.string().optional(),
     notes: z.string().optional(),
     orderId: z.string().uuid().optional().nullable(),
+    tripNumber: z.number().int().positive().optional().nullable(),
 });
 
 export const updateScheduleSchema = z.object({
@@ -101,6 +102,7 @@ export const updateScheduleSchema = z.object({
     status: z.string().optional(),
     notes: z.string().optional(),
     orderId: z.string().uuid().optional().nullable(),
+    tripNumber: z.number().int().positive().optional().nullable(),
 });
 
 // --- Brick Returns ---
